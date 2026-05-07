@@ -246,38 +246,7 @@ class _TarifsPageState extends State<TarifsPage> {
         shape: const CircleBorder(),
         child: const Icon(Icons.add, size: 28),
       ),
-
-      // Barre de navigation en bas
-      bottomNavigationBar: Container(
-        height: 56,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.06),
-              blurRadius: 8,
-              offset: const Offset(0, -2), // Ombre vers le haut
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.menu, color: Color(0xFF888888)),
-              onPressed: () {},
-            ),
-            IconButton(
-              icon: const Icon(Icons.radio_button_unchecked, color: Color(0xFF888888)),
-              onPressed: () {},
-            ),
-            IconButton(
-              icon: const Icon(Icons.remove, color: Color(0xFF888888)),
-              onPressed: () {},
-            ),
-          ],
-        ),
-      ),
+      
     );
   }
 }
