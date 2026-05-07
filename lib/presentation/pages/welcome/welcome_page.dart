@@ -5,9 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:code_initial/presentation/pages/tarifs/tarifs_page.dart';
 // Import de la page Register
 import 'package:code_initial/presentation/pages/register/register_page.dart';
-// Import des widgets réutilisables
-import 'package:code_initial/widgets/nav_button.dart';
-import 'package:code_initial/widgets/welcome/stm_logo.dart';
+// Import des widgets
+import 'package:code_initial/widgets/welcome/welcome_widgets.dart';
 
 class WelcomePage extends StatelessWidget {
   const WelcomePage({super.key});

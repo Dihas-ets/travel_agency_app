@@ -1,7 +1,7 @@
 // ignore_for_file: deprecated_member_use
 
 import 'package:flutter/material.dart';
-import 'onboarding_data.dart';
+import '../../../models/onboarding_data_model.dart';
 import 'onboarding_placeholder.dart';
 
 /// Widget représentant une seule slide d'onboarding.

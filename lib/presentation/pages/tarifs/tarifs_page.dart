@@ -1,10 +1,8 @@
 // ignore_for_file: deprecated_member_use
 
 import 'package:flutter/material.dart';
-// Import des widgets réutilisables
-import 'package:code_initial/widgets/tarifs/city_field.dart';
-import 'package:code_initial/widgets/tarifs/destination_chip.dart';
-import 'package:code_initial/widgets/tarifs/stm_logo_small.dart';
+// Import des widgets
+import 'package:code_initial/widgets/tarifs/tarifs_widgets.dart';
 
 class TarifsPage extends StatefulWidget {
   const TarifsPage({super.key});

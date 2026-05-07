@@ -1,9 +1,10 @@
 // ignore_for_file: constant_identifier_names
 
+import 'package:get/get.dart';
 import 'package:code_initial/presentation/pages/welcome/welcome_page.dart';
 import 'package:code_initial/presentation/pages/onboarding/onboarding_page.dart';
 import 'package:code_initial/presentation/pages/register/register_page.dart';
-import 'package:get/get.dart';
+
 
 
 class Nav {
