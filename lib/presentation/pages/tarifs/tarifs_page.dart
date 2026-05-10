@@ -1,0 +1,366 @@
+// ignore_for_file: deprecated_member_use
+
+import 'package:flutter/material.dart';
+// Import des widgets
+import 'package:code_initial/widgets/tarifs/tarifs_widgets.dart';
+
+/// Page de consultation des tarifs.
+///
+/// Elle permet de choisir une ville de départ, une ville d'arrivée, puis de
+/// lancer une recherche de tarif.
+class TarifsPage extends StatefulWidget {
+  const TarifsPage({super.key});
+
+  @override
+  State<TarifsPage> createState() => _TarifsPageState();
+}
+
+class _TarifsPageState extends State<TarifsPage> {
+  // Contrôleurs pour lire et modifier le texte des champs
+  final TextEditingController _departController = TextEditingController();
+  final TextEditingController _destinationController = TextEditingController();
+
+  // Liste des villes proposées dans la fenêtre de sélection.
+  final List<String> _cities = [
+    'Niamey',
+    'Maradi',
+    'Tahoua',
+    'Zinder',
+    'Agadez',
+    'Dosso',
+    'Diffa',
+    'Tillabéri',
+    'Arlit',
+    'Birni N\'Konni',
+  ];
+
+  // Liste des destinations populaires affichées en chips
+  final List<Map<String, String>> _popularDestinations = [
+    {'from': 'Niamey', 'to': 'Maradi'},
+    {'from': 'Niamey', 'to': 'Tahoua'},
+    {'from': 'Niamey', 'to': 'Zinder'},
+    {'from': 'Agadez', 'to': 'Niamey'},
+  ];
+
+  /// Intervertit les valeurs des deux champs (départ ↔ destination)
+  void _swapCities() {
+    final temp = _departController.text;
+    setState(() {
+      _departController.text = _destinationController.text;
+      _destinationController.text = temp;
+    });
+  }
+
+  /// Ouvre une liste de villes en bas de l'écran.
+  ///
+  /// Le même sélecteur est utilisé pour le départ et la destination ; le
+  /// controller reçu indique quel champ doit être mis à jour.
+  void _showCityPicker({
+    required String title,
+    required TextEditingController controller,
+  }) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1A1A2E),
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close, color: Color(0xFF1A1A2E)),
+                    ),
+                  ],
+                ),
+              ),
+              Flexible(
+                // Liste scrollable utile si le nombre de villes augmente.
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: _cities.length,
+                  separatorBuilder: (_, __) =>
+                      Divider(height: 1, color: Colors.grey.shade200),
+                  itemBuilder: (context, index) {
+                    final city = _cities[index];
+                    // Affiche la coche sur la ville actuellement sélectionnée.
+                    final isSelected = controller.text == city;
+
+                    return CheckboxListTile(
+                      value: isSelected,
+                      onChanged: (_) {
+                        // Met à jour le champ puis ferme la liste.
+                        setState(() {
+                          controller.text = city;
+                        });
+                        Navigator.pop(context);
+                      },
+                      activeColor: const Color(0xFFF80C0D),
+                      checkColor: Colors.white,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      title: Text(
+                        city,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF1A1A2E),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// Libère les contrôleurs quand la page est détruite (bonne pratique)
+  @override
+  void dispose() {
+    _departController.dispose();
+    _destinationController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF2F4F7), // Fond gris clair
+
+      body: SafeArea(
+        child: Column(
+          children: [
+            // ── AppBar personnalisée ───────────────────────────────
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // Icône menu à gauche — appuyer dessus revient en arrière
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: GestureDetector(
+                      onTap: () =>
+                          Navigator.pop(context), // Retour à la page précédente
+                      child: const Icon(
+                        Icons.menu,
+                        color: Color(0xFF444444),
+                        size: 26,
+                      ),
+                    ),
+                  ),
+                  // Logo centré dans l'AppBar
+                  const STMLogoSmall(),
+                ],
+              ),
+            ),
+
+            // ── Titre de la page ───────────────────────────────────
+            const Padding(
+              padding: EdgeInsets.only(bottom: 20),
+              child: Text(
+                'Tarifs',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1A1A2E),
+                ),
+              ),
+            ),
+
+            // ── Contenu principal scrollable ───────────────────────
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Carte blanche contenant les deux champs + bouton swap
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.06),
+                            blurRadius: 10,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: Stack(
+                        children: [
+                          Column(
+                            children: [
+                              // Champ ville de départ
+                              CityField(
+                                controller: _departController,
+                                label: 'De',
+                                hint: 'Ville de départ',
+                                isFirst: true,
+                                onTap: () => _showCityPicker(
+                                  title: 'Choisir la ville de départ',
+                                  controller: _departController,
+                                ),
+                              ),
+
+                              // Séparateur entre les deux champs
+                              Divider(
+                                height: 1,
+                                color: Colors.grey.shade200,
+                                indent: 16,
+                                endIndent: 60,
+                              ),
+
+                              // Champ ville de destination
+                              CityField(
+                                controller: _destinationController,
+                                label: 'À',
+                                hint: 'Ville de destination',
+                                isFirst: false,
+                                onTap: () => _showCityPicker(
+                                  title: 'Choisir la ville d’arrivée',
+                                  controller: _destinationController,
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          // Bouton swap positionné à droite au centre vertical
+                          Positioned(
+                            right: 12,
+                            top: 0,
+                            bottom: 0,
+                            child: Center(
+                              child: GestureDetector(
+                                onTap:
+                                    _swapCities, // Inverse départ ↔ destination
+                                child: Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey.shade100,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: Colors.grey.shade300,
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: const Icon(
+                                    Icons.swap_vert_rounded,
+                                    color: Color(0xFF888888),
+                                    size: 20,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // Bouton de recherche pleine largeur
+                    SizedBox(
+                      width: double.infinity,
+                      height: 54,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          // implémenter la logique de recherche
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFF80C0D),
+                          foregroundColor: Colors.white,
+                          elevation: 4,
+                          shadowColor: const Color(0xFFF80C0D).withOpacity(0.4),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        child: const Text(
+                          'Recherche',
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 28),
+
+                    // Titre section destinations populaires
+                    const Text(
+                      'Destinations les plus recherchées :',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF1A1A2E),
+                      ),
+                    ),
+
+                    const SizedBox(height: 14),
+
+                    // Chips générées dynamiquement depuis _popularDestinations
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: _popularDestinations
+                          .map(
+                            (dest) => DestinationChip(
+                              from: dest['from']!,
+                              to: dest['to']!,
+                              // Au clic, remplit les champs avec la destination choisie
+                              onTap: () {
+                                setState(() {
+                                  _departController.text = dest['from']!;
+                                  _destinationController.text = dest['to']!;
+                                });
+                              },
+                            ),
+                          )
+                          .toList(),
+                    ),
+
+                    const SizedBox(height: 100),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+
+      // Bouton flottant "+" en bas à droite
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {},
+        backgroundColor: const Color(0xFFF80C0D),
+        foregroundColor: Colors.white,
+        elevation: 6,
+        shape: const CircleBorder(),
+        child: const Icon(Icons.add, size: 28),
+      ),
+    );
+  }
+}
