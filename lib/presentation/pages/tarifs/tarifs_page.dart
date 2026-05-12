@@ -43,8 +43,8 @@ class _TarifsPageState extends State<TarifsPage> {
   final List<_TarifResult> _results = <_TarifResult>[];
   bool _hasSearched = false;
 
-  // Palette inspirée du logo (rouge STM + bleu profond)
-  static const Color _stmRed = Color(0xFFF80C0D);
+  // Palette inspirée du logo (rouge TicBus + bleu profond)
+  static const Color _ticBusRed = Color(0xFFF80C0D);
   static const Color _deepBlue = Color(0xFF060663);
 
   @override
@@ -218,12 +218,12 @@ class _TarifsPageState extends State<TarifsPage> {
                         width: 42,
                         height: 42,
                         decoration: BoxDecoration(
-                          color: _stmRed.withValues(alpha: 0.12),
+                          color: _ticBusRed.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(14),
                         ),
                         child: const Icon(
                           Icons.location_city_rounded,
-                          color: _stmRed,
+                          color: _ticBusRed,
                           size: 21,
                         ),
                       ),
@@ -292,7 +292,7 @@ class _TarifsPageState extends State<TarifsPage> {
                               borderRadius: BorderRadius.circular(14),
                               border: Border.all(
                                 color: isSelected
-                                    ? _stmRed.withValues(alpha: 0.36)
+                                    ? _ticBusRed.withValues(alpha: 0.36)
                                     : _deepBlue.withValues(alpha: 0.06),
                               ),
                             ),
@@ -303,7 +303,7 @@ class _TarifsPageState extends State<TarifsPage> {
                                       ? Icons.check_circle_rounded
                                       : Icons.location_on_outlined,
                                   color: isSelected
-                                      ? _stmRed
+                                      ? _ticBusRed
                                       : _deepBlue.withValues(alpha: 0.54),
                                   size: 22,
                                 ),
@@ -341,7 +341,7 @@ class _TarifsPageState extends State<TarifsPage> {
   Widget _buildIconLine({required IconData icon, required String label}) {
     return Row(
       children: [
-        Icon(icon, size: 18, color: _stmRed),
+        Icon(icon, size: 18, color: _ticBusRed),
         const SizedBox(width: 8),
         Expanded(
           child: Text(
@@ -415,13 +415,13 @@ class _TarifsPageState extends State<TarifsPage> {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: _stmRed.withValues(alpha: 0.10),
+                  color: _ticBusRed.withValues(alpha: 0.10),
                   shape: BoxShape.circle,
-                  border: Border.all(color: _stmRed.withValues(alpha: 0.35)),
+                  border: Border.all(color: _ticBusRed.withValues(alpha: 0.35)),
                 ),
                 child: const Icon(
                   Icons.directions_bus_rounded,
-                  color: _stmRed,
+                  color: _ticBusRed,
                   size: 20,
                 ),
               ),
@@ -473,7 +473,11 @@ class _TarifsPageState extends State<TarifsPage> {
 
           Row(
             children: [
-              const Icon(Icons.access_time_rounded, size: 18, color: _stmRed),
+              const Icon(
+                Icons.access_time_rounded,
+                size: 18,
+                color: _ticBusRed,
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -494,12 +498,12 @@ class _TarifsPageState extends State<TarifsPage> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              const Icon(Icons.money_rounded, size: 22, color: _stmRed),
+              const Icon(Icons.money_rounded, size: 22, color: _ticBusRed),
               const SizedBox(width: 10),
               Text(
                 _formatCfa(result.fraisCfa),
                 style: const TextStyle(
-                  color: _stmRed,
+                  color: _ticBusRed,
                   fontSize: 26,
                   fontWeight: FontWeight.w900,
                 ),
@@ -527,7 +531,7 @@ class _TarifsPageState extends State<TarifsPage> {
             child: ElevatedButton(
               onPressed: onReserve,
               style: ElevatedButton.styleFrom(
-                backgroundColor: _stmRed,
+                backgroundColor: _ticBusRed,
                 foregroundColor: Colors.white,
                 elevation: 4,
                 shape: RoundedRectangleBorder(
@@ -575,7 +579,7 @@ class _TarifsPageState extends State<TarifsPage> {
                       ),
                     ),
                   ),
-                  const STMLogoSmall(),
+                  const TicBusLogoSmall(),
                 ],
               ),
             ),
@@ -652,7 +656,8 @@ class _TarifsPageState extends State<TarifsPage> {
                                   width: 36,
                                   height: 36,
                                   decoration: BoxDecoration(
-                                    color: _stmRed,
+                                    // Cercle de permutation en bleu pour mieux ressortir entre les champs.
+                                    color: _deepBlue,
                                     shape: BoxShape.circle,
                                     border: Border.all(
                                       color: Colors.white,
@@ -660,7 +665,9 @@ class _TarifsPageState extends State<TarifsPage> {
                                     ),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: _stmRed.withValues(alpha: 0.28),
+                                        color: _deepBlue.withValues(
+                                          alpha: 0.28,
+                                        ),
                                         blurRadius: 12,
                                         offset: const Offset(0, 4),
                                       ),
@@ -728,10 +735,10 @@ class _TarifsPageState extends State<TarifsPage> {
                           });
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: _stmRed,
+                          backgroundColor: _ticBusRed,
                           foregroundColor: Colors.white,
                           elevation: 4,
-                          shadowColor: _stmRed.withOpacity(0.4),
+                          shadowColor: _ticBusRed.withOpacity(0.4),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
                           ),
@@ -781,6 +788,8 @@ class _TarifsPageState extends State<TarifsPage> {
                     ],
 
                     // Chips populaires
+                    // Espace ajouté pour décoller visuellement les destinations du bouton Recherche.
+                    if (!_hasSearched) const SizedBox(height: 30),
                     const Text(
                       'Destinations les plus recherchées :',
                       style: TextStyle(
@@ -822,7 +831,7 @@ class _TarifsPageState extends State<TarifsPage> {
 
       floatingActionButton: FloatingActionButton(
         onPressed: () {},
-        backgroundColor: _stmRed,
+        backgroundColor: _ticBusRed,
         foregroundColor: Colors.white,
         elevation: 6,
         shape: const CircleBorder(),

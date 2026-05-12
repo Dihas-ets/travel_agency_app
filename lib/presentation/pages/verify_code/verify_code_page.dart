@@ -90,7 +90,7 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
                       ),
                     ),
                     Image.asset(
-                      'assets/images/logo_stm_no_background.png',
+                      'assets/images/logo_ticbus_no_background.png',
                       height: 68,
                       fit: BoxFit.contain,
                     ),

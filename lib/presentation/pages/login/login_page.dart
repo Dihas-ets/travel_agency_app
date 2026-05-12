@@ -70,7 +70,7 @@ class _LoginPageState extends State<LoginPage> {
               children: [
                 const SizedBox(height: 10),
 
-                // Bouton retour + Logo STM
+                // Bouton retour + Logo TicBus
                 const LoginHeader(),
 
                 const SizedBox(height: 36),
@@ -88,7 +88,7 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                       SizedBox(height: 8),
                       Text(
-                        "Retrouvez vos trajets et vos services STM.",
+                        "Retrouvez vos trajets et vos services TicBus.",
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 14,

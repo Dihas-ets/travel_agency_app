@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 ///
 /// Les séparer de LoginPage garde la page principale plus lisible.
 
-/// Header de la page : bouton retour à gauche + logo STM centré
+/// Header de la page : bouton retour à gauche + logo TicBus centré
 class LoginHeader extends StatelessWidget {
   const LoginHeader({super.key});
 
@@ -32,8 +32,8 @@ class LoginHeader extends StatelessWidget {
           ),
         ),
 
-        // Logo STM chargé depuis les assets
-        Image.asset('assets/images/logo_stm_no_background.png', height: 68),
+        // Logo TicBus chargé depuis les assets
+        Image.asset('assets/images/logo_ticbus_no_background.png', height: 68),
 
         // SizedBox vide de même largeur que l'IconButton (48px)
         // → permet de centrer visuellement le logo

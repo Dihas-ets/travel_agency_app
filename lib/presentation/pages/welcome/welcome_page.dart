@@ -12,7 +12,7 @@ class WelcomePage extends StatefulWidget {
 }
 
 class _WelcomePageState extends State<WelcomePage> {
-  static const Color _stmRed = Color(0xFFF80C0D);
+  static const Color _ticBusRed = Color(0xFFF80C0D);
   static const Color _deepBlue = Color(0xFF060663);
 
   @override
@@ -23,7 +23,7 @@ class _WelcomePageState extends State<WelcomePage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text(
-            'Activez votre localisation pour voir les agences STM proches.',
+            'Activez votre localisation pour voir les agences TicBus proches.',
           ),
           action: SnackBarAction(
             label: 'Activer',
@@ -108,7 +108,7 @@ class _WelcomePageState extends State<WelcomePage> {
                                 ],
                               ),
                               child: Image.asset(
-                                'assets/images/logo_stm_no_background.png',
+                                'assets/images/logo_ticbus_no_background.png',
                                 height: compact ? 68 : 82,
                                 fit: BoxFit.contain,
                               ),
@@ -116,7 +116,7 @@ class _WelcomePageState extends State<WelcomePage> {
                           ),
                           SizedBox(height: compact ? 18 : 28),
                           const Text(
-                            'Voyagez simplement avec STM',
+                            'Voyagez simplement avec TicBus',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               color: Colors.white,
@@ -134,7 +134,7 @@ class _WelcomePageState extends State<WelcomePage> {
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            'Réservez vos voyages, suivez vos colis et retrouvez vos agences STM proches de vous.',
+                            'Réservez vos voyages, suivez vos colis et retrouvez vos agences TicBus proches de vous.',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               color: Colors.white.withValues(alpha: 0.94),
@@ -209,7 +209,7 @@ class _WelcomePageState extends State<WelcomePage> {
                                     ),
                                     label: const Text('Créer votre compte'),
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: _stmRed,
+                                      backgroundColor: _ticBusRed,
                                       foregroundColor: Colors.white,
                                       elevation: 0,
                                       shadowColor: Colors.transparent,
@@ -332,7 +332,7 @@ class _WelcomePageState extends State<WelcomePage> {
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.9),
         shape: BoxShape.circle,
-        border: Border.all(color: _stmRed.withValues(alpha: 0.18)),
+        border: Border.all(color: _ticBusRed.withValues(alpha: 0.18)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.12),

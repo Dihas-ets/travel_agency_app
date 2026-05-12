@@ -78,7 +78,7 @@ class _RegisterPageState extends State<RegisterPage> {
               children: [
                 const SizedBox(height: 10),
 
-                // Bouton retour + Logo STM
+                // Bouton retour + Logo TicBus
                 const RegisterHeader(),
 
                 const SizedBox(height: 18),

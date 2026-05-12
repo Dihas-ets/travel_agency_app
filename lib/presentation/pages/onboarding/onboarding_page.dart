@@ -13,7 +13,7 @@ import 'onboarding_slide.dart';
 
 /// Parcours d'introduction affiché avant l'accueil.
 ///
-/// Les trois slides présentent les avantages du service STM puis redirigent
+/// Les trois slides présentent les avantages du service TicBus puis redirigent
 /// vers la page d'accueil.
 class OnboardingPage extends StatefulWidget {
   const OnboardingPage({super.key});
@@ -35,21 +35,21 @@ class _OnboardingPageState extends State<OnboardingPage> {
     OnboardingData(
       title: 'Plus efficace',
       description:
-          'Voyagez en toute tranquillité avec STM : ponctuel, fiable et accessible. '
+          'Voyagez en toute tranquillité avec TicBus : ponctuel, fiable et accessible. '
           'Que ce soit pour vous ou vos colis, nous facilitons votre quotidien !',
       illustrationAsset: 'assets/images/onboarding2.png',
     ),
     OnboardingData(
       title: 'Plus assuré',
       description:
-          'Plus sûr, plus serein avec STM. Sécurité, fiabilité et professionnalisme '
+          'Plus sûr, plus serein avec TicBus. Sécurité, fiabilité et professionnalisme '
           'sont nos priorités pour vous offrir un transport en toute confiance.',
       illustrationAsset: 'assets/images/onboarding3.png',
     ),
     OnboardingData(
       title: 'Plus simple',
       description:
-          'Avec STM, voyagez et expédiez vos colis en toute simplicité. '
+          'Avec TicBus, voyagez et expédiez vos colis en toute simplicité. '
           'Ponctualité, rapidité et service optimisé pour mieux vous satisfaire !',
       illustrationAsset: 'assets/images/onboarding1.png',
     ),
@@ -144,7 +144,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Image.asset(
-                          'assets/images/logo_stm_no_background.png',
+                          'assets/images/logo_ticbus_no_background.png',
                           height: 64,
                           fit: BoxFit.contain,
                         ),

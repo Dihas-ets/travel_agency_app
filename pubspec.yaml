@@ -80,8 +80,8 @@ flutter:
     - assets/images/logo_mtn.png
     - assets/images/logo_moov.png
     - assets/images/logo_celtiis.png
-    - assets/images/logo_stm.jpeg
-    - assets/images/logo_stm_no_background.png
+    - assets/images/logo_ticbus.jpeg
+    - assets/images/logo_ticbus_no_background.png
     - assets/images/welcome_image.jpg
 
   # An image asset can refer to one or more resolution-specific "variants", see
@@ -114,12 +114,12 @@ flutter:
 flutter_icons:
   android: true
   ios: true
-  image_path: "assets/images/logo_stm.jpeg"
+  image_path: "assets/images/logo_ticbus.jpeg"
 
 
 flutter_native_splash:
   color: "#ffffff"
-  image: assets/images/logo_stm.jpeg
+  image: assets/images/logo_ticbus.jpeg
 
   android: true
   ios: true

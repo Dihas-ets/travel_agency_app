@@ -6,14 +6,14 @@ import 'package:flutter/material.dart';
 ///
 /// Ils contiennent le logo, les champs de ville et les chips de destinations.
 
-/// Petite version du logo STM utilisée dans la page Tarifs (AppBar)
-class STMLogoSmall extends StatelessWidget {
-  const STMLogoSmall({super.key});
+/// Petite version du logo TicBus utilisée dans la page Tarifs (AppBar)
+class TicBusLogoSmall extends StatelessWidget {
+  const TicBusLogoSmall({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Image.asset(
-      'assets/images/logo_stm_no_background.png',
+      'assets/images/logo_ticbus_no_background.png',
       height: 54,
       fit: BoxFit.contain,
     );
@@ -47,7 +47,7 @@ class CityField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const deepBlue = Color(0xFF060663);
-    const stmRed = Color(0xFFF80C0D);
+    const ticBusRed = Color(0xFFF80C0D);
     final icon = isFirst
         ? Icons.trip_origin_rounded
         : Icons.location_on_rounded;
@@ -78,7 +78,7 @@ class CityField extends StatelessWidget {
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
                     color: hasValue
-                        ? stmRed.withValues(alpha: 0.22)
+                        ? ticBusRed.withValues(alpha: 0.22)
                         : deepBlue.withValues(alpha: 0.08),
                   ),
                 ),
@@ -89,11 +89,11 @@ class CityField extends StatelessWidget {
                       height: 38,
                       decoration: BoxDecoration(
                         color: hasValue
-                            ? stmRed.withValues(alpha: 0.12)
+                            ? ticBusRed.withValues(alpha: 0.12)
                             : Colors.white,
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Icon(icon, color: stmRed, size: 21),
+                      child: Icon(icon, color: ticBusRed, size: 21),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -105,7 +105,7 @@ class CityField extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 11,
                               color: hasValue
-                                  ? stmRed
+                                  ? ticBusRed
                                   : const Color(0xFF7B849B),
                               fontWeight: FontWeight.w900,
                             ),

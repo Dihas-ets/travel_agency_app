@@ -8,10 +8,10 @@ import 'package:flutter/material.dart';
 ///
 /// On y place les petits composants visuels pour garder WelcomePage lisible.
 
-/// Grand logo STM utilisé sur la page d'accueil
-/// Affiche "STM" en blanc dans un cadre ovale orange
-class STMLogo extends StatelessWidget {
-  const STMLogo({super.key});
+/// Grand logo TicBus utilisé sur la page d'accueil
+/// Affiche "TicBus" en blanc dans un cadre ovale orange
+class TicBusLogo extends StatelessWidget {
+  const TicBusLogo({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -26,15 +26,15 @@ class STMLogo extends StatelessWidget {
             shape: BoxShape.rectangle,
             borderRadius: BorderRadius.circular(50),
             border: Border.all(
-              color: const Color(0xFFFF8C00), // Orange STM
+              color: const Color(0xFFFF8C00), // Orange TicBus
               width: 3.5,
             ),
           ),
         ),
 
-        // Texte "STM" centré dans le cadre
+        // Texte "TicBus" centré dans le cadre
         const Text(
-          'STM',
+          'TicBus',
           style: TextStyle(
             color: Colors.white,
             fontSize: 46,

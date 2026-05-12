@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 /// Fichier contenant tous les widgets utilisés dans RegisterPage.
 /// Les regrouper ici permet de garder register_page.dart lisible.
 
-/// Header de la page : bouton retour à gauche + logo STM centré.
+/// Header de la page : bouton retour à gauche + logo TicBus centré.
 class RegisterHeader extends StatelessWidget {
   const RegisterHeader({super.key});
 
@@ -31,8 +31,8 @@ class RegisterHeader extends StatelessWidget {
           ),
         ),
 
-        // Logo STM chargé depuis les assets.
-        Image.asset('assets/images/logo_stm_no_background.png', height: 68),
+        // Logo TicBus chargé depuis les assets.
+        Image.asset('assets/images/logo_ticbus_no_background.png', height: 68),
 
         // Même largeur que l'IconButton pour garder le logo centré.
         const SizedBox(width: 48),
