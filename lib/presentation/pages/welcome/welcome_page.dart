@@ -12,6 +12,9 @@ class WelcomePage extends StatefulWidget {
 }
 
 class _WelcomePageState extends State<WelcomePage> {
+  static const Color _stmRed = Color(0xFFF80C0D);
+  static const Color _deepBlue = Color(0xFF060663);
+
   @override
   void initState() {
     super.initState();
@@ -63,194 +66,253 @@ class _WelcomePageState extends State<WelcomePage> {
             ),
           ),
           Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.white.withValues(alpha: 0.18),
-                    Colors.white.withValues(alpha: 0.08),
-                    Colors.white.withValues(alpha: 0.02),
-                    Colors.black.withValues(alpha: 0.12),
-                    Colors.black.withValues(alpha: 0.58),
-                  ],
-                  stops: const [0.0, 0.22, 0.48, 0.72, 1.0],
-                ),
-              ),
-            ),
+            child: Container(color: Colors.black.withValues(alpha: 0.2)),
           ),
+          Positioned.fill(child: _WelcomeOverlay()),
           SafeArea(
             child: LayoutBuilder(
               builder: (context, constraints) {
+                final compact = constraints.maxHeight < 690;
+
                 return SingleChildScrollView(
                   physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
-                  child: SizedBox(
-                    height: constraints.maxHeight - 40,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Align(
-                          alignment: Alignment.center,
-                          child: Image.asset(
-                            'assets/images/logo_stm_no_background.png',
-                            height: 106,
-                            fit: BoxFit.contain,
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        const Text(
-                          'Voyagez avec STM',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 30,
-                            fontWeight: FontWeight.w900,
-                            shadows: [
-                              Shadow(
-                                color: Color(0x99060663),
-                                blurRadius: 18,
-                                offset: Offset(0, 3),
+                  padding: const EdgeInsets.fromLTRB(22, 14, 22, 22),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight - 36,
+                    ),
+                    child: IntrinsicHeight(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Align(
+                            alignment: Alignment.center,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 18,
+                                vertical: 10,
                               ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Réservez, connectez-vous et profitez de vos services en toute simplicité.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.92),
-                            fontSize: 14.5,
-                            height: 1.38,
-                            fontWeight: FontWeight.w700,
-                            shadows: const [
-                              Shadow(
-                                color: Color(0x99060663),
-                                blurRadius: 14,
-                                offset: Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Spacer(),
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
-                          decoration: BoxDecoration(
-                            color: const Color(
-                              0xFF060663,
-                            ).withValues(alpha: 0.78),
-                            borderRadius: BorderRadius.circular(28),
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.24),
-                              width: 1.2,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.16),
-                                blurRadius: 30,
-                                offset: const Offset(0, 16),
-                              ),
-                            ],
-                          ),
-                          child: Column(
-                            children: [
-                              SizedBox(
-                                width: double.infinity,
-                                height: 58,
-                                child: ElevatedButton(
-                                  onPressed: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => const RegisterPage(),
-                                      ),
-                                    );
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFFF80C0D),
-                                    foregroundColor: Colors.white,
-                                    elevation: 0,
-                                    shadowColor: Colors.transparent,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(18),
-                                    ),
-                                  ),
-                                  child: const Text(
-                                    'Créer votre compte',
-                                    style: TextStyle(
-                                      fontSize: 17,
-                                      fontWeight: FontWeight.w900,
-                                    ),
-                                  ),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.86),
+                                borderRadius: BorderRadius.circular(24),
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.5),
+                                  width: 1.2,
                                 ),
-                              ),
-                              const SizedBox(height: 14),
-                              SizedBox(
-                                width: double.infinity,
-                                height: 56,
-                                child: OutlinedButton(
-                                  onPressed: () {
-                                    Get.toNamed(Routes.LOGIN);
-                                  },
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: Colors.white,
-                                    backgroundColor: Colors.white.withValues(
-                                      alpha: 0.12,
-                                    ),
-                                    side: BorderSide(
-                                      color: Colors.white.withValues(
-                                        alpha: 0.34,
-                                      ),
-                                      width: 1.2,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(18),
-                                    ),
-                                  ),
-                                  child: const Text(
-                                    'Se connecter',
-                                    style: TextStyle(
-                                      fontSize: 16.5,
-                                      fontWeight: FontWeight.w900,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 20),
-                              const Text(
-                                'Moyens de paiement',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                              const SizedBox(height: 14),
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  _buildPaymentLogo(
-                                    'assets/images/logo_carte.png',
-                                  ),
-                                  _buildPaymentLogo(
-                                    'assets/images/logo_mtn.png',
-                                  ),
-                                  _buildPaymentLogo(
-                                    'assets/images/logo_moov.png',
-                                  ),
-                                  _buildPaymentLogo(
-                                    'assets/images/logo_celtiis.png',
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.12),
+                                    blurRadius: 20,
+                                    offset: const Offset(0, 10),
                                   ),
                                 ],
                               ),
-                            ],
+                              child: Image.asset(
+                                'assets/images/logo_stm_no_background.png',
+                                height: compact ? 68 : 82,
+                                fit: BoxFit.contain,
+                              ),
+                            ),
                           ),
-                        ),
-                      ],
+                          SizedBox(height: compact ? 18 : 28),
+                          const Text(
+                            'Voyagez simplement avec STM',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 34,
+                              fontWeight: FontWeight.w900,
+                              height: 1.05,
+                              shadows: [
+                                Shadow(
+                                  color: Color(0xAA060663),
+                                  blurRadius: 20,
+                                  offset: Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Réservez vos voyages, suivez vos colis et retrouvez vos agences STM proches de vous.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.94),
+                              fontSize: 15.5,
+                              height: 1.42,
+                              fontWeight: FontWeight.w700,
+                              shadows: const [
+                                Shadow(
+                                  color: Color(0xAA060663),
+                                  blurRadius: 14,
+                                  offset: Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                          ),
+                          SizedBox(height: compact ? 10 : 18),
+                          const Spacer(),
+                          Container(
+                            width: double.infinity,
+                            margin: EdgeInsets.only(top: compact ? 28 : 42),
+                            padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  Colors.white.withValues(alpha: 0.42),
+                                  Colors.white.withValues(alpha: 0.18),
+                                  _deepBlue.withValues(alpha: 0.38),
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(26),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.3),
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.22),
+                                  blurRadius: 30,
+                                  offset: const Offset(0, 16),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                const Text(
+                                  'Commencer',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                                const SizedBox(height: 14),
+                                SizedBox(
+                                  width: double.infinity,
+                                  height: 58,
+                                  child: ElevatedButton.icon(
+                                    onPressed: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => const RegisterPage(),
+                                        ),
+                                      );
+                                    },
+                                    icon: const Icon(
+                                      Icons.person_add_alt_1_rounded,
+                                      size: 20,
+                                    ),
+                                    label: const Text('Créer votre compte'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: _stmRed,
+                                      foregroundColor: Colors.white,
+                                      elevation: 0,
+                                      shadowColor: Colors.transparent,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(18),
+                                      ),
+                                      textStyle: const TextStyle(
+                                        fontSize: 16.5,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 14),
+                                SizedBox(
+                                  width: double.infinity,
+                                  height: 56,
+                                  child: OutlinedButton.icon(
+                                    onPressed: () {
+                                      Get.toNamed(Routes.LOGIN);
+                                    },
+                                    icon: const Icon(
+                                      Icons.login_rounded,
+                                      size: 20,
+                                    ),
+                                    label: const Text('Se connecter'),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: Colors.white,
+                                      backgroundColor: Colors.white.withValues(
+                                        alpha: 0.08,
+                                      ),
+                                      side: BorderSide(
+                                        color: Colors.white.withValues(
+                                          alpha: 0.28,
+                                        ),
+                                        width: 1.2,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(18),
+                                      ),
+                                      textStyle: const TextStyle(
+                                        fontSize: 16.5,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 18),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Divider(
+                                        color: Colors.white.withValues(
+                                          alpha: 0.18,
+                                        ),
+                                      ),
+                                    ),
+                                    const Padding(
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                      ),
+                                      child: Text(
+                                        'Moyens de paiement',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 12.5,
+                                          fontWeight: FontWeight.w900,
+                                        ),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: Divider(
+                                        color: Colors.white.withValues(
+                                          alpha: 0.18,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    _buildPaymentLogo(
+                                      'assets/images/logo_carte.png',
+                                    ),
+                                    _buildPaymentLogo(
+                                      'assets/images/logo_mtn.png',
+                                    ),
+                                    _buildPaymentLogo(
+                                      'assets/images/logo_moov.png',
+                                    ),
+                                    _buildPaymentLogo(
+                                      'assets/images/logo_celtiis.png',
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 );
@@ -264,18 +326,16 @@ class _WelcomePageState extends State<WelcomePage> {
 
   Widget _buildPaymentLogo(String path) {
     return Container(
-      width: 58,
-      height: 58,
-      padding: const EdgeInsets.all(9),
+      width: 56,
+      height: 56,
+      padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.96),
+        color: Colors.white.withValues(alpha: 0.9),
         shape: BoxShape.circle,
-        border: Border.all(
-          color: const Color(0xFF060663).withValues(alpha: 0.08),
-        ),
+        border: Border.all(color: _stmRed.withValues(alpha: 0.18)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
+            color: Colors.black.withValues(alpha: 0.12),
             blurRadius: 12,
             offset: const Offset(0, 6),
           ),
@@ -287,6 +347,27 @@ class _WelcomePageState extends State<WelcomePage> {
           fit: BoxFit.contain,
           errorBuilder: (_, __, ___) =>
               const Icon(Icons.credit_card_rounded, color: Color(0xFF060663)),
+        ),
+      ),
+    );
+  }
+}
+
+class _WelcomeOverlay extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Colors.white.withValues(alpha: 0.08),
+            const Color(0xFF060663).withValues(alpha: 0.16),
+            const Color(0xFFF80C0D).withValues(alpha: 0.08),
+            Colors.black.withValues(alpha: 0.68),
+          ],
+          stops: const [0.0, 0.32, 0.64, 1.0],
         ),
       ),
     );

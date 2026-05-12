@@ -11,11 +11,7 @@ class TarifsPage extends StatefulWidget {
   final String? initialDepart;
   final String? initialDestination;
 
-  const TarifsPage({
-    super.key,
-    this.initialDepart,
-    this.initialDestination,
-  });
+  const TarifsPage({super.key, this.initialDepart, this.initialDestination});
 
   @override
   State<TarifsPage> createState() => _TarifsPageState();
@@ -63,17 +59,71 @@ class _TarifsPageState extends State<TarifsPage> {
     'Cotonou',
     'Porto-Novo',
     'Abomey-Calavi',
+    'Sèmè-Kpodji',
+    'Akpro-Missérété',
+    'Adjarra',
+    'Avrankou',
+    'Dangbo',
+    'Adjohoun',
+    'Bonou',
     'Abomey',
+    'Dassa-Zoumè',
+    'Glazoué',
+    'Savè',
+    'Bantè',
     'Allada',
+    'Toffo',
+    'Tori-Bossito',
+    'Zè',
     'Bohicon',
+    'Covè',
+    'Zagnanado',
+    'Zogbodomey',
+    'Za-Kpota',
+    'Ouinhi',
+    'Agbangnizoun',
+    'Djidja',
     'Kétou',
+    'Pobè',
+    'Sakété',
+    'Ifangni',
     'Savalou',
     'Ouidah',
+    'Grand-Popo',
+    'Comè',
+    'Athiémé',
     'Lokossa',
+    'Dogbo',
+    'Aplahoué',
+    'Azovè',
+    'Klouékanmè',
+    'Djakotomey',
+    'Toviklin',
+    'Lalo',
     'Kandi',
+    'Banikoara',
+    'Gogounou',
+    'Ségbana',
+    'Karimama',
     'Parakou',
+    'Tchaourou',
+    'Nikki',
+    'N’Dali',
+    'Pèrèrè',
+    'Kalalé',
+    'Sinendé',
     'Djougou',
+    'Bassila',
+    'Copargo',
+    'Ouaké',
     'Natitingou',
+    'Kouandé',
+    'Matéri',
+    'Cobly',
+    'Boukoumbé',
+    'Kérou',
+    'Péhunco',
+    'Toucountouna',
     'Bembèrèkè',
     'Malanville',
     'Tanguiéta',
@@ -115,9 +165,7 @@ class _TarifsPageState extends State<TarifsPage> {
           from: depart,
           to: destination,
           dateDepart: '11 May 2026',
-          heureDepart: i == 0
-              ? '12:00'
-              : (i == 1 ? '15:30' : '18:10'),
+          heureDepart: i == 0 ? '12:00' : (i == 1 ? '15:30' : '18:10'),
           places: places,
           fraisCfa: frais,
         ),
@@ -135,80 +183,162 @@ class _TarifsPageState extends State<TarifsPage> {
   }) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
       ),
       builder: (context) {
         return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+          child: Container(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.76,
+            ),
+            decoration: const BoxDecoration(
+              color: Color(0xFFF8FBFF),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(height: 10),
+                Container(
+                  width: 42,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: _deepBlue.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 12, 8),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                          color: _stmRed.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: const Icon(
+                          Icons.location_city_rounded,
+                          color: _stmRed,
+                          size: 21,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              title,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFF1A1A2E),
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${_cities.length} villes disponibles au Bénin',
+                              style: const TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF7B849B),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(
+                          Icons.close_rounded,
                           color: Color(0xFF1A1A2E),
                         ),
                       ),
-                    ),
-                    IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close, color: Color(0xFF1A1A2E)),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              Flexible(
-                child: ListView.separated(
-                  shrinkWrap: true,
-                  itemCount: _cities.length,
-                  separatorBuilder: (_, __) =>
-                      Divider(height: 1, color: Colors.grey.shade200),
-                  itemBuilder: (context, index) {
-                    final city = _cities[index];
-                    final isSelected = controller.text == city;
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 18),
+                    itemCount: _cities.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    itemBuilder: (context, index) {
+                      final city = _cities[index];
+                      final isSelected = controller.text == city;
 
-                    return CheckboxListTile(
-                      value: isSelected,
-                      onChanged: (_) {
-                        setState(() {
-                          controller.text = city;
-                        });
-                        Navigator.pop(context);
-                      },
-                      activeColor: _stmRed,
-                      checkColor: Colors.white,
-                      controlAffinity: ListTileControlAffinity.leading,
-                      title: Text(
-                        city,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF1A1A2E),
+                      return Material(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(14),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(14),
+                          onTap: () {
+                            setState(() {
+                              controller.text = city;
+                            });
+                            Navigator.pop(context);
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 12,
+                            ),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: isSelected
+                                    ? _stmRed.withValues(alpha: 0.36)
+                                    : _deepBlue.withValues(alpha: 0.06),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  isSelected
+                                      ? Icons.check_circle_rounded
+                                      : Icons.location_on_outlined,
+                                  color: isSelected
+                                      ? _stmRed
+                                      : _deepBlue.withValues(alpha: 0.54),
+                                  size: 22,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    city,
+                                    style: const TextStyle(
+                                      fontSize: 15.5,
+                                      fontWeight: FontWeight.w800,
+                                      color: Color(0xFF1A1A2E),
+                                    ),
+                                  ),
+                                ),
+                                const Icon(
+                                  Icons.chevron_right_rounded,
+                                  color: Color(0xFFB1B8C8),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
-                      ),
-                    );
-                  },
+                      );
+                    },
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },
     );
   }
 
-  Widget _buildIconLine({
-    required IconData icon,
-    required String label,
-  }) {
+  Widget _buildIconLine({required IconData icon, required String label}) {
     return Row(
       children: [
         Icon(icon, size: 18, color: _stmRed),
@@ -343,8 +473,7 @@ class _TarifsPageState extends State<TarifsPage> {
 
           Row(
             children: [
-              const Icon(Icons.access_time_rounded,
-                  size: 18, color: _stmRed),
+              const Icon(Icons.access_time_rounded, size: 18, color: _stmRed),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -407,10 +536,7 @@ class _TarifsPageState extends State<TarifsPage> {
               ),
               child: const Text(
                 'Réserver',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w900,
-                ),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
               ),
             ),
           ),
@@ -474,14 +600,18 @@ class _TarifsPageState extends State<TarifsPage> {
                   children: [
                     // Carte formulaire
                     Container(
+                      padding: const EdgeInsets.all(4),
                       decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(14),
+                        color: const Color(0xFFFFFFFF),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: _deepBlue.withValues(alpha: 0.07),
+                        ),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withOpacity(0.06),
-                            blurRadius: 10,
-                            offset: const Offset(0, 3),
+                            blurRadius: 18,
+                            offset: const Offset(0, 8),
                           ),
                         ],
                       ),
@@ -498,12 +628,6 @@ class _TarifsPageState extends State<TarifsPage> {
                                   title: 'Choisir la ville de départ',
                                   controller: _departController,
                                 ),
-                              ),
-                              Divider(
-                                height: 1,
-                                color: Colors.grey.shade200,
-                                indent: 16,
-                                endIndent: 60,
                               ),
                               CityField(
                                 controller: _destinationController,
@@ -528,16 +652,23 @@ class _TarifsPageState extends State<TarifsPage> {
                                   width: 36,
                                   height: 36,
                                   decoration: BoxDecoration(
-                                    color: Colors.grey.shade100,
+                                    color: _stmRed,
                                     shape: BoxShape.circle,
                                     border: Border.all(
-                                      color: Colors.grey.shade300,
-                                      width: 1,
+                                      color: Colors.white,
+                                      width: 3,
                                     ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: _stmRed.withValues(alpha: 0.28),
+                                        blurRadius: 12,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ],
                                   ),
                                   child: const Icon(
                                     Icons.swap_vert_rounded,
-                                    color: Color(0xFF888888),
+                                    color: Colors.white,
                                     size: 20,
                                   ),
                                 ),
@@ -557,7 +688,8 @@ class _TarifsPageState extends State<TarifsPage> {
                       child: ElevatedButton(
                         onPressed: () {
                           final depart = _departController.text.trim();
-                          final destination = _destinationController.text.trim();
+                          final destination = _destinationController.text
+                              .trim();
 
                           if (depart.isEmpty || destination.isEmpty) {
                             ScaffoldMessenger.of(context).showSnackBar(
@@ -635,7 +767,9 @@ class _TarifsPageState extends State<TarifsPage> {
                                     SnackBar(
                                       behavior: SnackBarBehavior.floating,
                                       duration: const Duration(seconds: 2),
-                                      content: Text('Réservation : ${r.from} → ${r.to}'),
+                                      content: Text(
+                                        'Réservation : ${r.from} → ${r.to}',
+                                      ),
                                     ),
                                   );
                                 },

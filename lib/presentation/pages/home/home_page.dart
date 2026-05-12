@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
 
 import 'package:code_initial/presentation/pages/tarifs/tarifs_page.dart';
+import 'package:code_initial/widgets/tarifs/tarifs_widgets.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -16,6 +17,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int _currentIndex = 0;
+  final ScrollController _accountScrollController = ScrollController();
 
   final List<_HomeTab> _tabs = const [
     _HomeTab(
@@ -57,10 +59,17 @@ class _HomePageState extends State<HomePage> {
   }
 
   @override
+  void dispose() {
+    _accountScrollController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final currentTab = _tabs[_currentIndex];
     final isHomeTab = _currentIndex == 0;
     final isVoyageTab = _currentIndex == 1;
+    final isProfileTab = _currentIndex == 3;
 
     return Scaffold(
       body: Stack(
@@ -119,7 +128,7 @@ class _HomePageState extends State<HomePage> {
 
                   SizedBox(height: isHomeTab ? 18 : 24),
 
-                  if (!isHomeTab) ...[
+                  if (!isHomeTab && !isProfileTab) ...[
                     Text(
                       currentTab.headline,
                       style: const TextStyle(
@@ -148,6 +157,12 @@ class _HomePageState extends State<HomePage> {
                           ? const _ConnectedHomeContent(key: ValueKey('home'))
                           : isVoyageTab
                           ? const _VoyageTabContent(key: ValueKey('voyage'))
+                          : isProfileTab
+                          ? _AccountMenuView(
+                              key: const ValueKey('profile-account'),
+                              scrollController: _accountScrollController,
+                              onBack: () => setState(() => _currentIndex = 0),
+                            )
                           : _HomeTabContent(
                               key: ValueKey(currentTab.title),
                               tab: currentTab,
@@ -243,6 +258,9 @@ class _ConnectedHomeContentState extends State<_ConnectedHomeContent> {
 
   bool? _isLocationActive;
 
+  static const Color _stmRed = Color(0xFFF80C0D);
+  static const Color _deepBlue = Color(0xFF060663);
+
   @override
   void initState() {
     super.initState();
@@ -273,6 +291,177 @@ class _ConnectedHomeContentState extends State<_ConnectedHomeContent> {
     _departureController.dispose();
     _destinationController.dispose();
     super.dispose();
+  }
+
+  void _swapCities() {
+    final departure = _departureController.text;
+    setState(() {
+      _departureController.text = _destinationController.text;
+      _destinationController.text = departure;
+    });
+  }
+
+  void _showCityPicker({
+    required String title,
+    required TextEditingController controller,
+  }) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Container(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.76,
+            ),
+            decoration: const BoxDecoration(
+              color: Color(0xFFF8FBFF),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(height: 10),
+                Container(
+                  width: 42,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: _deepBlue.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 12, 8),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                          color: _stmRed.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: const Icon(
+                          Icons.location_city_rounded,
+                          color: _stmRed,
+                          size: 21,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              title,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFF1A1A2E),
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${_BeninCityField._beninCities.length} villes disponibles au Bénin',
+                              style: const TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF7B849B),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(
+                          Icons.close_rounded,
+                          color: Color(0xFF1A1A2E),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Flexible(
+                  child: ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 18),
+                    itemCount: _BeninCityField._beninCities.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    itemBuilder: (context, index) {
+                      final city = _BeninCityField._beninCities[index];
+                      final isSelected = controller.text.trim() == city;
+
+                      return Material(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(16),
+                          onTap: () {
+                            setState(() => controller.text = city);
+                            Navigator.pop(context);
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 12,
+                            ),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: isSelected
+                                    ? _stmRed.withValues(alpha: 0.34)
+                                    : _deepBlue.withValues(alpha: 0.06),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  isSelected
+                                      ? Icons.check_circle_rounded
+                                      : Icons.location_on_outlined,
+                                  color: isSelected ? _stmRed : _deepBlue,
+                                  size: 22,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    city,
+                                    style: const TextStyle(
+                                      color: Color(0xFF1A1A2E),
+                                      fontSize: 15.5,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _openTarifsPage() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => TarifsPage(
+          initialDepart: _departureController.text,
+          initialDestination: _destinationController.text,
+        ),
+      ),
+    );
   }
 
   @override
@@ -323,76 +512,106 @@ class _ConnectedHomeContentState extends State<_ConnectedHomeContent> {
           ),
           const SizedBox(height: 12),
 
-          // ── Champs tarifs : Départ & Destination ───────────────────
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
+              color: const Color(0xFFFFFFFF),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: _deepBlue.withValues(alpha: 0.07)),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.06),
-                  blurRadius: 10,
-                  offset: const Offset(0, 3),
+                  blurRadius: 18,
+                  offset: const Offset(0, 8),
                 ),
               ],
             ),
-            child: Column(
+            child: Stack(
               children: [
-                // Départ
-                _BeninCityField(
-                  controller: _departureController,
-                  label: 'De',
-                  hint: 'Ville de départ',
-                  onTap: () async {
-                    // Ouvre la sélection via la même liste que TarifsPage (Bénin)
-                    // (la sélection UI est gérée dans le widget)
-                    // On déclenche le picker interne du widget.
-                  },
+                Column(
+                  children: [
+                    CityField(
+                      controller: _departureController,
+                      label: 'De',
+                      hint: 'Ville de départ',
+                      isFirst: true,
+                      onTap: () => _showCityPicker(
+                        title: 'Choisir la ville de départ',
+                        controller: _departureController,
+                      ),
+                    ),
+                    CityField(
+                      controller: _destinationController,
+                      label: 'À',
+                      hint: 'Ville de destination',
+                      isFirst: false,
+                      onTap: () => _showCityPicker(
+                        title: 'Choisir la ville d’arrivée',
+                        controller: _destinationController,
+                      ),
+                    ),
+                  ],
                 ),
-                const Divider(height: 1, color: Color(0xFFE6E9F2)),
-
-                // Destination
-                _BeninCityField(
-                  controller: _destinationController,
-                  label: 'À',
-                  hint: 'Ville de destination',
-                  onTap: () {},
+                Positioned(
+                  right: 12,
+                  top: 0,
+                  bottom: 0,
+                  child: Center(
+                    child: GestureDetector(
+                      onTap: _swapCities,
+                      child: Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: _stmRed,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 3),
+                          boxShadow: [
+                            BoxShadow(
+                              color: _stmRed.withValues(alpha: 0.28),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.swap_vert_rounded,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
           ),
 
-          const SizedBox(height: 14),
+          const SizedBox(height: 20),
 
-          // Bouton rechercher
           SizedBox(
             width: double.infinity,
             height: 54,
-            child: ElevatedButton.icon(
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => TarifsPage(
-                      initialDepart: _departureController.text,
-                      initialDestination: _destinationController.text,
-                    ),
-                  ),
-                );
-              },
-              icon: const Icon(Icons.search_rounded, size: 20),
-              label: const Text('Rechercher'),
+            child: ElevatedButton(
+              onPressed: _openTarifsPage,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFF80C0D),
+                backgroundColor: _stmRed,
                 foregroundColor: Colors.white,
                 elevation: 4,
+                shadowColor: _stmRed.withValues(alpha: 0.4),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
                 ),
               ),
+              child: const Text(
+                'Recherche',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+              ),
             ),
           ),
+
+          const SizedBox(height: 4),
         ],
       ),
     );
@@ -417,17 +636,71 @@ class _BeninCityField extends StatelessWidget {
     'Cotonou',
     'Porto-Novo',
     'Abomey-Calavi',
+    'Sèmè-Kpodji',
+    'Akpro-Missérété',
+    'Adjarra',
+    'Avrankou',
+    'Dangbo',
+    'Adjohoun',
+    'Bonou',
     'Abomey',
+    'Dassa-Zoumè',
+    'Glazoué',
+    'Savè',
+    'Bantè',
     'Allada',
+    'Toffo',
+    'Tori-Bossito',
+    'Zè',
     'Bohicon',
+    'Covè',
+    'Zagnanado',
+    'Zogbodomey',
+    'Za-Kpota',
+    'Ouinhi',
+    'Agbangnizoun',
+    'Djidja',
     'Kétou',
+    'Pobè',
+    'Sakété',
+    'Ifangni',
     'Savalou',
     'Ouidah',
+    'Grand-Popo',
+    'Comè',
+    'Athiémé',
     'Lokossa',
+    'Dogbo',
+    'Aplahoué',
+    'Azovè',
+    'Klouékanmè',
+    'Djakotomey',
+    'Toviklin',
+    'Lalo',
     'Kandi',
+    'Banikoara',
+    'Gogounou',
+    'Ségbana',
+    'Karimama',
     'Parakou',
+    'Tchaourou',
+    'Nikki',
+    'N’Dali',
+    'Pèrèrè',
+    'Kalalé',
+    'Sinendé',
     'Djougou',
+    'Bassila',
+    'Copargo',
+    'Ouaké',
     'Natitingou',
+    'Kouandé',
+    'Matéri',
+    'Cobly',
+    'Boukoumbé',
+    'Kérou',
+    'Péhunco',
+    'Toucountouna',
     'Bembèrèkè',
     'Malanville',
     'Tanguiéta',
@@ -748,6 +1021,92 @@ class _AgencyMapCardState extends State<_AgencyMapCard> {
   }
 }
 
+class _NewsArticle {
+  final String category;
+  final String title;
+  final String date;
+  final String image;
+  final String excerpt;
+  final List<String> body;
+
+  const _NewsArticle({
+    required this.category,
+    required this.title,
+    required this.date,
+    required this.image,
+    required this.excerpt,
+    required this.body,
+  });
+}
+
+const List<_NewsArticle> _stmNewsArticles = [
+  _NewsArticle(
+    category: 'Annonces',
+    title: 'Nouveau départ sur Gouré',
+    date: '28/03/2026',
+    image: 'assets/images/welcome_image.jpg',
+    excerpt:
+        'STM renforce son réseau avec un nouveau départ pensé pour faciliter les déplacements réguliers.',
+    body: [
+      'STM informe son aimable clientèle de la mise en place d’un nouveau départ sur l’axe Gouré afin de rendre les voyages plus simples, plus réguliers et plus confortables.',
+      'Cette nouvelle desserte répond à la demande des voyageurs qui souhaitent mieux organiser leurs déplacements entre les grandes villes et les localités desservies par STM.',
+      'Les clients sont invités à se rapprocher des agences STM pour confirmer les horaires, les disponibilités et les conditions de réservation.',
+    ],
+  ),
+  _NewsArticle(
+    category: 'Annonces',
+    title: "Renforcement des départs sur l'axe Tchaourou",
+    date: '25/03/2026',
+    image: 'assets/images/onboarding1.png',
+    excerpt:
+        'De nouveaux horaires sont ajoutés pour offrir plus de flexibilité aux voyageurs.',
+    body: [
+      'Pour mieux accompagner les besoins de mobilité, STM annonce un renforcement progressif des départs sur l’axe Tchaourou.',
+      'Cette organisation permet aux voyageurs de choisir des créneaux plus adaptés à leurs programmes personnels, professionnels ou familiaux.',
+      'Les équipes en agence restent disponibles pour orienter les clients et les aider à choisir le départ le plus pratique.',
+    ],
+  ),
+  _NewsArticle(
+    category: 'Presse',
+    title: 'STM modernise l’accueil dans ses agences',
+    date: '18/03/2026',
+    image: 'assets/images/onboarding2.png',
+    excerpt:
+        'Un parcours client plus fluide est déployé pour améliorer l’achat de tickets et l’information voyageur.',
+    body: [
+      'STM poursuit l’amélioration de l’expérience client dans ses agences avec des espaces plus lisibles, un accueil renforcé et une meilleure orientation des voyageurs.',
+      'L’objectif est de réduire l’attente, d’améliorer la qualité des informations et de rendre chaque étape du voyage plus agréable.',
+      'Cette modernisation s’inscrit dans une démarche continue de qualité de service.',
+    ],
+  ),
+  _NewsArticle(
+    category: 'Conseils',
+    title: 'Bien préparer son voyage avec STM',
+    date: '12/03/2026',
+    image: 'assets/images/onboarding3.png',
+    excerpt:
+        'Quelques réflexes simples pour voyager sereinement et éviter les oublis avant le départ.',
+    body: [
+      'Avant chaque départ, STM recommande aux voyageurs de vérifier leur ticket, leur pièce d’identité et l’heure de présentation en agence.',
+      'Il est conseillé d’arriver suffisamment tôt afin d’effectuer les formalités sans stress et d’embarquer dans de bonnes conditions.',
+      'Pour les bagages et colis, les équipes STM peuvent préciser les règles applicables selon le trajet choisi.',
+    ],
+  ),
+  _NewsArticle(
+    category: 'Communiqués',
+    title: 'Suivi des colis disponible dans les agences STM',
+    date: '08/03/2026',
+    image: 'assets/images/logo_stm.jpeg',
+    excerpt:
+        'Les clients peuvent obtenir des informations sur leurs colis directement auprès des points STM.',
+    body: [
+      'STM rappelle à sa clientèle que le suivi des colis est disponible auprès de ses agences et points de contact.',
+      'Les clients sont invités à conserver leurs références d’envoi afin de faciliter les vérifications et accélérer la prise en charge.',
+      'Ce service accompagne les voyageurs et expéditeurs dans une logique de proximité et de fiabilité.',
+    ],
+  ),
+];
+
 class _NewsSection extends StatefulWidget {
   const _NewsSection();
 
@@ -760,29 +1119,6 @@ class _NewsSectionState extends State<_NewsSection> {
   Timer? _timer;
   int _pageIndex = 0;
 
-  final List<Map<String, String>> _news = const [
-    {
-      'title': 'STM : Ouverture de nouvelles agences à Cotonou',
-      'date': '10 mai 2026',
-      'image': 'assets/images/welcome_image.jpg',
-    },
-    {
-      'title': 'Réduction transport cette semaine au Bénin',
-      'date': '08 mai 2026',
-      'image': 'assets/images/onboarding1.png',
-    },
-    {
-      'title': 'Suivez vos colis en temps réel avec STM',
-      'date': '06 mai 2026',
-      'image': 'assets/images/onboarding2.png',
-    },
-    {
-      'title': 'Conseils voyage : préparez vos documents essentiels',
-      'date': '04 mai 2026',
-      'image': 'assets/images/onboarding3.png',
-    },
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -790,7 +1126,7 @@ class _NewsSectionState extends State<_NewsSection> {
 
     _timer = Timer.periodic(const Duration(seconds: 3), (_) {
       if (!mounted) return;
-      setState(() => _pageIndex = (_pageIndex + 1) % _news.length);
+      setState(() => _pageIndex = (_pageIndex + 1) % _stmNewsArticles.length);
       _pageController.animateToPage(
         _pageIndex,
         duration: const Duration(milliseconds: 480),
@@ -811,6 +1147,12 @@ class _NewsSectionState extends State<_NewsSection> {
     const red = Color(0xFFF80C0D);
     const deepBlue = Color(0xFF060663);
 
+    void openDetail(_NewsArticle article) {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => _NewsDetailPage(article: article)),
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -829,11 +1171,8 @@ class _NewsSectionState extends State<_NewsSection> {
               ),
               OutlinedButton(
                 onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Voir plus des actualités (à implémenter)'),
-                      duration: Duration(seconds: 2),
-                    ),
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const _NewsListPage()),
                   );
                 },
                 style: OutlinedButton.styleFrom(
@@ -861,103 +1200,27 @@ class _NewsSectionState extends State<_NewsSection> {
           height: 138,
           child: PageView.builder(
             controller: _pageController,
-            itemCount: _news.length,
+            itemCount: _stmNewsArticles.length,
             physics: const NeverScrollableScrollPhysics(),
             itemBuilder: (context, index) {
-              final item = _news[index];
-              final imagePath =
-                  item['image'] ?? 'assets/images/welcome_image.jpg';
+              final item = _stmNewsArticles[index];
 
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 6),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(22),
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      Image.asset(
-                        imagePath,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
-                          color: const Color(0xFFF8FBFF),
-                          child: const Icon(Icons.image_not_supported_rounded),
-                        ),
-                      ),
-
-                      // overlay lisibilité
-                      Container(color: Colors.black.withValues(alpha: 0.42)),
-
-                      // petit cadre rouge sur le haut (brutaliste)
-                      Positioned(
-                        left: 12,
-                        right: 12,
-                        top: 12,
-                        child: Container(
-                          height: 34,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.14),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: red.withValues(alpha: 0.65),
-                              width: 1.2,
-                            ),
-                          ),
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.newspaper_rounded,
-                                color: Colors.white,
-                                size: 16,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  item['date'] ?? '',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w900,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-
-                      // texte en bas
-                      Positioned(
-                        left: 14,
-                        right: 14,
-                        bottom: 14,
-                        child: Text(
-                          item['title'] ?? '',
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 14.2,
-                            fontWeight: FontWeight.w900,
-                            height: 1.25,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                child: _NewsHeroTile(
+                  article: item,
+                  compact: true,
+                  onTap: () => openDetail(item),
                 ),
               );
             },
           ),
         ),
 
-        // indicateur de slide simple (petits points)
         const SizedBox(height: 8),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(_news.length, (i) {
+          children: List.generate(_stmNewsArticles.length, (i) {
             final isActive = i == _pageIndex;
             return AnimatedContainer(
               duration: const Duration(milliseconds: 250),
@@ -972,6 +1235,761 @@ class _NewsSectionState extends State<_NewsSection> {
           }),
         ),
       ],
+    );
+  }
+}
+
+class _NewsListPage extends StatefulWidget {
+  const _NewsListPage();
+
+  @override
+  State<_NewsListPage> createState() => _NewsListPageState();
+}
+
+class _NewsListPageState extends State<_NewsListPage> {
+  late final PageController _pageController;
+  Timer? _timer;
+  int _pageIndex = 0;
+  String _category = 'Tous';
+
+  List<String> get _categories => const [
+    'Tous',
+    'Annonces',
+    'Presse',
+    'Communiqués',
+    'Conseils',
+  ];
+
+  List<_NewsArticle> get _filteredArticles {
+    if (_category == 'Tous') return _stmNewsArticles;
+    return _stmNewsArticles
+        .where((article) => article.category == _category)
+        .toList();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(viewportFraction: 0.86);
+    _timer = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (!mounted) return;
+      final next = (_pageIndex + 1) % _stmNewsArticles.take(3).length;
+      setState(() => _pageIndex = next);
+      _pageController.animateToPage(
+        next,
+        duration: const Duration(milliseconds: 480),
+        curve: Curves.easeInOut,
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _openDetail(_NewsArticle article) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => _NewsDetailPage(article: article)),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const red = Color(0xFFF80C0D);
+    const deepBlue = Color(0xFF060663);
+    final filtered = _filteredArticles;
+    final recent = _stmNewsArticles.take(3).toList();
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF6F8FC),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 10),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: _HeaderIconButton(
+                      icon: Icons.menu_rounded,
+                      onTap: () => Navigator.pop(context),
+                    ),
+                  ),
+                  Image.asset(
+                    'assets/images/logo_stm_no_background.png',
+                    height: 58,
+                    fit: BoxFit.contain,
+                  ),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: _HeaderIconButton(
+                      icon: Icons.notifications_none_rounded,
+                      onTap: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Aucune notification')),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Text(
+              'Actualités',
+              style: TextStyle(
+                color: deepBlue,
+                fontSize: 24,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 18),
+            SizedBox(
+              height: 54,
+              child: ListView.separated(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                scrollDirection: Axis.horizontal,
+                itemCount: _categories.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 12),
+                itemBuilder: (context, index) {
+                  final category = _categories[index];
+                  final isSelected = category == _category;
+
+                  return ChoiceChip(
+                    selected: isSelected,
+                    label: Text(category),
+                    onSelected: (_) => setState(() => _category = category),
+                    selectedColor: const Color(0xFFFFEADC),
+                    backgroundColor: Colors.white,
+                    side: BorderSide(
+                      color: isSelected
+                          ? red.withValues(alpha: 0.22)
+                          : Colors.transparent,
+                    ),
+                    labelStyle: TextStyle(
+                      color: isSelected ? red : deepBlue,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 15,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(22),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                  );
+                },
+              ),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.only(bottom: 28),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.fromLTRB(24, 20, 24, 12),
+                      child: Text(
+                        'Plus récents :',
+                        style: TextStyle(
+                          color: deepBlue,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                    SizedBox(
+                      height: 178,
+                      child: PageView.builder(
+                        controller: _pageController,
+                        itemCount: recent.length,
+                        onPageChanged: (value) {
+                          setState(() => _pageIndex = value);
+                        },
+                        itemBuilder: (context, index) {
+                          final article = recent[index];
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 6),
+                            child: _NewsRecentCard(
+                              article: article,
+                              onTap: () => _openDetail(article),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(recent.length, (i) {
+                        final isActive = i == _pageIndex;
+                        return AnimatedContainer(
+                          duration: const Duration(milliseconds: 250),
+                          margin: const EdgeInsets.symmetric(horizontal: 4),
+                          width: isActive ? 34 : 14,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: isActive
+                                ? red
+                                : deepBlue.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(99),
+                          ),
+                        );
+                      }),
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.fromLTRB(24, 28, 24, 14),
+                      child: Text(
+                        'Articles pour vous :',
+                        style: TextStyle(
+                          color: deepBlue,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                    ...filtered.map(
+                      (article) => Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+                        child: _NewsArticleTile(
+                          article: article,
+                          onTap: () => _openDetail(article),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NewsHeroTile extends StatelessWidget {
+  final _NewsArticle article;
+  final VoidCallback onTap;
+  final bool compact;
+
+  const _NewsHeroTile({
+    required this.article,
+    required this.onTap,
+    this.compact = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const red = Color(0xFFF80C0D);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(22),
+        onTap: onTap,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(22),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Image.asset(
+                article.image,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(
+                  color: const Color(0xFFF8FBFF),
+                  child: const Icon(Icons.image_not_supported_rounded),
+                ),
+              ),
+              Container(color: Colors.black.withValues(alpha: 0.43)),
+              Positioned(
+                left: 12,
+                top: 12,
+                child: _NewsCategoryPill(category: article.category),
+              ),
+              Positioned(
+                left: 14,
+                right: 14,
+                bottom: compact ? 14 : 18,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.event_rounded,
+                          color: Colors.white,
+                          size: 15,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Publié le ${article.date}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 12.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 7),
+                    Text(
+                      article.title,
+                      maxLines: compact ? 2 : 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: compact ? 14.2 : 18,
+                        fontWeight: FontWeight.w900,
+                        height: 1.22,
+                      ),
+                    ),
+                    if (!compact) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        article.excerpt,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.86),
+                          fontSize: 13.2,
+                          fontWeight: FontWeight.w600,
+                          height: 1.35,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              Positioned(
+                right: 12,
+                top: 12,
+                child: Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: red,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.arrow_forward_rounded,
+                    color: Colors.white,
+                    size: 18,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NewsRecentCard extends StatelessWidget {
+  final _NewsArticle article;
+  final VoidCallback onTap;
+
+  const _NewsRecentCard({required this.article, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    const deepBlue = Color(0xFF060663);
+
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: deepBlue.withValues(alpha: 0.08)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 14,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: Image.asset(
+                  article.image,
+                  width: 104,
+                  height: 104,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    width: 104,
+                    height: 104,
+                    color: const Color(0xFFF8FBFF),
+                    child: const Icon(Icons.image_not_supported_rounded),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _NewsCategoryPill(category: article.category, light: true),
+                    const SizedBox(height: 12),
+                    Text(
+                      article.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: deepBlue,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        height: 1.25,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Publié le ${article.date}',
+                      style: const TextStyle(
+                        color: Color(0xFF8B93A6),
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NewsArticleTile extends StatelessWidget {
+  final _NewsArticle article;
+  final VoidCallback onTap;
+
+  const _NewsArticleTile({required this.article, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    const deepBlue = Color(0xFF060663);
+
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: deepBlue.withValues(alpha: 0.07)),
+          ),
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(13),
+                child: Image.asset(
+                  article.image,
+                  width: 96,
+                  height: 96,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    width: 96,
+                    height: 96,
+                    color: const Color(0xFFF8FBFF),
+                    child: const Icon(Icons.image_not_supported_rounded),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _NewsCategoryPill(category: article.category, light: true),
+                    const SizedBox(height: 10),
+                    Text(
+                      article.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: deepBlue,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w900,
+                        height: 1.22,
+                      ),
+                    ),
+                    const SizedBox(height: 7),
+                    Text(
+                      'Publié le ${article.date}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Color(0xFF8B93A6),
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NewsCategoryPill extends StatelessWidget {
+  final String category;
+  final bool light;
+
+  const _NewsCategoryPill({required this.category, this.light = false});
+
+  @override
+  Widget build(BuildContext context) {
+    const red = Color(0xFFF80C0D);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
+      decoration: BoxDecoration(
+        color: light ? Colors.white : Colors.white.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: red.withValues(alpha: light ? 0.62 : 0.78)),
+      ),
+      child: Text(
+        category,
+        style: const TextStyle(
+          color: red,
+          fontSize: 12.5,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+  }
+}
+
+class _NewsDetailPage extends StatelessWidget {
+  final _NewsArticle article;
+
+  const _NewsDetailPage({required this.article});
+
+  @override
+  Widget build(BuildContext context) {
+    const red = Color(0xFFF80C0D);
+    const deepBlue = Color(0xFF060663);
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF6F8FC),
+      body: SafeArea(
+        child: CustomScrollView(
+          physics: const BouncingScrollPhysics(),
+          slivers: [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: _HeaderIconButton(
+                        icon: Icons.arrow_back_rounded,
+                        onTap: () => Navigator.pop(context),
+                      ),
+                    ),
+                    Image.asset(
+                      'assets/images/logo_stm_no_background.png',
+                      height: 58,
+                      fit: BoxFit.contain,
+                    ),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: _HeaderIconButton(
+                        icon: Icons.share_rounded,
+                        onTap: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Partage bientôt disponible'),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(24),
+                  child: Stack(
+                    children: [
+                      AspectRatio(
+                        aspectRatio: 1.18,
+                        child: Image.asset(
+                          article.image,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            color: Colors.white,
+                            child: const Icon(
+                              Icons.image_not_supported_rounded,
+                            ),
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        left: 14,
+                        top: 14,
+                        child: _NewsCategoryPill(category: article.category),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(22, 22, 22, 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.event_rounded, color: red, size: 18),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Publié le ${article.date}',
+                          style: const TextStyle(
+                            color: Color(0xFF7B849B),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      article.title,
+                      style: const TextStyle(
+                        color: deepBlue,
+                        fontSize: 28,
+                        fontWeight: FontWeight.w900,
+                        height: 1.12,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      article.excerpt,
+                      style: const TextStyle(
+                        color: Color(0xFF5F6B86),
+                        fontSize: 15.5,
+                        height: 1.48,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: deepBlue.withValues(alpha: 0.07),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 42,
+                            height: 42,
+                            decoration: BoxDecoration(
+                              color: red.withValues(alpha: 0.11),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: const Icon(
+                              Icons.info_outline_rounded,
+                              color: red,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Text(
+                              'Les horaires et disponibilités sont à confirmer auprès des agences STM.',
+                              style: TextStyle(
+                                color: deepBlue,
+                                fontSize: 13.8,
+                                fontWeight: FontWeight.w800,
+                                height: 1.35,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 22),
+                    ...article.body.map(
+                      (paragraph) => Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: Text(
+                          paragraph,
+                          style: const TextStyle(
+                            color: Color(0xFF26304D),
+                            fontSize: 16,
+                            height: 1.55,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 54,
+                      child: ElevatedButton.icon(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.arrow_back_rounded),
+                        label: const Text('Retour aux actualités'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: red,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          textStyle: const TextStyle(
+                            fontSize: 15.5,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 34),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -1547,7 +2565,7 @@ class _AccountMenuViewState extends State<_AccountMenuView> {
 
     return SingleChildScrollView(
       controller: widget.scrollController,
-      padding: EdgeInsets.fromLTRB(24, 12, 24, 28 + bottomInset),
+      padding: EdgeInsets.fromLTRB(18, 10, 18, 34 + bottomInset),
       child: Column(
         children: [
           Center(
@@ -1585,7 +2603,7 @@ class _AccountMenuViewState extends State<_AccountMenuView> {
               fontWeight: FontWeight.w900,
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
 
           // ✅ Photo/icon modifiable
           GestureDetector(
@@ -1594,7 +2612,7 @@ class _AccountMenuViewState extends State<_AccountMenuView> {
               alignment: Alignment.bottomRight,
               children: [
                 CircleAvatar(
-                  radius: 64,
+                  radius: 56,
                   backgroundColor: const Color(0xFF58648D),
                   backgroundImage: _pickedImage == null
                       ? null
@@ -1603,7 +2621,7 @@ class _AccountMenuViewState extends State<_AccountMenuView> {
                       ? const Icon(
                           Icons.person_rounded,
                           color: Colors.white,
-                          size: 84,
+                          size: 74,
                         )
                       : null,
                 ),
@@ -1627,7 +2645,7 @@ class _AccountMenuViewState extends State<_AccountMenuView> {
             ),
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 18),
           const _AccountPanel(),
         ],
       ),
@@ -1761,7 +2779,7 @@ class _AccountPanelState extends State<_AccountPanel> {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(28),
@@ -1776,56 +2794,72 @@ class _AccountPanelState extends State<_AccountPanel> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 58,
-                height: 58,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFF80C0D),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.person_rounded,
-                  color: Colors.white,
-                  size: 34,
-                ),
-              ),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Informations personnelles',
-                      style: TextStyle(
-                        color: Color(0xFF060663),
-                        fontSize: 15,
-                        fontWeight: FontWeight.w900,
-                      ),
+              Row(
+                children: [
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFF80C0D),
+                      shape: BoxShape.circle,
                     ),
-                    SizedBox(height: 4),
-                    Text(
-                      'Photo, nom, prénom et contacts',
-                      style: TextStyle(
-                        color: Color(0xFF5F6B86),
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    child: const Icon(
+                      Icons.person_rounded,
+                      color: Colors.white,
+                      size: 30,
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Informations personnelles',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Color(0xFF060663),
+                            fontSize: 15,
+                            fontWeight: FontWeight.w900,
+                            height: 1.18,
+                          ),
+                        ),
+                        SizedBox(height: 5),
+                        Text(
+                          'Photo, nom, prénom et contacts',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Color(0xFF5F6B86),
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            height: 1.25,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              TextButton.icon(
-                onPressed: _toggleEdit,
-                icon: Icon(
-                  _isEditing ? Icons.check_rounded : Icons.edit_rounded,
-                  size: 18,
-                ),
-                label: Text(_isEditing ? 'Enregistrer' : 'Modifier'),
-                style: TextButton.styleFrom(
-                  foregroundColor: const Color(0xFFF80C0D),
-                  textStyle: const TextStyle(fontWeight: FontWeight.w900),
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: _toggleEdit,
+                  icon: Icon(
+                    _isEditing ? Icons.check_rounded : Icons.edit_rounded,
+                    size: 18,
+                  ),
+                  label: Text(_isEditing ? 'Enregistrer' : 'Modifier'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFFF80C0D),
+                    textStyle: const TextStyle(fontWeight: FontWeight.w900),
+                    visualDensity: VisualDensity.compact,
+                  ),
                 ),
               ),
             ],
@@ -1870,7 +2904,7 @@ class _AccountInfoCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: const Color(0xFFF8FBFF),
         borderRadius: BorderRadius.circular(18),
@@ -1903,7 +2937,7 @@ class _AccountStatsGrid extends StatelessWidget {
       crossAxisCount: 2,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      childAspectRatio: 1.35,
+      childAspectRatio: 1.05,
       crossAxisSpacing: 10,
       mainAxisSpacing: 10,
       children: const [
@@ -1946,7 +2980,7 @@ class _AccountStat extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -1962,17 +2996,18 @@ class _AccountStat extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               color: Color(0xFF060663),
-              fontSize: 15,
+              fontSize: 14,
               fontWeight: FontWeight.w900,
             ),
           ),
           Text(
             title,
-            maxLines: 1,
+            maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               color: Color(0xFF5F6B86),
               fontSize: 11.5,
+              height: 1.12,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -1998,8 +3033,8 @@ class _EditableInfoField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(top: 10),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.all(13),
       decoration: BoxDecoration(
         color: enabled ? const Color(0xFFFFF7F7) : const Color(0xFFF8FBFF),
         borderRadius: BorderRadius.circular(16),
@@ -2010,36 +3045,50 @@ class _EditableInfoField extends StatelessWidget {
         ),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: const Color(0xFF060663), size: 20),
-          const SizedBox(width: 10),
-          SizedBox(
-            width: 94,
-            child: Text(
-              title,
-              style: const TextStyle(
-                color: Color(0xFF5F6B86),
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-              ),
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
             ),
+            child: Icon(icon, color: const Color(0xFF060663), size: 19),
           ),
+          const SizedBox(width: 12),
           Expanded(
-            child: TextField(
-              controller: controller,
-              enabled: enabled,
-              textAlign: TextAlign.right,
-              style: const TextStyle(
-                color: Color(0xFF060663),
-                fontSize: 12.5,
-                fontWeight: FontWeight.w900,
-              ),
-              decoration: const InputDecoration(
-                isDense: true,
-                border: InputBorder.none,
-                disabledBorder: InputBorder.none,
-                contentPadding: EdgeInsets.zero,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Color(0xFF5F6B86),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                TextField(
+                  controller: controller,
+                  enabled: enabled,
+                  minLines: 1,
+                  maxLines: 2,
+                  style: const TextStyle(
+                    color: Color(0xFF060663),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w900,
+                    height: 1.25,
+                  ),
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    border: InputBorder.none,
+                    disabledBorder: InputBorder.none,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
