@@ -13,13 +13,26 @@ class RegisterHeader extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         // Bouton retour : revient à la page précédente.
-        IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.72),
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.08),
+                blurRadius: 12,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
+          child: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Color(0xFF060663)),
+            onPressed: () => Navigator.pop(context),
+          ),
         ),
 
         // Logo STM chargé depuis les assets.
-        Image.asset('assets/images/logo_stm_no_background.png', height: 60),
+        Image.asset('assets/images/logo_stm_no_background.png', height: 68),
 
         // Même largeur que l'IconButton pour garder le logo centré.
         const SizedBox(width: 48),
@@ -62,7 +75,7 @@ class RegisterTextField extends StatelessWidget {
             style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF1E293B),
+              color: Color(0xFF060663),
             ),
           ),
           const SizedBox(height: 6),
@@ -71,9 +84,12 @@ class RegisterTextField extends StatelessWidget {
         // Champ texte
         Container(
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFF060663), width: 2),
+            color: Colors.white.withValues(alpha: 0.88),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: const Color(0xFF060663).withValues(alpha: 0.24),
+              width: 1.4,
+            ),
           ),
           child: TextField(
             controller: controller,
@@ -94,7 +110,7 @@ class RegisterTextField extends StatelessWidget {
                     hintText: hint,
                     border: InputBorder.none,
                     hintStyle: const TextStyle(
-                      color: Colors.black,
+                      color: Color(0xFF7B849B),
                       fontWeight: FontWeight.w400,
                     ),
                   )
@@ -160,9 +176,12 @@ class _PhoneInputFieldState extends State<PhoneInputField> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 15),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF060663), width: 2),
+        color: Colors.white.withValues(alpha: 0.88),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFF060663).withValues(alpha: 0.24),
+          width: 1.4,
+        ),
       ),
       child: Row(
         children: [
@@ -206,7 +225,11 @@ class _PhoneInputFieldState extends State<PhoneInputField> {
           const SizedBox(width: 10),
 
           // Séparateur vertical entre le drapeau et le champ de saisie.
-          Container(height: 30, width: 1, color: const Color(0xFF060663)),
+          Container(
+            height: 30,
+            width: 1,
+            color: const Color(0xFF060663).withValues(alpha: 0.24),
+          ),
 
           const SizedBox(width: 15),
 
@@ -219,7 +242,7 @@ class _PhoneInputFieldState extends State<PhoneInputField> {
                 hintText: "",
                 border: InputBorder.none,
                 hintStyle: TextStyle(
-                  color: Colors.black,
+                  color: Color(0xFF7B849B),
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -227,6 +250,80 @@ class _PhoneInputFieldState extends State<PhoneInputField> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Champ de mot de passe utilisé pendant l'inscription.
+class RegisterPasswordField extends StatefulWidget {
+  /// Controller fourni par RegisterPage pour lire le mot de passe saisi.
+  final TextEditingController? controller;
+
+  const RegisterPasswordField({super.key, this.controller});
+
+  @override
+  State<RegisterPasswordField> createState() => _RegisterPasswordFieldState();
+}
+
+class _RegisterPasswordFieldState extends State<RegisterPasswordField> {
+  // true : mot de passe masqué, false : mot de passe visible.
+  bool _obscureText = true;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "Mot de passe",
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF060663),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.88),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: const Color(0xFF060663).withValues(alpha: 0.24),
+              width: 1.4,
+            ),
+          ),
+          child: TextField(
+            controller: widget.controller,
+            obscureText: _obscureText,
+            autocorrect: false,
+            enableSuggestions: false,
+            textInputAction: TextInputAction.done,
+            decoration: InputDecoration(
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 20,
+                vertical: 18,
+              ),
+              hintText: "Entrez votre mot de passe",
+              border: InputBorder.none,
+              hintStyle: const TextStyle(
+                color: Color(0xFF7B849B),
+                fontWeight: FontWeight.w400,
+              ),
+              suffixIcon: IconButton(
+                onPressed: () {
+                  setState(() {
+                    _obscureText = !_obscureText;
+                  });
+                },
+                icon: Icon(
+                  _obscureText ? Icons.visibility_off : Icons.visibility,
+                  color: const Color(0xFF060663),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -240,9 +337,12 @@ class WhatsAppInfoBox extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF4F4),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFF80C0D), width: 1.5),
+        color: const Color(0xFFFFF4F4).withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: const Color(0xFFF80C0D).withValues(alpha: 0.28),
+          width: 1.3,
+        ),
       ),
       child: const Row(
         children: [
@@ -282,16 +382,23 @@ class SubmitButton extends StatelessWidget {
           backgroundColor: const Color(0xFFF80C0D),
           elevation: 0,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
           ),
         ),
-        child: const Text(
-          "Envoyer le code",
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.sms_rounded, color: Colors.white, size: 21),
+            SizedBox(width: 10),
+            Text(
+              "Envoyer le code",
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+          ],
         ),
       ),
     );

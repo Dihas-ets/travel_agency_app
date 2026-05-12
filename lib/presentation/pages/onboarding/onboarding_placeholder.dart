@@ -13,17 +13,12 @@ class OnboardingPlaceholder extends StatelessWidget {
       margin: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         // Fond blanc semi-transparent pour s'intégrer au dégradé de fond
-        color: Colors.white.withOpacity(0.5),
-        borderRadius: BorderRadius.circular(24),
+        color: Colors.white.withOpacity(0.72),
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: Colors.white.withOpacity(0.9)),
       ),
       child: const Center(
-        child: Icon(
-          Icons.image_outlined,
-          size: 80,
-          color: Color(
-            0xFFCCCCCC,
-          ), // Gris clair pour indiquer une image manquante.
-        ),
+        child: Icon(Icons.image_outlined, size: 80, color: Color(0xFFB6BED3)),
       ),
     );
   }

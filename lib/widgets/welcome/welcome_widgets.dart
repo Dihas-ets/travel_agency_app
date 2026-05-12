@@ -1,5 +1,7 @@
 // ignore_for_file: deprecated_member_use
 
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
 /// Widgets réutilisables de la page d'accueil.
@@ -81,33 +83,48 @@ class NavButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap, // Déclenche l'action passée en paramètre
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-        decoration: BoxDecoration(
-          // Fond noir semi-transparent pour que le bouton reste lisible
-          // sur l'image de fond
-          color: Colors.black.withOpacity(0.55),
-          borderRadius: BorderRadius.circular(30), // Forme arrondie (pilule)
-          border: Border.all(
-            color: Colors.white.withOpacity(0.15), // Bordure subtile
-            width: 1,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min, // Ne prend que l'espace nécessaire
-          children: [
-            // Icône rouge pour rappeler la couleur principale du logo.
-            Icon(icon, color: const Color(0xFFF80C0D), size: 18),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(30),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+            decoration: BoxDecoration(
+              // Fond clair semi-transparent pour s'accorder avec le dégradé blanc.
+              color: Colors.white.withOpacity(0.62),
+              borderRadius: BorderRadius.circular(
+                30,
+              ), // Forme arrondie (pilule)
+              border: Border.all(
+                color: Colors.white.withOpacity(0.86), // Bordure subtile
+                width: 1,
               ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 14,
+                  offset: const Offset(0, 6),
+                ),
+              ],
             ),
-          ],
+            child: Row(
+              mainAxisSize:
+                  MainAxisSize.min, // Ne prend que l'espace nécessaire
+              children: [
+                // Icône rouge pour rappeler la couleur principale du logo.
+                Icon(icon, color: const Color(0xFFF80C0D), size: 18),
+                const SizedBox(width: 8),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: Color(0xFF060663),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

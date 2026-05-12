@@ -6,6 +6,8 @@ import 'package:code_initial/presentation/pages/onboarding/onboarding_page.dart'
 import 'package:code_initial/presentation/pages/register/register_page.dart';
 import 'package:code_initial/presentation/pages/login/login_page.dart';
 import 'package:code_initial/presentation/pages/verify_code/verify_code_page.dart';
+import 'package:code_initial/presentation/pages/home/home_page.dart';
+import 'package:code_initial/presentation/pages/forgot_password/forgot_password_page.dart';
 
 /// Centralise toutes les pages accessibles avec GetX.
 ///
@@ -18,9 +20,16 @@ class Nav {
 
     GetPage(name: Routes.LOGIN, page: () => const LoginPage()),
 
+    GetPage(
+      name: Routes.FORGOT_PASSWORD,
+      page: () => const ForgotPasswordPage(),
+    ),
+
     GetPage(name: Routes.WELCOME, page: () => const WelcomePage()),
 
     GetPage(name: Routes.VERIFY_CODE, page: () => const VerifyCodePage()),
+
+    GetPage(name: Routes.HOME, page: () => const HomePage()),
   ];
 }
 
@@ -42,6 +51,9 @@ class Routes {
   /// Page de connexion.
   static const LOGIN = '/login';
 
+  /// Page de réinitialisation du mot de passe.
+  static const FORGOT_PASSWORD = '/forgot-password';
+
   /// Parcours d'introduction affiché au premier lancement.
   static const ONBOARDING = '/onboarding';
 
@@ -50,4 +62,7 @@ class Routes {
 
   /// Page de saisie du code de vérification.
   static const VERIFY_CODE = '/verify-code';
+
+  /// Interface principale après connexion.
+  static const HOME = '/home';
 }

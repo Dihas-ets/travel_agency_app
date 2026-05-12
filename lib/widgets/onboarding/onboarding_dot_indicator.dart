@@ -35,11 +35,20 @@ class DotIndicator extends StatelessWidget {
         return AnimatedContainer(
           duration: const Duration(milliseconds: 300),
           margin: const EdgeInsets.symmetric(horizontal: 4),
-          width: isActive ? 28 : 14,
-          height: 8,
+          width: isActive ? 30 : 9,
+          height: 9,
           decoration: BoxDecoration(
             color: isActive ? activeColor : inactiveColor,
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(9),
+            boxShadow: isActive
+                ? [
+                    BoxShadow(
+                      color: activeColor.withValues(alpha: 0.28),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ]
+                : null,
           ),
         );
       }),

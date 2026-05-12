@@ -1,52 +1,42 @@
-import 'package:flutter/material.dart';
-import 'package:get/get.dart';
-import 'package:code_initial/navigation.dart';
 import 'package:code_initial/widgets/login/login_widgets.dart';
+import 'package:flutter/material.dart';
 
-/// Page de connexion.
-///
-/// Elle demande un numéro de téléphone et un mot de passe, puis vérifie que
-/// les deux champs sont remplis avant de lancer la connexion.
-class LoginPage extends StatefulWidget {
-  const LoginPage({super.key});
+/// Page de réinitialisation du mot de passe.
+class ForgotPasswordPage extends StatefulWidget {
+  const ForgotPasswordPage({super.key});
 
   @override
-  State<LoginPage> createState() => _LoginPageState();
+  State<ForgotPasswordPage> createState() => _ForgotPasswordPageState();
 }
 
-class _LoginPageState extends State<LoginPage> {
-  // Contrôleurs utilisés pour lire le contenu des deux champs du formulaire.
+class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   final TextEditingController _telephoneController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
 
-  /// Libère les contrôleurs quand la page est retirée de l'arbre Flutter.
   @override
   void dispose() {
     _telephoneController.dispose();
-    _passwordController.dispose();
     super.dispose();
   }
 
-  /// Vérifie le formulaire avant de continuer.
-  ///
-  /// Si un champ est vide, l'utilisateur reste sur la page et reçoit un message.
-  void _seConnecter() {
+  void _sendCode() {
     final telephone = _telephoneController.text.trim();
-    final password = _passwordController.text.trim();
 
-    if (telephone.isEmpty || password.isEmpty) {
+    if (telephone.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            "Veuillez remplir tous les champs avant de vous connecter.",
-          ),
+          content: Text('Veuillez entrer votre numéro de téléphone.'),
           backgroundColor: Color(0xFFF80C0D),
         ),
       );
       return;
     }
 
-    Get.offNamed(Routes.HOME);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Code de réinitialisation envoyé au $telephone'),
+        backgroundColor: const Color(0xFF060663),
+      ),
+    );
   }
 
   @override
@@ -63,53 +53,55 @@ class _LoginPageState extends State<LoginPage> {
         ),
         child: SafeArea(
           child: SingleChildScrollView(
-            // Le scroll évite que les champs soient masqués par le clavier.
-            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            physics: const BouncingScrollPhysics(),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 10),
-
-                // Bouton retour + Logo STM
                 const LoginHeader(),
-
-                const SizedBox(height: 36),
-
+                const SizedBox(height: 34),
                 const Center(
                   child: Column(
                     children: [
+                      Icon(
+                        Icons.lock_reset_rounded,
+                        color: Color(0xFFF80C0D),
+                        size: 54,
+                      ),
+                      SizedBox(height: 14),
                       Text(
-                        "Se connecter",
+                        'Mot de passe oublié',
+                        textAlign: TextAlign.center,
                         style: TextStyle(
+                          color: Color(0xFF060663),
                           fontSize: 28,
                           fontWeight: FontWeight.w900,
-                          color: Color(0xFF060663),
                         ),
                       ),
                       SizedBox(height: 8),
                       Text(
-                        "Retrouvez vos trajets et vos services STM.",
+                        'Entrez votre numéro pour recevoir un code de réinitialisation.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
                           color: Color(0xFF5F6B86),
+                          fontSize: 14,
+                          height: 1.4,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ],
                   ),
                 ),
-
                 const SizedBox(height: 30),
-
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.64),
+                    color: Colors.white.withValues(alpha: 0.7),
                     borderRadius: BorderRadius.circular(28),
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.86),
+                      color: Colors.white.withValues(alpha: 0.9),
                       width: 1.1,
                     ),
                     boxShadow: [
@@ -123,51 +115,40 @@ class _LoginPageState extends State<LoginPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Libellé du champ téléphone.
                       const Text(
-                        "Numéro de téléphone",
+                        'Numéro de téléphone',
                         style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
                           color: Color(0xFF060663),
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
-
                       const SizedBox(height: 10),
-
                       PhoneLoginField(controller: _telephoneController),
-
                       const SizedBox(height: 22),
-
-                      // Libellé du champ mot de passe.
-                      const Text(
-                        "Mot de passe",
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF060663),
-                        ),
-                      ),
-
-                      const SizedBox(height: 10),
-
-                      PasswordField(controller: _passwordController),
-
-                      const SizedBox(height: 14),
-
-                      // Lien prévu pour une future récupération de mot de passe.
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: GestureDetector(
-                          onTap: () {
-                            Get.toNamed(Routes.FORGOT_PASSWORD);
-                          },
-                          child: const Text(
-                            "Mot de passe oublié ?",
+                      SizedBox(
+                        width: double.infinity,
+                        height: 58,
+                        child: ElevatedButton.icon(
+                          onPressed: _sendCode,
+                          icon: const Icon(
+                            Icons.sms_rounded,
+                            color: Colors.white,
+                            size: 21,
+                          ),
+                          label: const Text(
+                            'Envoyer code',
                             style: TextStyle(
-                              color: Color(0xFFF80C0D),
-                              fontWeight: FontWeight.w700,
-                              fontSize: 13,
+                              color: Colors.white,
+                              fontSize: 17,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFF80C0D),
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
                             ),
                           ),
                         ),
@@ -175,12 +156,6 @@ class _LoginPageState extends State<LoginPage> {
                     ],
                   ),
                 ),
-
-                const SizedBox(height: 28),
-
-                // Déclenche la validation des champs avant toute tentative de connexion.
-                LoginButton(onPressed: _seConnecter),
-
                 const SizedBox(height: 24),
               ],
             ),

@@ -14,13 +14,26 @@ class LoginHeader extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         // Bouton retour → revient à la page précédente
-        IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.72),
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.08),
+                blurRadius: 12,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
+          child: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Color(0xFF060663)),
+            onPressed: () => Navigator.pop(context),
+          ),
         ),
 
         // Logo STM chargé depuis les assets
-        Image.asset('assets/images/logo_stm_no_background.png', height: 60),
+        Image.asset('assets/images/logo_stm_no_background.png', height: 68),
 
         // SizedBox vide de même largeur que l'IconButton (48px)
         // → permet de centrer visuellement le logo
@@ -66,9 +79,12 @@ class _PhoneLoginFieldState extends State<PhoneLoginField> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 15),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF060663), width: 2),
+        color: Colors.white.withValues(alpha: 0.88),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFF060663).withValues(alpha: 0.24),
+          width: 1.4,
+        ),
       ),
       child: Row(
         children: [
@@ -112,7 +128,11 @@ class _PhoneLoginFieldState extends State<PhoneLoginField> {
           const SizedBox(width: 10),
 
           // Séparateur vertical entre le drapeau et le champ de saisie.
-          Container(height: 30, width: 1, color: const Color(0xFF060663)),
+          Container(
+            height: 30,
+            width: 1,
+            color: const Color(0xFF060663).withValues(alpha: 0.24),
+          ),
 
           const SizedBox(width: 15),
 
@@ -125,7 +145,7 @@ class _PhoneLoginFieldState extends State<PhoneLoginField> {
                 hintText: "",
                 border: InputBorder.none,
                 hintStyle: TextStyle(
-                  color: Colors.black,
+                  color: Color(0xFF7B849B),
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -156,9 +176,12 @@ class _PasswordFieldState extends State<PasswordField> {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF060663), width: 2),
+        color: Colors.white.withValues(alpha: 0.88),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFF060663).withValues(alpha: 0.24),
+          width: 1.4,
+        ),
       ),
       child: TextField(
         controller: widget.controller,
@@ -171,7 +194,7 @@ class _PasswordFieldState extends State<PasswordField> {
           hintText: "Entrez votre mot de passe",
           border: InputBorder.none,
           hintStyle: const TextStyle(
-            color: Colors.black,
+            color: Color(0xFF7B849B),
             fontWeight: FontWeight.w400,
           ),
           suffixIcon: GestureDetector(
@@ -210,16 +233,23 @@ class LoginButton extends StatelessWidget {
           backgroundColor: const Color(0xFFF80C0D),
           elevation: 0,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
           ),
         ),
-        child: const Text(
-          "Se connecter",
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.login_rounded, color: Colors.white, size: 22),
+            SizedBox(width: 10),
+            Text(
+              "Se connecter",
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -1,4 +1,5 @@
-// ignore_for_file: deprecated_member_use
+import 'dart:async';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -24,6 +25,7 @@ class OnboardingPage extends StatefulWidget {
 class _OnboardingPageState extends State<OnboardingPage> {
   // Contrôleur du PageView — permet de naviguer entre les slides par le code
   final PageController _pageController = PageController();
+  Timer? _autoSlideTimer;
 
   // Index de la slide actuellement visible (commence à 0)
   int _currentPage = 0;
@@ -53,6 +55,28 @@ class _OnboardingPageState extends State<OnboardingPage> {
     ),
   ];
 
+  @override
+  void initState() {
+    super.initState();
+    _startAutoSlide();
+  }
+
+  void _startAutoSlide() {
+    _autoSlideTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+      if (!mounted || !_pageController.hasClients) return;
+
+      if (_currentPage >= _pages.length - 1) {
+        timer.cancel();
+        return;
+      }
+
+      _pageController.nextPage(
+        duration: const Duration(milliseconds: 520),
+        curve: Curves.easeInOutCubic,
+      );
+    });
+  }
+
   /// Avance à la slide suivante.
   /// Si on est sur la dernière slide, redirige vers la page d'accueil.
   void _nextPage() {
@@ -73,6 +97,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
   /// évite les fuites mémoire
   @override
   void dispose() {
+    _autoSlideTimer?.cancel();
     _pageController.dispose();
     super.dispose();
   }
@@ -81,94 +106,185 @@ class _OnboardingPageState extends State<OnboardingPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        // Dégradé de fond : bleu clair en haut → beige rosé en bas
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFFDDEEF8), // Bleu clair
-              Color(0xFFF5EBE0), // Beige rosé
-            ],
+            colors: [Color(0xFFF8FBFF), Color(0xFFEFF4FF), Color(0xFFFFF5F5)],
+            stops: [0.0, 0.56, 1.0],
           ),
         ),
-        child: SafeArea(
-          // SafeArea évite que le contenu passe derrière la barre de statut
-          child: Column(
-            children: [
-              const SizedBox(height: 8),
-
-              Center(
-                child: Image.asset(
-                  'assets/images/logo_stm_no_background.png',
-                  height: 105,
-                  fit: BoxFit.contain,
-                ),
+        child: Stack(
+          children: [
+            Positioned(
+              top: -80,
+              right: -70,
+              child: _SoftAccentCircle(
+                size: 190,
+                color: const Color(0xFFF80C0D).withValues(alpha: 0.12),
               ),
-
-              const SizedBox(height: 8),
-
-              // ── Zone des slides (prend tout l'espace disponible) ──
-              Expanded(
-                child: PageView.builder(
-                  controller: _pageController,
-                  itemCount: _pages.length, // 3 slides au total
-                  // Mis à jour à chaque changement de slide (swipe ou bouton)
-                  onPageChanged: (index) {
-                    setState(() => _currentPage = index);
-                    // setState déclenche un rebuild pour mettre à jour
-                    // les points indicateurs
-                  },
-
-                  // Construit chaque slide à la demande (lazy loading)
-                  itemBuilder: (context, index) {
-                    return OnboardingSlide(
-                      data: _pages[index],
-                      slideIndex: index,
-                    );
-                  },
-                ),
+            ),
+            Positioned(
+              bottom: 120,
+              left: -85,
+              child: _SoftAccentCircle(
+                size: 220,
+                color: const Color(0xFF060663).withValues(alpha: 0.1),
               ),
+            ),
+            SafeArea(
+              // SafeArea évite que le contenu passe derrière la barre de statut
+              child: Column(
+                children: [
+                  const SizedBox(height: 10),
 
-              // ── Indicateur de points (ex: ●○○, ○●○, ○○●) ─────────
-              DotIndicator(
-                count: _pages.length, // Nombre total de points
-                currentIndex: _currentPage, // Point actif (bleu foncé)
-                activeColor: const Color(0xFF060663),
-                inactiveColor: const Color(0xFFD9D9D9),
-              ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Image.asset(
+                          'assets/images/logo_stm_no_background.png',
+                          height: 64,
+                          fit: BoxFit.contain,
+                        ),
+                        TextButton(
+                          onPressed: () => Get.offNamed(Routes.WELCOME),
+                          style: TextButton.styleFrom(
+                            foregroundColor: const Color(0xFF060663),
+                            textStyle: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          child: const Text('Passer'),
+                        ),
+                      ],
+                    ),
+                  ),
 
-              const SizedBox(height: 24),
+                  const SizedBox(height: 6),
 
-              // ── Bouton rond "→" pour avancer ──────────────────────
-              GestureDetector(
-                onTap: _nextPage, // Appelle _nextPage au clic
-                child: Container(
-                  width: 72,
-                  height: 72,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF060663),
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF060663).withOpacity(0.35),
-                        blurRadius: 16,
-                        offset: const Offset(0, 6), // Ombre portée vers le bas
+                  // ── Zone des slides (prend tout l'espace disponible) ──
+                  Expanded(
+                    child: PageView.builder(
+                      controller: _pageController,
+                      itemCount: _pages.length, // 3 slides au total
+                      // Mis à jour à chaque changement de slide (swipe ou bouton)
+                      onPageChanged: (index) {
+                        setState(() => _currentPage = index);
+                        if (index == _pages.length - 1) {
+                          _autoSlideTimer?.cancel();
+                        }
+                        // setState déclenche un rebuild pour mettre à jour
+                        // les points indicateurs
+                      },
+
+                      // Construit chaque slide à la demande (lazy loading)
+                      itemBuilder: (context, index) {
+                        return OnboardingSlide(
+                          data: _pages[index],
+                          slideIndex: index,
+                        );
+                      },
+                    ),
+                  ),
+
+                  // ── Indicateur de points (ex: ●○○, ○●○, ○○●) ─────────
+                  DotIndicator(
+                    count: _pages.length, // Nombre total de points
+                    currentIndex: _currentPage, // Point actif (bleu foncé)
+                    activeColor: const Color(0xFFF80C0D),
+                    inactiveColor: const Color(0xFFE1E6F3),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // ── Bouton rond "→" pour avancer ──────────────────────
+                  GestureDetector(
+                    onTap: _nextPage, // Appelle _nextPage au clic
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 250),
+                      width: _currentPage == _pages.length - 1 ? 168 : 72,
+                      height: 58,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF060663),
+                        borderRadius: BorderRadius.circular(32),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(
+                              0xFF060663,
+                            ).withValues(alpha: 0.28),
+                            blurRadius: 18,
+                            offset: const Offset(
+                              0,
+                              8,
+                            ), // Ombre portée vers le bas
+                          ),
+                        ],
                       ),
-                    ],
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 200),
+                        child: _currentPage == _pages.length - 1
+                            ? const FittedBox(
+                                key: ValueKey('start'),
+                                fit: BoxFit.scaleDown,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      'Commencer',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    SizedBox(width: 8),
+                                    Icon(
+                                      Icons.arrow_forward_rounded,
+                                      color: Colors.white,
+                                      size: 22,
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : const Icon(
+                                key: ValueKey('next'),
+                                Icons.arrow_forward_rounded,
+                                color: Colors.white,
+                                size: 30,
+                              ),
+                      ),
+                    ),
                   ),
-                  child: const Icon(
-                    Icons.arrow_forward,
-                    color: Colors.white,
-                    size: 30,
-                  ),
-                ),
-              ),
 
-              const SizedBox(height: 24),
-            ],
-          ),
+                  const SizedBox(height: 16),
+                ],
+              ),
+            ),
+          ],
         ),
+      ),
+    );
+  }
+}
+
+class _SoftAccentCircle extends StatelessWidget {
+  final double size;
+  final Color color;
+
+  const _SoftAccentCircle({required this.size, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return ImageFiltered(
+      imageFilter: ImageFilter.blur(sigmaX: 35, sigmaY: 35),
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
       ),
     );
   }

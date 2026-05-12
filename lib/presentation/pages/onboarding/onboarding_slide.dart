@@ -18,55 +18,108 @@ class OnboardingSlide extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      // Les deux premières illustrations sont plus larges, donc elles gardent
-      // moins de marge horizontale que la troisième.
-      padding: EdgeInsets.symmetric(horizontal: slideIndex < 2 ? 16 : 28),
-      child: Column(
-        children: [
-          // Zone illustration
-          Flexible(
-            flex: slideIndex < 2 ? 7 : 6, // Plus grand pour slides 1 et 2
-            child: Padding(
-              padding: const EdgeInsets.only(top: 8, bottom: 4),
-              child: Image.asset(
-                data.illustrationAsset, // Charge l'image depuis les assets
-                fit: slideIndex < 2 ? BoxFit.cover : BoxFit.contain,
-                // Si l'image est absente, affiche le placeholder gris
-                errorBuilder: (_, __, ___) => const OnboardingPlaceholder(),
-              ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final imageHeight = (constraints.maxHeight * 0.48).clamp(190.0, 300.0);
+
+        return SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Column(
+              children: [
+                // Zone illustration
+                Container(
+                  width: double.infinity,
+                  height: imageHeight,
+                  margin: const EdgeInsets.only(top: 4, bottom: 14),
+                  padding: EdgeInsets.all(slideIndex < 2 ? 4 : 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.58),
+                    borderRadius: BorderRadius.circular(28),
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.9),
+                      width: 1.2,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF060663).withOpacity(0.08),
+                        blurRadius: 22,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(24),
+                    child: Image.asset(
+                      data.illustrationAsset, // Charge l'image depuis les assets
+                      fit: slideIndex < 2 ? BoxFit.cover : BoxFit.contain,
+                      // Si l'image est absente, affiche le placeholder gris
+                      errorBuilder: (_, __, ___) =>
+                          const OnboardingPlaceholder(),
+                    ),
+                  ),
+                ),
+
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.66),
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.88),
+                      width: 1,
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 38,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF80C0D),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      // Titre de la slide
+                      Text(
+                        data.title,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 29,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF060663),
+                        ),
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      // Description
+                      Text(
+                        data.description,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w600,
+                          height: 1.42,
+                          color: Color(0xFF4D5875),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 8),
+              ],
             ),
           ),
-
-          // Titre de la slide
-          Text(
-            data.title,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 32,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF1A1A3E), // Bleu foncé
-            ),
-          ),
-
-          const SizedBox(height: 12),
-
-          // Description
-          Flexible(
-            flex: 4,
-            child: Text(
-              data.description,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                height: 1.6, // Interligne
-                color: Colors.grey.shade600,
-              ),
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

@@ -30,6 +30,8 @@ dependencies:
   google_fonts:
   another_flutter_splash_screen:
 
+  geolocator: ^13.0.0
+
   onboarding: ^4.0.2
 
   get_storage: 2.1.1
@@ -39,6 +41,7 @@ dependencies:
   shared_preferences: ^2.2.2
 
   country_picker: ^2.0.26
+  image_picker: ^1.2.2
 
 
 dev_dependencies:
@@ -73,8 +76,8 @@ flutter:
     - assets/images/onboarding1.png
     - assets/images/onboarding2.png
     - assets/images/onboarding3.png
-    - assets/images/logo_carte.jpg
-    - assets/images/logo_mtn.jpg
+    - assets/images/logo_carte.png
+    - assets/images/logo_mtn.png
     - assets/images/logo_moov.png
     - assets/images/logo_celtiis.png
     - assets/images/logo_stm.jpeg
@@ -116,7 +119,7 @@ flutter_icons:
 
 flutter_native_splash:
   color: "#ffffff"
-  image: assets/images/logo_stm.jpeg"
+  image: assets/images/logo_stm.jpeg
 
   android: true
   ios: true
