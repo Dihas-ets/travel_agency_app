@@ -545,6 +545,25 @@ class _ConnectedHomeContentState extends State<_ConnectedHomeContent> {
         builder: (_) => TarifsPage(
           initialDepart: _departureController.text,
           initialDestination: _destinationController.text,
+          onReserve: _openTarifConfirmation,
+        ),
+      ),
+    );
+  }
+
+  void _openTarifConfirmation(
+    BuildContext context,
+    TarifReservationSelection selection,
+  ) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => _PaymentDetailsPage(
+          departure: selection.departure,
+          destination: selection.destination,
+          date: selection.date,
+          priceAmount: selection.priceAmount,
+          passengers: selection.passengerCount,
+          time: selection.time,
         ),
       ),
     );
@@ -2163,11 +2182,8 @@ class _VoyageTabContent extends StatelessWidget {
                 );
               },
               onReprogram: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Reprogrammation (à implémenter)'),
-                    duration: Duration(seconds: 2),
-                  ),
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const _ReprogramPage()),
                 );
               },
               onHistory: () {
@@ -2176,9 +2192,26 @@ class _VoyageTabContent extends StatelessWidget {
                 ).push(MaterialPageRoute(builder: (_) => const _HistoryPage()));
               },
               onTarifs: () {
-                Navigator.of(
-                  context,
-                ).push(MaterialPageRoute(builder: (_) => const TarifsPage()));
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => TarifsPage(
+                      onReserve: (context, selection) {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => _PaymentDetailsPage(
+                              departure: selection.departure,
+                              destination: selection.destination,
+                              date: selection.date,
+                              priceAmount: selection.priceAmount,
+                              passengers: selection.passengerCount,
+                              time: selection.time,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                );
               },
             ),
           ],
@@ -3010,6 +3043,7 @@ class _PaymentDetailsPage extends StatefulWidget {
   final String date;
   final int priceAmount;
   final int passengers;
+  final String time;
 
   const _PaymentDetailsPage({
     required this.departure,
@@ -3017,6 +3051,7 @@ class _PaymentDetailsPage extends StatefulWidget {
     required this.date,
     required this.priceAmount,
     required this.passengers,
+    this.time = '10:00',
   });
 
   @override
@@ -3080,7 +3115,7 @@ class _PaymentDetailsPageState extends State<_PaymentDetailsPage> {
       departure: widget.departure,
       destination: widget.destination,
       date: widget.date,
-      time: '10:00',
+      time: widget.time,
       seat: '${(widget.passengers % 12 == 0 ? 12 : widget.passengers)}A',
       price: '${_formatAmount(widget.priceAmount)} CFA',
       passengerCount: widget.passengers,
@@ -4065,6 +4100,15 @@ class _HistoryPageState extends State<_HistoryPage> {
   List<_ReservationItem> get _reservations => _HistoryRepository.reservations;
   List<_TicketItem> get _tickets => _HistoryRepository.tickets;
 
+  Future<void> _openReservationTicket(_ReservationItem reservation) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => _ReservationTicketPage(reservation: reservation),
+      ),
+    );
+    if (mounted) setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -4233,7 +4277,12 @@ class _HistoryPageState extends State<_HistoryPage> {
             message: 'Réservez un trajet pour retrouver vos réservations ici.',
           )
         else
-          ..._reservations.map((item) => _ReservationCard(item: item)),
+          ..._reservations.map(
+            (item) => _ReservationCard(
+              item: item,
+              onTicketNow: () => _openReservationTicket(item),
+            ),
+          ),
       ],
     );
   }
@@ -4393,12 +4442,13 @@ class _TicketItem {
 
 class _ReservationCard extends StatelessWidget {
   final _ReservationItem item;
+  final VoidCallback? onTicketNow;
 
-  const _ReservationCard({required this.item});
+  const _ReservationCard({required this.item, this.onTicketNow});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final card = Container(
       margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -4518,7 +4568,493 @@ class _ReservationCard extends StatelessWidget {
               ),
             ],
           ),
+          if (onTicketNow != null) ...[
+            const SizedBox(height: 14),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton(
+                onPressed: onTicketNow,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFF80C0D),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                ),
+                child: const Text(
+                  'Billet maintenant',
+                  style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w900),
+                ),
+              ),
+            ),
+          ],
         ],
+      ),
+    );
+
+    if (onTicketNow == null) return card;
+
+    return InkWell(
+      onTap: onTicketNow,
+      borderRadius: BorderRadius.circular(22),
+      child: card,
+    );
+  }
+}
+
+class _ReservationTicketPage extends StatefulWidget {
+  final _ReservationItem reservation;
+
+  const _ReservationTicketPage({required this.reservation});
+
+  @override
+  State<_ReservationTicketPage> createState() => _ReservationTicketPageState();
+}
+
+class _ReservationTicketPageState extends State<_ReservationTicketPage> {
+  late _ReservationItem _reservation;
+
+  @override
+  void initState() {
+    super.initState();
+    _reservation = widget.reservation;
+  }
+
+  void _editReservation() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _EditReservationSheet(
+        reservation: _reservation,
+        onSave: (updated) {
+          _HistoryRepository.updateReservation(updated);
+          setState(() => _reservation = updated);
+        },
+      ),
+    );
+  }
+
+  void _showPaymentSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _PaymentMethodSheet(total: _reservation.price),
+    );
+  }
+
+  Future<void> _confirmCancel() async {
+    final shouldCancel = await _showCancelReservationDialog(context);
+    if (shouldCancel != true) return;
+
+    _HistoryRepository.removeReservation(_reservation.reference);
+    if (!mounted) return;
+    Navigator.of(context).pop();
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Réservation annulée.')));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const deepBlue = Color(0xFF060663);
+    final tickets = List.generate(_reservation.passengerCount, (index) {
+      return index + 1;
+    });
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF7F9FF),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 14, 18, 8),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: _HeaderIconButton(
+                      icon: Icons.arrow_back_rounded,
+                      onTap: () => Navigator.of(context).pop(),
+                    ),
+                  ),
+                  Image.asset(
+                    'assets/images/logo_ticbus_no_background.png',
+                    height: 56,
+                    fit: BoxFit.contain,
+                  ),
+                ],
+              ),
+            ),
+            const Text(
+              'Billet',
+              style: TextStyle(
+                color: deepBlue,
+                fontSize: 24,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(18, 18, 18, 26),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: tickets
+                      .map(
+                        (ticketNumber) => Padding(
+                          padding: const EdgeInsets.only(bottom: 18),
+                          child: _TicketVisual(
+                            departure: _reservation.departure,
+                            destination: _reservation.destination,
+                            date: _reservation.date,
+                            time: _reservation.time,
+                            passengerCount: _reservation.passengerCount,
+                            ticketIndex: ticketNumber,
+                            beneficiaryName: _reservation.beneficiaryName,
+                            total: _reservation.price,
+                            reference: '${_reservation.reference}$ticketNumber',
+                            primaryActionLabel: 'Effectuer le règlement',
+                            onPrimaryAction: _showPaymentSheet,
+                            onEdit: _editReservation,
+                            onCancel: _confirmCancel,
+                          ),
+                        ),
+                      )
+                      .toList(),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ReprogramPage extends StatefulWidget {
+  const _ReprogramPage();
+
+  @override
+  State<_ReprogramPage> createState() => _ReprogramPageState();
+}
+
+class _ReprogramPageState extends State<_ReprogramPage> {
+  static const Color _deepBlue = Color(0xFF060663);
+  static const Color _ticBusRed = Color(0xFFF80C0D);
+
+  final TextEditingController _ticketNumberController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
+  bool _isForSomeoneElse = false;
+  _TicketItem? _foundTicket;
+  String? _searchMessage;
+
+  @override
+  void dispose() {
+    _ticketNumberController.dispose();
+    _phoneController.dispose();
+    super.dispose();
+  }
+
+  String _normalize(String value) =>
+      value.replaceAll(RegExp(r'[^0-9A-Za-z]'), '').toUpperCase();
+
+  String _digitsOnly(String value) => value.replaceAll(RegExp(r'[^0-9]'), '');
+
+  _TicketItem? _findTicket(String rawNumber) {
+    final query = _normalize(rawNumber);
+    final queryDigits = _digitsOnly(rawNumber);
+    if (query.isEmpty) return null;
+
+    for (final ticket in _HistoryRepository.tickets) {
+      final ticketNumber = '${ticket.reference}${ticket.ticketIndex}';
+      final candidates = <String>[
+        ticket.code,
+        '${ticket.code}${ticket.ticketIndex}',
+        ticket.reference,
+        ticketNumber,
+      ];
+
+      final hasMatch = candidates.any((candidate) {
+        return _normalize(candidate) == query ||
+            (queryDigits.isNotEmpty && _digitsOnly(candidate) == queryDigits);
+      });
+      if (hasMatch) return ticket;
+    }
+    return null;
+  }
+
+  void _searchTicket() {
+    final ticketNumber = _ticketNumberController.text.trim();
+    final phone = _phoneController.text.trim();
+
+    if (ticketNumber.isEmpty) {
+      setState(() {
+        _foundTicket = null;
+        _searchMessage = 'Veuillez saisir le numéro du billet.';
+      });
+      return;
+    }
+
+    if (_isForSomeoneElse && phone.isEmpty) {
+      setState(() {
+        _foundTicket = null;
+        _searchMessage = 'Veuillez saisir le numéro de téléphone.';
+      });
+      return;
+    }
+
+    final ticket = _findTicket(ticketNumber);
+    setState(() {
+      _foundTicket = ticket;
+      _searchMessage = ticket == null ? 'Aucun billet trouvé.' : null;
+    });
+  }
+
+  void _editFoundTicket() {
+    final ticket = _foundTicket;
+    if (ticket == null) return;
+
+    final reservation = _HistoryRepository.reservations.firstWhere(
+      (item) => item.reference == ticket.reference,
+    );
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _EditReservationSheet(
+        reservation: reservation,
+        onSave: (updated) {
+          _HistoryRepository.updateReservation(updated);
+          setState(() {
+            _foundTicket = _findTicket(_ticketNumberController.text.trim());
+          });
+        },
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF7F9FF),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 14, 18, 8),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: _HeaderIconButton(
+                      icon: Icons.arrow_back_rounded,
+                      onTap: () => Navigator.of(context).pop(),
+                    ),
+                  ),
+                  Image.asset(
+                    'assets/images/logo_ticbus_no_background.png',
+                    height: 56,
+                    fit: BoxFit.contain,
+                  ),
+                ],
+              ),
+            ),
+            const Text(
+              'Reprogrammation',
+              style: TextStyle(
+                color: _deepBlue,
+                fontSize: 24,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(18, 18, 18, 26),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(
+                          color: _deepBlue.withValues(alpha: 0.08),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.05),
+                            blurRadius: 18,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _ReprogramTextField(
+                            controller: _ticketNumberController,
+                            label: 'Numéro du billet',
+                            hint: 'Ex: 17600000000001',
+                            icon: Icons.confirmation_number_rounded,
+                          ),
+                          const SizedBox(height: 14),
+                          InkWell(
+                            onTap: () => setState(
+                              () => _isForSomeoneElse = !_isForSomeoneElse,
+                            ),
+                            borderRadius: BorderRadius.circular(18),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 12,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF8FBFF),
+                                borderRadius: BorderRadius.circular(18),
+                                border: Border.all(
+                                  color: _deepBlue.withValues(alpha: 0.10),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Checkbox(
+                                    value: _isForSomeoneElse,
+                                    activeColor: _ticBusRed,
+                                    onChanged: (value) => setState(
+                                      () => _isForSomeoneElse = value ?? false,
+                                    ),
+                                  ),
+                                  const Expanded(
+                                    child: Text(
+                                      'Reprogrammer pour quelqu’un',
+                                      style: TextStyle(
+                                        color: _deepBlue,
+                                        fontSize: 14.5,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          if (_isForSomeoneElse) ...[
+                            const SizedBox(height: 14),
+                            PhoneLoginField(controller: _phoneController),
+                          ],
+                          const SizedBox(height: 18),
+                          SizedBox(
+                            height: 54,
+                            child: ElevatedButton(
+                              onPressed: _searchTicket,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: _ticBusRed,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                              ),
+                              child: const Text(
+                                'Rechercher',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (_searchMessage != null) ...[
+                      const SizedBox(height: 16),
+                      Text(
+                        _searchMessage!,
+                        style: const TextStyle(
+                          color: _ticBusRed,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                    if (_foundTicket != null) ...[
+                      const SizedBox(height: 18),
+                      _TicketVisual(
+                        departure: _foundTicket!.departure,
+                        destination: _foundTicket!.destination,
+                        date: _foundTicket!.date,
+                        time: _foundTicket!.time,
+                        passengerCount: _foundTicket!.passengerCount,
+                        ticketIndex: _foundTicket!.ticketIndex,
+                        beneficiaryName: _foundTicket!.passenger,
+                        total: _foundTicket!.price,
+                        reference:
+                            '${_foundTicket!.reference}${_foundTicket!.ticketIndex}',
+                        primaryActionLabel: '',
+                        onEdit: _editFoundTicket,
+                        showPrimaryAction: false,
+                        showCancelAction: false,
+                        editActionLabel: 'Modifier',
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ReprogramTextField extends StatelessWidget {
+  final TextEditingController controller;
+  final String label;
+  final String hint;
+  final IconData icon;
+
+  const _ReprogramTextField({
+    required this.controller,
+    required this.label,
+    required this.hint,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const deepBlue = Color(0xFF060663);
+
+    return TextField(
+      controller: controller,
+      keyboardType: TextInputType.text,
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        prefixIcon: Icon(icon, color: deepBlue),
+        filled: true,
+        fillColor: const Color(0xFFF8FBFF),
+        labelStyle: const TextStyle(
+          color: deepBlue,
+          fontWeight: FontWeight.w800,
+        ),
+        hintStyle: const TextStyle(color: Color(0xFF9AA3B8)),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: BorderSide(color: deepBlue.withValues(alpha: 0.10)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: const BorderSide(color: Color(0xFFF80C0D), width: 1.5),
+        ),
       ),
     );
   }
@@ -4529,15 +5065,6 @@ class _TicketCard extends StatelessWidget {
   final VoidCallback onChanged;
 
   const _TicketCard({required this.item, required this.onChanged});
-
-  void _showPaymentSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _PaymentMethodSheet(total: item.price),
-    );
-  }
 
   void _editReservation(BuildContext context) {
     final reservation = _HistoryRepository.reservations.firstWhere(
@@ -4557,18 +5084,6 @@ class _TicketCard extends StatelessWidget {
     );
   }
 
-  Future<void> _confirmCancel(BuildContext context) async {
-    final shouldCancel = await _showCancelReservationDialog(context);
-    if (shouldCancel != true) return;
-
-    _HistoryRepository.removeReservation(item.reference);
-    onChanged();
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Réservation annulée.')));
-  }
-
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -4583,11 +5098,12 @@ class _TicketCard extends StatelessWidget {
         beneficiaryName: item.passenger,
         total: item.price,
         reference: '${item.reference}${item.ticketIndex}',
-        primaryActionLabel: 'Effectuer le règlement',
-        onPrimaryAction: () => _showPaymentSheet(context),
+        primaryActionLabel: '',
         onEdit: () => _editReservation(context),
-        onCancel: () => _confirmCancel(context),
         compact: true,
+        showPrimaryAction: false,
+        showCancelAction: false,
+        editActionLabel: 'Modifier',
       ),
     );
   }
@@ -4608,6 +5124,9 @@ class _TicketVisual extends StatelessWidget {
   final VoidCallback? onEdit;
   final VoidCallback? onCancel;
   final bool compact;
+  final bool showPrimaryAction;
+  final bool showCancelAction;
+  final String? editActionLabel;
 
   const _TicketVisual({
     required this.departure,
@@ -4624,6 +5143,9 @@ class _TicketVisual extends StatelessWidget {
     this.onEdit,
     this.onCancel,
     this.compact = false,
+    this.showPrimaryAction = true,
+    this.showCancelAction = true,
+    this.editActionLabel,
   });
 
   @override
@@ -4785,70 +5307,99 @@ class _TicketVisual extends StatelessWidget {
           const SizedBox(height: 20),
           Divider(color: deepBlue.withValues(alpha: 0.12), height: 1),
           const SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity,
-            height: 54,
-            child: ElevatedButton(
-              onPressed: onPrimaryAction,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: red,
-                disabledBackgroundColor: red.withValues(alpha: 0.82),
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+          if (showPrimaryAction) ...[
+            SizedBox(
+              width: double.infinity,
+              height: 54,
+              child: ElevatedButton(
+                onPressed: onPrimaryAction,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: red,
+                  disabledBackgroundColor: red.withValues(alpha: 0.82),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                 ),
-              ),
-              child: Text(
-                primaryActionLabel,
-                style: const TextStyle(
-                  fontSize: 15.5,
-                  fontWeight: FontWeight.w900,
+                child: Text(
+                  primaryActionLabel,
+                  style: const TextStyle(
+                    fontSize: 15.5,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: GestureDetector(
-                  onTap: onCancel,
-                  child: Container(
-                    height: 54,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF5F5F6),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: const Text(
-                      'Annuler ma réservation',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: deepBlue,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w900,
+            const SizedBox(height: 14),
+          ],
+          if (showCancelAction)
+            Row(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTap: onCancel,
+                    child: Container(
+                      height: 54,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF5F5F6),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: const Text(
+                        'Annuler ma réservation',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: deepBlue,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              GestureDetector(
-                onTap: onEdit,
-                child: Container(
-                  width: 54,
-                  height: 54,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFEFE8),
+                const SizedBox(width: 12),
+                GestureDetector(
+                  onTap: onEdit,
+                  child: Container(
+                    width: 54,
+                    height: 54,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFEFE8),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Icon(Icons.edit_rounded, color: red, size: 27),
+                  ),
+                ),
+              ],
+            )
+          else if (onEdit != null)
+            SizedBox(
+              width: double.infinity,
+              height: 54,
+              child: ElevatedButton.icon(
+                onPressed: onEdit,
+                icon: const Icon(Icons.edit_rounded, size: 21),
+                label: Text(
+                  editActionLabel ?? 'Modifier',
+                  style: const TextStyle(
+                    fontSize: 15.5,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: red,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),
-                  child: const Icon(Icons.edit_rounded, color: red, size: 27),
                 ),
               ),
-            ],
-          ),
+            )
+          else
+            const SizedBox.shrink(),
         ],
       ),
     );

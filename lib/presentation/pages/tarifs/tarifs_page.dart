@@ -10,11 +10,39 @@ import 'package:code_initial/widgets/tarifs/tarifs_widgets.dart';
 class TarifsPage extends StatefulWidget {
   final String? initialDepart;
   final String? initialDestination;
+  final void Function(
+    BuildContext context,
+    TarifReservationSelection selection,
+  )?
+  onReserve;
 
-  const TarifsPage({super.key, this.initialDepart, this.initialDestination});
+  const TarifsPage({
+    super.key,
+    this.initialDepart,
+    this.initialDestination,
+    this.onReserve,
+  });
 
   @override
   State<TarifsPage> createState() => _TarifsPageState();
+}
+
+class TarifReservationSelection {
+  final String departure;
+  final String destination;
+  final String date;
+  final String time;
+  final int passengerCount;
+  final int priceAmount;
+
+  const TarifReservationSelection({
+    required this.departure,
+    required this.destination,
+    required this.date,
+    required this.time,
+    required this.passengerCount,
+    required this.priceAmount,
+  });
 }
 
 class _TarifResult {
@@ -175,6 +203,31 @@ class _TarifsPageState extends State<TarifsPage> {
   }
 
   String _formatCfa(int value) => value.toString();
+
+  void _reserveTarif(_TarifResult result) {
+    final selection = TarifReservationSelection(
+      departure: result.from,
+      destination: result.to,
+      date: result.dateDepart,
+      time: result.heureDepart,
+      passengerCount: result.places,
+      priceAmount: result.fraisCfa,
+    );
+
+    final handler = widget.onReserve;
+    if (handler != null) {
+      handler(context, selection);
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+        content: Text('Réservation : ${result.from} → ${result.to}'),
+      ),
+    );
+  }
 
   /// Ouvre une liste de villes en bas de l'écran.
   void _showCityPicker({
@@ -769,17 +822,7 @@ class _TarifsPageState extends State<TarifsPage> {
                             .map(
                               (r) => _TarifResultCard(
                                 result: r,
-                                onReserve: () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      behavior: SnackBarBehavior.floating,
-                                      duration: const Duration(seconds: 2),
-                                      content: Text(
-                                        'Réservation : ${r.from} → ${r.to}',
-                                      ),
-                                    ),
-                                  );
-                                },
+                                onReserve: () => _reserveTarif(r),
                               ),
                             )
                             .toList(),
