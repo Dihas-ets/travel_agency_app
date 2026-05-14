@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'package:code_initial/presentation/pages/tarifs/tarifs_page.dart';
 import 'package:code_initial/widgets/login/login_widgets.dart';
@@ -354,22 +356,38 @@ class _ConnectedHomeContentState extends State<_ConnectedHomeContent> {
   }
 
   Future<void> _checkLocationActive() async {
-    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
+    if (mounted) setState(() => _isLocationActive = null);
+
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled()
+          .timeout(const Duration(seconds: 4));
+      if (!serviceEnabled) {
+        await Geolocator.openLocationSettings();
+        if (mounted) setState(() => _isLocationActive = false);
+        return;
+      }
+
+      var permission = await Geolocator.checkPermission().timeout(
+        const Duration(seconds: 4),
+      );
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission().timeout(
+          const Duration(seconds: 10),
+        );
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        await Geolocator.openAppSettings();
+      }
+
+      final active =
+          permission == LocationPermission.always ||
+          permission == LocationPermission.whileInUse;
+
+      if (mounted) setState(() => _isLocationActive = active);
+    } catch (_) {
       if (mounted) setState(() => _isLocationActive = false);
-      return;
     }
-
-    var permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-    }
-
-    final active =
-        permission == LocationPermission.always ||
-        permission == LocationPermission.whileInUse;
-
-    if (mounted) setState(() => _isLocationActive = active);
   }
 
   @override
@@ -599,7 +617,10 @@ class _ConnectedHomeContentState extends State<_ConnectedHomeContent> {
           if (_isLocationActive == true)
             const _AgencyMapCard()
           else
-            _LocationDisabledCard(isLoading: _isLocationActive == null),
+            _LocationDisabledCard(
+              isLoading: _isLocationActive == null,
+              onEnableLocation: _checkLocationActive,
+            ),
 
           const SizedBox(height: 18),
 
@@ -957,8 +978,12 @@ class _AgencyMapCard extends StatefulWidget {
 
 class _LocationDisabledCard extends StatelessWidget {
   final bool isLoading;
+  final VoidCallback onEnableLocation;
 
-  const _LocationDisabledCard({required this.isLoading});
+  const _LocationDisabledCard({
+    required this.isLoading,
+    required this.onEnableLocation,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1009,35 +1034,67 @@ class _LocationDisabledCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          Container(
-            height: 140,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF8FBFF),
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: isLoading ? null : onEnableLocation,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: const Color(0xFF060663).withValues(alpha: 0.08),
-              ),
-            ),
-            child: Center(
-              child: isLoading
-                  ? const SizedBox(
-                      width: 26,
-                      height: 26,
-                      child: CircularProgressIndicator(strokeWidth: 3),
-                    )
-                  : const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16),
-                      child: Text(
-                        'Activez la localisation pour voir les agences proches.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Color(0xFF5F6B86),
-                          fontSize: 14.5,
-                          fontWeight: FontWeight.w700,
+              child: Ink(
+                height: 140,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FBFF),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: const Color(0xFF060663).withValues(alpha: 0.08),
+                  ),
+                ),
+                child: Center(
+                  child: isLoading
+                      ? const SizedBox(
+                          width: 26,
+                          height: 26,
+                          child: CircularProgressIndicator(strokeWidth: 3),
+                        )
+                      : const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 16),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'Activez la localisation pour voir les agences proches.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Color(0xFF5F6B86),
+                                  fontSize: 14.5,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              SizedBox(height: 12),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.my_location_rounded,
+                                    color: Color(0xFFF80C0D),
+                                    size: 18,
+                                  ),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Réessayer',
+                                    style: TextStyle(
+                                      color: Color(0xFFF80C0D),
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ),
+                ),
+              ),
             ),
           ),
         ],
@@ -1047,6 +1104,66 @@ class _LocationDisabledCard extends StatelessWidget {
 }
 
 class _AgencyMapCardState extends State<_AgencyMapCard> {
+  bool _isOpeningMaps = false;
+
+  Future<void> _openGoogleMaps() async {
+    if (_isOpeningMaps) return;
+
+    setState(() => _isOpeningMaps = true);
+
+    try {
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 5),
+        ),
+      ).timeout(const Duration(seconds: 6));
+
+      final query =
+          'agence TicBus proche @${position.latitude},${position.longitude}';
+      final encodedQuery = Uri.encodeComponent(query);
+      final appUri = Platform.isAndroid
+          ? Uri.parse(
+              'geo:${position.latitude},${position.longitude}?q=$encodedQuery',
+            )
+          : Uri.parse(
+              'https://www.google.com/maps/search/?api=1&query=$encodedQuery',
+            );
+      final webUri = Uri.parse(
+        'https://www.google.com/maps/search/?api=1&query=$encodedQuery',
+      );
+
+      final opened = await launchUrl(
+        appUri,
+        mode: LaunchMode.externalApplication,
+      ).timeout(const Duration(seconds: 5), onTimeout: () => false);
+
+      if (!opened) {
+        await launchUrl(
+          webUri,
+          mode: LaunchMode.externalApplication,
+        ).timeout(const Duration(seconds: 5));
+      }
+    } catch (_) {
+      final fallbackUri = Uri.parse(
+        'https://www.google.com/maps/search/?api=1&query=agence%20TicBus%20proche',
+      );
+      final opened = await launchUrl(
+        fallbackUri,
+        mode: LaunchMode.externalApplication,
+      ).timeout(const Duration(seconds: 5), onTimeout: () => false);
+
+      if (opened || !mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Impossible d'ouvrir Google Maps pour le moment."),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isOpeningMaps = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -1102,27 +1219,176 @@ class _AgencyMapCardState extends State<_AgencyMapCard> {
           ),
           const SizedBox(height: 12),
 
-          // Zone "maps" (placeholder sans lib maps)
-          Container(
-            height: 140,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF8FBFF),
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: _openGoogleMaps,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: const Color(0xFF060663).withValues(alpha: 0.08),
-              ),
-            ),
-            child: const Center(
-              child: Icon(
-                Icons.location_on_rounded,
-                size: 54,
-                color: Color(0xFF060663),
+              child: Ink(
+                height: 154,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FBFF),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: const Color(0xFF060663).withValues(alpha: 0.08),
+                  ),
+                ),
+                child: Stack(
+                  children: [
+                    Positioned(
+                      left: -20,
+                      top: 30,
+                      right: 70,
+                      child: Transform.rotate(
+                        angle: -0.16,
+                        child: Container(
+                          height: 18,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFDCEBFF),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      left: 70,
+                      top: -12,
+                      bottom: -10,
+                      child: Transform.rotate(
+                        angle: 0.34,
+                        child: Container(
+                          width: 18,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE7F0FF),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      right: -28,
+                      bottom: 26,
+                      left: 112,
+                      child: Transform.rotate(
+                        angle: 0.1,
+                        child: Container(
+                          height: 16,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFE6E6),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const Positioned(
+                      left: 36,
+                      top: 28,
+                      child: _AgencyMapPin(label: 'Agence'),
+                    ),
+                    const Positioned(
+                      right: 42,
+                      bottom: 28,
+                      child: _AgencyMapPin(label: 'TicBus'),
+                    ),
+                    Positioned(
+                      right: 12,
+                      top: 12,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.08),
+                              blurRadius: 12,
+                              offset: const Offset(0, 6),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (_isOpeningMaps)
+                              const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Color(0xFF4285F4),
+                                ),
+                              )
+                            else
+                              const Icon(
+                                Icons.open_in_new_rounded,
+                                color: Color(0xFF4285F4),
+                                size: 16,
+                              ),
+                            const SizedBox(width: 6),
+                            Text(
+                              _isOpeningMaps ? 'Ouverture...' : 'Ouvrir Maps',
+                              style: const TextStyle(
+                                color: Color(0xFF060663),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _AgencyMapPin extends StatelessWidget {
+  final String label;
+
+  const _AgencyMapPin({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(999),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.08),
+                blurRadius: 10,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: Color(0xFF060663),
+              fontSize: 11,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+        const Icon(
+          Icons.location_on_rounded,
+          color: Color(0xFFF80C0D),
+          size: 34,
+        ),
+      ],
     );
   }
 }
@@ -5303,7 +5569,9 @@ class _TicketVisual extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 26),
-          _BarcodeStrip(seed: reference),
+          _TicketQrCode(
+            data: '$reference-$ticketIndex-$departure-$destination',
+          ),
           const SizedBox(height: 20),
           Divider(color: deepBlue.withValues(alpha: 0.12), height: 1),
           const SizedBox(height: 20),
@@ -5503,29 +5771,35 @@ class _TicketInfoBlock extends StatelessWidget {
   }
 }
 
-class _BarcodeStrip extends StatelessWidget {
-  final String seed;
+class _TicketQrCode extends StatelessWidget {
+  final String data;
 
-  const _BarcodeStrip({required this.seed});
+  const _TicketQrCode({required this.data});
 
   @override
   Widget build(BuildContext context) {
-    final digits = seed.codeUnits;
+    const dark = Color(0xFF060663);
 
-    return SizedBox(
-      height: 72,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: List.generate(46, (index) {
-          final unit = digits[index % digits.length];
-          final width = 2.0 + ((unit + index) % 4);
-          return Container(
-            width: width,
-            margin: const EdgeInsets.symmetric(horizontal: 1),
-            color: const Color(0xFF060663),
-          );
-        }),
+    return Center(
+      child: Container(
+        width: 118,
+        height: 118,
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: dark.withValues(alpha: 0.12)),
+        ),
+        child: QrImageView(
+          data: data,
+          version: QrVersions.auto,
+          backgroundColor: Colors.white,
+          eyeStyle: const QrEyeStyle(eyeShape: QrEyeShape.square, color: dark),
+          dataModuleStyle: const QrDataModuleStyle(
+            dataModuleShape: QrDataModuleShape.square,
+            color: dark,
+          ),
+        ),
       ),
     );
   }
