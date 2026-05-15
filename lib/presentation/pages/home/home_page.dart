@@ -7,6 +7,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'package:code_initial/presentation/pages/parcel/parcel_pages.dart';
 import 'package:code_initial/presentation/pages/tarifs/tarifs_page.dart';
 import 'package:code_initial/widgets/login/login_widgets.dart';
 import 'package:code_initial/widgets/tarifs/tarifs_widgets.dart';
@@ -153,6 +154,7 @@ class _HomePageState extends State<HomePage> {
     final currentTab = _tabs[_currentIndex];
     final isHomeTab = _currentIndex == 0;
     final isVoyageTab = _currentIndex == 1;
+    final isParcelTab = _currentIndex == 2;
     final isProfileTab = _currentIndex == 3;
 
     return Scaffold(
@@ -241,6 +243,8 @@ class _HomePageState extends State<HomePage> {
                           ? const _ConnectedHomeContent(key: ValueKey('home'))
                           : isVoyageTab
                           ? const _VoyageTabContent(key: ValueKey('voyage'))
+                          : isParcelTab
+                          ? const ParcelMenuContent(key: ValueKey('parcel'))
                           : isProfileTab
                           ? _AccountMenuView(
                               key: const ValueKey('profile-account'),

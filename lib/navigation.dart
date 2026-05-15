@@ -8,6 +8,7 @@ import 'package:code_initial/presentation/pages/login/login_page.dart';
 import 'package:code_initial/presentation/pages/verify_code/verify_code_page.dart';
 import 'package:code_initial/presentation/pages/home/home_page.dart';
 import 'package:code_initial/presentation/pages/forgot_password/forgot_password_page.dart';
+import 'package:code_initial/presentation/pages/parcel/envois_effectues_page.dart';
 
 /// Centralise toutes les pages accessibles avec GetX.
 ///
@@ -30,6 +31,10 @@ class Nav {
     GetPage(name: Routes.VERIFY_CODE, page: () => const VerifyCodePage()),
 
     GetPage(name: Routes.HOME, page: () => const HomePage()),
+    GetPage(
+      name: Routes.ENVOIS_EFFECTUES,
+      page: () => const EnvoisEffectuesPage(),
+    ),
   ];
 }
 
@@ -65,4 +70,7 @@ class Routes {
 
   /// Interface principale après connexion.
   static const HOME = '/home';
+
+  /// Liste des envois effectués.
+  static const ENVOIS_EFFECTUES = '/envois-effectues';
 }
