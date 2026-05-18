@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -5,7 +6,9 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:code_initial/presentation/pages/parcel/colis_attente_page.dart';
 import 'package:code_initial/presentation/pages/parcel/envois_effectues_page.dart';
+import 'package:code_initial/presentation/pages/parcel/parcel_store.dart';
 
 class BilletPage extends StatelessWidget {
   final String code;
@@ -16,6 +19,9 @@ class BilletPage extends StatelessWidget {
   final String recipientPhone;
   final String parcelNature;
   final int parcelCount;
+  final String? attachmentPath;
+  final String? attachmentName;
+  final bool showValidation;
 
   const BilletPage({
     super.key,
@@ -27,7 +33,39 @@ class BilletPage extends StatelessWidget {
     required this.recipientPhone,
     required this.parcelNature,
     required this.parcelCount,
+    this.attachmentPath,
+    this.attachmentName,
+    this.showValidation = true,
   });
+
+  ParcelRecord _toParcelRecord() {
+    return ParcelRecord(
+      code: code,
+      departureCity: departureCity,
+      destinationCity: destinationCity,
+      recipientLastName: recipientLastName,
+      recipientFirstName: recipientFirstName,
+      recipientPhone: recipientPhone,
+      parcelNature: parcelNature,
+      parcelCount: parcelCount,
+      attachmentPath: attachmentPath,
+      attachmentName: attachmentName,
+      createdAt: DateTime.now(),
+      status: showValidation ? 'Enregistré' : 'En attente',
+    );
+  }
+
+  void _openParcelList(BuildContext context) {
+    if (!showValidation) {
+      ParcelStore.upsertPending(_toParcelRecord());
+    }
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ColisAttentePage(initialTabIndex: showValidation ? 0 : 1),
+      ),
+    );
+  }
 
   Future<void> _downloadTicketPdf(
     BuildContext context, {
@@ -64,6 +102,17 @@ class BilletPage extends StatelessWidget {
     final lightRed = PdfColor.fromHex('#FFF1F1');
     final border = PdfColor.fromHex('#E6EAF2');
     final muted = PdfColor.fromHex('#687089');
+    pw.MemoryImage? attachmentImage;
+
+    if (attachmentPath != null && File(attachmentPath!).existsSync()) {
+      try {
+        attachmentImage = pw.MemoryImage(
+          await File(attachmentPath!).readAsBytes(),
+        );
+      } catch (_) {
+        attachmentImage = null;
+      }
+    }
 
     pdf.addPage(
       pw.Page(
@@ -125,64 +174,79 @@ class BilletPage extends StatelessWidget {
                   ],
                 ),
                 pw.SizedBox(height: 28),
-                pw.Center(
-                  child: pw.Column(
-                    children: [
-                      pw.Text(
-                        'Code de validation',
-                        style: pw.TextStyle(
-                          color: muted,
-                          fontSize: 13,
-                          fontWeight: pw.FontWeight.bold,
+                if (showValidation) ...[
+                  pw.Center(
+                    child: pw.Column(
+                      children: [
+                        pw.Text(
+                          'Code de validation',
+                          style: pw.TextStyle(
+                            color: muted,
+                            fontSize: 13,
+                            fontWeight: pw.FontWeight.bold,
+                          ),
                         ),
-                      ),
-                      pw.SizedBox(height: 8),
-                      pw.Text(
-                        code,
-                        textAlign: pw.TextAlign.center,
-                        style: pw.TextStyle(
-                          color: deepBlue,
-                          fontSize: 25,
-                          fontWeight: pw.FontWeight.bold,
+                        pw.SizedBox(height: 8),
+                        pw.Text(
+                          code,
+                          textAlign: pw.TextAlign.center,
+                          style: pw.TextStyle(
+                            color: deepBlue,
+                            fontSize: 25,
+                            fontWeight: pw.FontWeight.bold,
+                          ),
                         ),
-                      ),
-                      pw.SizedBox(height: 18),
-                      pw.BarcodeWidget(
-                        barcode: pw.Barcode.qrCode(),
-                        data: code,
-                        width: 130,
-                        height: 130,
-                      ),
-                    ],
+                        pw.SizedBox(height: 18),
+                        pw.BarcodeWidget(
+                          barcode: pw.Barcode.qrCode(),
+                          data: code,
+                          width: 130,
+                          height: 130,
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                pw.SizedBox(height: 26),
+                  pw.SizedBox(height: 26),
+                ],
                 pw.Container(height: 1, color: border),
                 pw.SizedBox(height: 18),
-                pw.Row(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    pw.Expanded(
-                      child: _pdfInfoBlock('Numero du package', code, deepBlue, muted),
-                    ),
-                    pw.SizedBox(width: 18),
-                    pw.Expanded(
-                      child: _pdfInfoBlock(
-                        'Date d envoi',
-                        '$date a $time',
-                        deepBlue,
-                        muted,
+                if (showValidation)
+                  pw.Row(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Expanded(
+                        child: _pdfInfoBlock(
+                          'Numero du package',
+                          code,
+                          deepBlue,
+                          muted,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
+                      pw.SizedBox(width: 18),
+                      pw.Expanded(
+                        child: _pdfInfoBlock(
+                          'Date d envoi',
+                          '$date a $time',
+                          deepBlue,
+                          muted,
+                        ),
+                      ),
+                    ],
+                  )
+                else
+                  _pdfInfoBlock(
+                    'Date d envoi',
+                    '$date a $time',
+                    deepBlue,
+                    muted,
+                  ),
                 pw.SizedBox(height: 16),
                 pw.Row(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
                     pw.Expanded(
                       child: _pdfInfoBlock(
-                        'Expediteur',
+                        'Destinataire',
                         '$recipientLastName $recipientFirstName'.trim(),
                         deepBlue,
                         muted,
@@ -200,6 +264,29 @@ class BilletPage extends StatelessWidget {
                   ],
                 ),
                 pw.SizedBox(height: 16),
+                if (attachmentImage != null) ...[
+                  _pdfInfoBlock(
+                    'Fichier importe',
+                    attachmentName ?? 'Image du colis',
+                    deepBlue,
+                    muted,
+                  ),
+                  pw.SizedBox(height: 8),
+                  pw.Container(
+                    height: 180,
+                    width: double.infinity,
+                    decoration: pw.BoxDecoration(
+                      border: pw.Border.all(color: border),
+                      borderRadius: pw.BorderRadius.circular(12),
+                    ),
+                    child: pw.ClipRRect(
+                      horizontalRadius: 12,
+                      verticalRadius: 12,
+                      child: pw.Image(attachmentImage, fit: pw.BoxFit.cover),
+                    ),
+                  ),
+                  pw.SizedBox(height: 16),
+                ],
                 pw.Row(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
@@ -292,6 +379,8 @@ class BilletPage extends StatelessWidget {
     const Color deepBlue = Color(0xFF060663);
     const Color logoRed = Color(0xFFF80C0D);
     const Color pageBg = Color(0xFFE8F0FF);
+    final hasAttachment =
+        attachmentPath != null && attachmentPath!.trim().isNotEmpty;
 
     final now = DateTime.now();
     final date =
@@ -353,42 +442,55 @@ class BilletPage extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    Center(
-                      child: Text(
-                        'Code de validation',
-                        style: TextStyle(
-                          color: deepBlue.withValues(alpha: 0.9),
-                          fontWeight: FontWeight.w900,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Center(
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
+                    if (showValidation) ...[
+                      Center(
                         child: Text(
-                          code,
-                          maxLines: 1,
-                          style: const TextStyle(
-                            color: deepBlue,
+                          'Code de validation',
+                          style: TextStyle(
+                            color: deepBlue.withValues(alpha: 0.9),
                             fontWeight: FontWeight.w900,
-                            fontSize: 34,
-                            letterSpacing: 1,
+                            fontSize: 16,
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 14),
-                    Center(
-                      child: QrImageView(
-                        data: code,
-                        version: QrVersions.auto,
-                        size: 180,
-                        padding: const EdgeInsets.all(0),
-                        backgroundColor: Colors.white,
+                      const SizedBox(height: 6),
+                      Center(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            code,
+                            maxLines: 1,
+                            style: const TextStyle(
+                              color: deepBlue,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 34,
+                              letterSpacing: 1,
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
+                      const SizedBox(height: 14),
+                      Center(
+                        child: QrImageView(
+                          data: code,
+                          version: QrVersions.auto,
+                          size: 180,
+                          padding: const EdgeInsets.all(0),
+                          backgroundColor: Colors.white,
+                        ),
+                      ),
+                    ] else
+                      Center(
+                        child: Text(
+                          'Aperçu du billet colis',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: deepBlue.withValues(alpha: 0.9),
+                            fontWeight: FontWeight.w900,
+                            fontSize: 20,
+                          ),
+                        ),
+                      ),
                     const SizedBox(height: 12),
                     Container(
                       width: double.infinity,
@@ -410,70 +512,105 @@ class BilletPage extends StatelessWidget {
                     const SizedBox(height: 14),
                     const Divider(height: 1),
                     const SizedBox(height: 10),
-                    _InfoRow(
-                      leftTitle: 'N° du package',
-                      leftValue: code,
-                      rightTitle: 'Date d’envoi',
-                      rightValue: '$date\n$time',
-                    ),
+                    if (showValidation)
+                      _InfoRow(
+                        leftTitle: 'N° du package',
+                        leftValue: code,
+                        rightTitle: 'Date d’envoi',
+                        rightValue: '$date\n$time',
+                      )
+                    else
+                      _SingleInfoBlock(
+                        title: 'Date d’envoi',
+                        value: '$date\n$time',
+                      ),
                     const SizedBox(height: 10),
                     _InfoRow(
-                      leftTitle: 'Expéditeur',
+                      leftTitle: 'Destinataire',
                       leftValue:
                           '$recipientLastName $recipientFirstName'.trim(),
-                      rightTitle: 'Destinataire',
+                      rightTitle: 'Téléphone',
                       rightValue: recipientPhone,
                       isPhone: true,
                     ),
+                    if (hasAttachment) ...[
+                      const SizedBox(height: 14),
+                      Text(
+                        'Fichier importé',
+                        style: TextStyle(
+                          color: deepBlue.withValues(alpha: 0.75),
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: Image.file(
+                          File(attachmentPath!),
+                          width: double.infinity,
+                          height: 190,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            height: 74,
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF8F9FE),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.insert_drive_file_rounded,
+                                  color: logoRed,
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    attachmentName ?? 'Fichier importé',
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: deepBlue,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 10),
-                    Text(
-                      'Nature du colis',
-                      style: TextStyle(
-                        color: deepBlue.withValues(alpha: 0.75),
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      parcelNature,
-                      style: const TextStyle(
-                        color: deepBlue,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 15,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      'Quantité',
-                      style: TextStyle(
-                        color: deepBlue.withValues(alpha: 0.75),
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'x$parcelCount',
-                      style: TextStyle(
-                        color: deepBlue,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 18,
-                      ),
+                    _InfoRow(
+                      leftTitle: 'Nature du colis',
+                      leftValue: parcelNature,
+                      rightTitle: 'Quantité',
+                      rightValue: 'x$parcelCount',
                     ),
                     const SizedBox(height: 14),
-                    Text(
-                      'Trajet',
-                      style: TextStyle(
-                        color: deepBlue.withValues(alpha: 0.75),
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      '$departureCity → $destinationCity',
-                      style: const TextStyle(
-                        color: deepBlue,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 15,
+                    Center(
+                      child: Column(
+                        children: [
+                          Text(
+                            'Trajet',
+                            style: TextStyle(
+                              color: deepBlue.withValues(alpha: 0.75),
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            '$departureCity → $destinationCity',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: deepBlue,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -519,27 +656,58 @@ class BilletPage extends StatelessWidget {
                     ),
                   ),
                   onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => EnvoisEffectuesPage(
-                          code: code,
-                          departureCity: departureCity,
-                          destinationCity: destinationCity,
-                          recipientLastName: recipientLastName,
-                          recipientFirstName: recipientFirstName,
-                          recipientPhone: recipientPhone,
-                          parcelNature: parcelNature,
-                          parcelCount: parcelCount,
+                    if (showValidation) {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => EnvoisEffectuesPage(
+                            code: code,
+                            departureCity: departureCity,
+                            destinationCity: destinationCity,
+                            recipientLastName: recipientLastName,
+                            recipientFirstName: recipientFirstName,
+                            recipientPhone: recipientPhone,
+                            parcelNature: parcelNature,
+                            parcelCount: parcelCount,
+                          ),
                         ),
-                      ),
-                    );
+                      );
+                      return;
+                    }
+
+                    _openParcelList(context);
                   },
-                  child: const Text('Liste des envois effectués'),
+                  child: Text(
+                    showValidation
+                        ? 'Liste des envois effectués'
+                        : 'Liste des colis en attente',
+                  ),
                 ),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _SingleInfoBlock extends StatelessWidget {
+  final String title;
+  final String value;
+
+  const _SingleInfoBlock({required this.title, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    const deepBlue = Color(0xFF060663);
+
+    return _Block(
+      title: title,
+      value: value,
+      valueStyle: const TextStyle(
+        color: deepBlue,
+        fontWeight: FontWeight.w900,
+        fontSize: 16,
       ),
     );
   }

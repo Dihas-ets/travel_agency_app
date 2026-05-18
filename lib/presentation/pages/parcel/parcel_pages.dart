@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:code_initial/presentation/pages/parcel/billet_page.dart';
 import 'package:code_initial/widgets/common/african_phone_field.dart';
+import 'package:image_picker/image_picker.dart';
 
 const Color _deepBlue = Color(0xFF060663);
 const Color _logoRed = Color(0xFFF80C0D);
-const Color _mutedText = Color(0xFF7B849B);
 const Color _pageBackground = Color(0xFFF8F9FE);
 
 const List<String> _beninCities = [
@@ -146,41 +146,16 @@ class ParcelMenuContent extends StatelessWidget {
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.only(top: 6, bottom: 24),
-      child: Column(
-        children: [
-          _ParcelActionTile(
-            icon: Icons.outbox_rounded,
-            title: 'Envoyer un colis',
-            subtitle: 'Initier un nouvel envoi',
-            onTap: () {
-              Navigator.of(
-                context,
-              ).push(MaterialPageRoute(builder: (_) => const SendParcelPage()));
-            },
-          ),
-          const SizedBox(height: 12),
-          _ParcelActionTile(
-            icon: Icons.manage_search_rounded,
-            title: 'Suivre un colis',
-            subtitle: 'Consulter le statut avec une référence',
-            onTap: () => _showComingSoon(context, 'Suivre un colis'),
-          ),
-          const SizedBox(height: 12),
-          _ParcelActionTile(
-            icon: Icons.playlist_add_check_rounded,
-            title: "Liste des initiations d'envoi",
-            subtitle: 'Retrouver les demandes en cours',
-            onTap: () =>
-                _showComingSoon(context, "Liste des initiations d'envoi"),
-          ),
-          const SizedBox(height: 12),
-          _ParcelActionTile(
-            icon: Icons.inventory_2_rounded,
-            title: 'Mes colis',
-            subtitle: 'Voir vos envois et réceptions',
-            onTap: () => _showComingSoon(context, 'Mes colis'),
-          ),
-        ],
+      child: _ParcelActionsGrid(
+        onSendParcel: () {
+          Navigator.of(
+            context,
+          ).push(MaterialPageRoute(builder: (_) => const SendParcelPage()));
+        },
+        onTrackParcel: () => _showComingSoon(context, 'Suivre un colis'),
+        onInitiations: () =>
+            _showComingSoon(context, "Liste des initiations d'envoi"),
+        onMyParcels: () => _showComingSoon(context, 'Mes colis'),
       ),
     );
   }
@@ -209,8 +184,10 @@ class _SendParcelPageState extends State<SendParcelPage> {
   final TextEditingController _lastNameController = TextEditingController();
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
+  final ImagePicker _imagePicker = ImagePicker();
 
   String? _selectedNature;
+  XFile? _pickedAttachment;
   int _parcelCount = 1;
   int _currentStep = 1;
 
@@ -395,7 +372,14 @@ class _SendParcelPageState extends State<SendParcelPage> {
     setState(() => _currentStep = 2);
   }
 
-  void _generateCode() {
+  Future<void> _pickAttachment() async {
+    final file = await _imagePicker.pickImage(source: ImageSource.gallery);
+    if (file == null) return;
+
+    setState(() => _pickedAttachment = file);
+  }
+
+  void _previewTicket() {
     if (_destinationController.text.trim().isEmpty ||
         _lastNameController.text.trim().isEmpty ||
         _firstNameController.text.trim().isEmpty ||
@@ -403,7 +387,7 @@ class _SendParcelPageState extends State<SendParcelPage> {
         _selectedNature == null ||
         _departureController.text.trim().isEmpty ||
         _valueController.text.trim().isEmpty) {
-      _showRequiredMessage('Remplissez tous les champs avant de générer le billet');
+      _showRequiredMessage("Remplissez tous les champs avant l'aperçu");
       return;
     }
 
@@ -429,6 +413,9 @@ class _SendParcelPageState extends State<SendParcelPage> {
           recipientPhone: _phoneController.text.trim(),
           parcelNature: _selectedNature!,
           parcelCount: _parcelCount,
+          attachmentPath: _pickedAttachment?.path,
+          attachmentName: _pickedAttachment?.name,
+          showValidation: false,
         ),
       ),
     );
@@ -486,11 +473,13 @@ class _SendParcelPageState extends State<SendParcelPage> {
                         lastNameController: _lastNameController,
                         firstNameController: _firstNameController,
                         phoneController: _phoneController,
+                        attachmentName: _pickedAttachment?.name,
                         onDestinationTap: () => _showCityPicker(
                           title: 'Ville de destination',
                           controller: _destinationController,
                         ),
-                        onGenerate: _generateCode,
+                        onPickAttachment: _pickAttachment,
+                        onPreview: _previewTicket,
                         onInitiations: () => _showInitiationsMessage(context),
                       ),
               ),
@@ -584,8 +573,10 @@ class _StepTwoForm extends StatelessWidget {
   final TextEditingController lastNameController;
   final TextEditingController firstNameController;
   final TextEditingController phoneController;
+  final String? attachmentName;
   final VoidCallback onDestinationTap;
-  final VoidCallback onGenerate;
+  final VoidCallback onPickAttachment;
+  final VoidCallback onPreview;
   final VoidCallback onInitiations;
 
   const _StepTwoForm({
@@ -593,8 +584,10 @@ class _StepTwoForm extends StatelessWidget {
     required this.lastNameController,
     required this.firstNameController,
     required this.phoneController,
+    required this.attachmentName,
     required this.onDestinationTap,
-    required this.onGenerate,
+    required this.onPickAttachment,
+    required this.onPreview,
     required this.onInitiations,
     super.key,
   });
@@ -622,9 +615,14 @@ class _StepTwoForm extends StatelessWidget {
           textCapitalization: TextCapitalization.words,
         ),
         const SizedBox(height: 12),
-        SizedBox(height: 66, child: AfricanPhoneField(controller: phoneController)),
+        SizedBox(
+          height: 66,
+          child: AfricanPhoneField(controller: phoneController),
+        ),
+        const SizedBox(height: 12),
+        _AttachmentField(fileName: attachmentName, onTap: onPickAttachment),
         const SizedBox(height: 30),
-        _PrimaryParcelButton(label: 'Générer le code', onPressed: onGenerate),
+        _PrimaryParcelButton(label: 'Aperçu', onPressed: onPreview),
         const SizedBox(height: 14),
         _OutlineParcelButton(
           label: "Liste des initiations d'envoi",
@@ -694,83 +692,218 @@ class _ParcelHeader extends StatelessWidget {
   }
 }
 
+class _ParcelActionsGrid extends StatelessWidget {
+  final VoidCallback onSendParcel;
+  final VoidCallback onTrackParcel;
+  final VoidCallback onInitiations;
+  final VoidCallback onMyParcels;
+
+  const _ParcelActionsGrid({
+    required this.onSendParcel,
+    required this.onTrackParcel,
+    required this.onInitiations,
+    required this.onMyParcels,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FBFF),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: _deepBlue.withValues(alpha: 0.08)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 18,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Vos options colis',
+            style: TextStyle(
+              color: _deepBlue,
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              _ParcelActionTile(
+                icon: Icons.outbox_rounded,
+                title: 'Envoyer',
+                onTap: onSendParcel,
+              ),
+              const SizedBox(width: 12),
+              _ParcelActionTile(
+                icon: Icons.manage_search_rounded,
+                title: 'Suivre',
+                onTap: onTrackParcel,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              _ParcelActionTile(
+                icon: Icons.playlist_add_check_rounded,
+                title: 'Initiations',
+                onTap: onInitiations,
+              ),
+              const SizedBox(width: 12),
+              _ParcelActionTile(
+                icon: Icons.inventory_2_rounded,
+                title: 'Mes colis',
+                onTap: onMyParcels,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ParcelActionTile extends StatelessWidget {
   final IconData icon;
   final String title;
-  final String subtitle;
   final VoidCallback onTap;
 
   const _ParcelActionTile({
     required this.icon,
     required this.title,
-    required this.subtitle,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    return Expanded(
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: onTap,
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 116),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: _deepBlue.withValues(alpha: 0.10)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.06),
+                  blurRadius: 12,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: _logoRed.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: _logoRed.withValues(alpha: 0.35)),
+                  ),
+                  child: Icon(icon, color: _logoRed, size: 20),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: _deepBlue,
+                    fontSize: 12.8,
+                    fontWeight: FontWeight.w900,
+                    height: 1.15,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AttachmentField extends StatelessWidget {
+  final String? fileName;
+  final VoidCallback onTap;
+
+  const _AttachmentField({required this.fileName, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final hasFile = fileName != null && fileName!.trim().isNotEmpty;
+
     return Material(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(14),
       child: InkWell(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(14),
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.all(16),
+          height: 66,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: _deepBlue.withValues(alpha: 0.06)),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: _deepBlue.withValues(alpha: 0.08)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
+                color: _deepBlue.withValues(alpha: 0.04),
                 blurRadius: 14,
-                offset: const Offset(0, 7),
+                offset: const Offset(0, 6),
               ),
             ],
           ),
           child: Row(
             children: [
               Container(
-                width: 48,
-                height: 48,
+                width: 34,
+                height: 34,
                 decoration: BoxDecoration(
-                  color: _logoRed.withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(15),
+                  color: _logoRed.withValues(alpha: 0.09),
+                  borderRadius: BorderRadius.circular(11),
                 ),
-                child: Icon(icon, color: _logoRed, size: 25),
+                child: const Icon(
+                  Icons.upload_file_rounded,
+                  color: _logoRed,
+                  size: 19,
+                ),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 12),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: _deepBlue,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w900,
-                        height: 1.18,
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      subtitle,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: _mutedText,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        height: 1.25,
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  hasFile ? fileName! : 'Importer un fichier ou une image',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: hasFile ? _deepBlue : const Color(0xFF6F7481),
+                    fontSize: 15.5,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
-              const Icon(Icons.chevron_right_rounded, color: _mutedText),
+              Icon(
+                hasFile
+                    ? Icons.check_circle_rounded
+                    : Icons.add_photo_alternate_rounded,
+                color: hasFile ? _logoRed : _deepBlue,
+                size: 24,
+              ),
             ],
           ),
         ),

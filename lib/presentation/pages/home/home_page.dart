@@ -8,6 +8,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:code_initial/presentation/pages/parcel/parcel_pages.dart';
+import 'package:code_initial/presentation/pages/parcel/parcel_store.dart';
 import 'package:code_initial/presentation/pages/tarifs/tarifs_page.dart';
 import 'package:code_initial/widgets/login/login_widgets.dart';
 import 'package:code_initial/widgets/tarifs/tarifs_widgets.dart';
@@ -197,17 +198,7 @@ class _HomePageState extends State<HomePage> {
                       ),
                       Align(
                         alignment: Alignment.centerRight,
-                        child: _HeaderIconButton(
-                          icon: Icons.notifications_none_rounded,
-                          onTap: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Aucune notification'),
-                                duration: Duration(seconds: 2),
-                              ),
-                            );
-                          },
-                        ),
+                        child: const _ParcelNotificationIconButton(),
                       ),
                     ],
                   ),
@@ -5883,6 +5874,63 @@ class _HeaderIconButton extends StatelessWidget {
         ),
         child: Icon(icon, color: const Color(0xFF060663)),
       ),
+    );
+  }
+}
+
+class _ParcelNotificationIconButton extends StatelessWidget {
+  const _ParcelNotificationIconButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<int>(
+      valueListenable: ParcelStore.notificationCount,
+      builder: (context, count, _) {
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            _HeaderIconButton(
+              icon: Icons.notifications_none_rounded,
+              onTap: () {
+                ParcelStore.clearNotifications();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      count == 0
+                          ? 'Aucune notification'
+                          : '$count notification(s) colis consultée(s)',
+                    ),
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              },
+            ),
+            if (count > 0)
+              Positioned(
+                right: -2,
+                top: -2,
+                child: Container(
+                  width: 19,
+                  height: 19,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFF80C0D),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Text(
+                      count > 9 ? '9+' : '$count',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }
