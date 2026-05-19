@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:code_initial/presentation/pages/parcel/billet_page.dart';
 import 'package:code_initial/presentation/pages/parcel/parcel_store.dart';
@@ -28,6 +30,18 @@ class _ColisAttentePageState extends State<ColisAttentePage> {
   void _openPayment(ParcelRecord parcel) async {
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => _ParcelPaymentPage(parcel: parcel)),
+    );
+    if (mounted) setState(() {});
+  }
+
+  void _openPendingDetails(ParcelRecord parcel) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => _PendingParcelDetailsPage(
+          parcel: parcel,
+          onPay: () => _openPayment(parcel),
+        ),
+      ),
     );
     if (mounted) setState(() {});
   }
@@ -120,10 +134,7 @@ class _ColisAttentePageState extends State<ColisAttentePage> {
                           isRegistered: _selectedIndex == 0,
                           onTap: _selectedIndex == 0
                               ? () => _openRegisteredTicket(parcel)
-                              : null,
-                          onPay: _selectedIndex == 1
-                              ? () => _openPayment(parcel)
-                              : null,
+                              : () => _openPendingDetails(parcel),
                         );
                       },
                     ),
@@ -361,13 +372,11 @@ class _ParcelListCard extends StatelessWidget {
   final ParcelRecord parcel;
   final bool isRegistered;
   final VoidCallback? onTap;
-  final VoidCallback? onPay;
 
   const _ParcelListCard({
     required this.parcel,
     required this.isRegistered,
     this.onTap,
-    this.onPay,
   });
 
   @override
@@ -396,20 +405,7 @@ class _ParcelListCard extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Container(
-                    width: 42,
-                    height: 42,
-                    decoration: BoxDecoration(
-                      color: _logoRed.withValues(alpha: 0.10),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Icon(
-                      isRegistered
-                          ? Icons.verified_rounded
-                          : Icons.pending_actions_rounded,
-                      color: _logoRed,
-                    ),
-                  ),
+                  _ParcelThumbnail(parcel: parcel, size: 46),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -467,30 +463,274 @@ class _ParcelListCard extends StatelessWidget {
               ),
               if (!isRegistered) ...[
                 const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: ElevatedButton(
-                    onPressed: onPay,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _logoRed,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      textStyle: const TextStyle(
-                        fontSize: 15.5,
-                        fontWeight: FontWeight.w900,
+                Row(
+                  children: [
+                    Icon(
+                      Icons.touch_app_rounded,
+                      color: _deepBlue.withValues(alpha: 0.56),
+                      size: 18,
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Touchez pour vérifier les informations et payer',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: _deepBlue.withValues(alpha: 0.68),
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                     ),
-                    child: const Text('Payer'),
-                  ),
+                  ],
                 ),
               ],
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _PendingParcelDetailsPage extends StatelessWidget {
+  final ParcelRecord parcel;
+  final VoidCallback onPay;
+
+  const _PendingParcelDetailsPage({
+    required this.parcel,
+    required this.onPay,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: _pageBackground,
+      appBar: AppBar(
+        backgroundColor: _deepBlue,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        title: const Text(
+          'Détails du colis',
+          style: TextStyle(fontWeight: FontWeight.w900),
+        ),
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 26),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Avant le paiement, l'utilisateur revoit exactement les données
+              // saisies dans le formulaire pour éviter les validations trop rapides.
+              _ParcelDetailsCard(parcel: parcel),
+              const SizedBox(height: 22),
+              SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    onPay();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _logoRed,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    textStyle: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  child: const Text('Payer'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ParcelDetailsCard extends StatelessWidget {
+  final ParcelRecord parcel;
+
+  const _ParcelDetailsCard({required this.parcel});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _deepBlue.withValues(alpha: 0.08)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _ParcelImageBanner(parcel: parcel),
+          const SizedBox(height: 16),
+          _DetailRow(label: 'Code', value: parcel.code),
+          _DetailRow(label: 'Départ', value: parcel.departureCity),
+          _DetailRow(label: 'Destination', value: parcel.destinationCity),
+          _DetailRow(label: 'Nom', value: parcel.recipientLastName),
+          _DetailRow(label: 'Prénom', value: parcel.recipientFirstName),
+          _DetailRow(label: 'Téléphone', value: parcel.recipientPhone),
+          _DetailRow(label: 'Nature', value: parcel.parcelNature),
+          _DetailRow(label: 'Nombre de colis', value: 'x${parcel.parcelCount}'),
+          _DetailRow(
+            label: 'Image importée',
+            value: parcel.attachmentName ?? 'Image du colis',
+            isLast: true,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DetailRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool isLast;
+
+  const _DetailRow({
+    required this.label,
+    required this.value,
+    this.isLast = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: isLast ? 0 : 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 118,
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: _mutedText,
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value.trim().isEmpty ? '-' : value,
+              style: const TextStyle(
+                color: _deepBlue,
+                fontSize: 14.5,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ParcelImageBanner extends StatelessWidget {
+  final ParcelRecord parcel;
+
+  const _ParcelImageBanner({required this.parcel});
+
+  @override
+  Widget build(BuildContext context) {
+    final path = parcel.attachmentPath;
+
+    if (path == null || path.trim().isEmpty) {
+      return _ImageFallback(height: 180, iconSize: 42);
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(18),
+      child: Image.file(
+        File(path),
+        width: double.infinity,
+        height: 210,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => _ImageFallback(height: 180, iconSize: 42),
+      ),
+    );
+  }
+}
+
+class _ParcelThumbnail extends StatelessWidget {
+  final ParcelRecord parcel;
+  final double size;
+
+  const _ParcelThumbnail({required this.parcel, required this.size});
+
+  @override
+  Widget build(BuildContext context) {
+    final path = parcel.attachmentPath;
+
+    if (path == null || path.trim().isEmpty) {
+      return _ImageFallback(height: size, width: size, iconSize: 22);
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: Image.file(
+        File(path),
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => _ImageFallback(
+          height: size,
+          width: size,
+          iconSize: 22,
+        ),
+      ),
+    );
+  }
+}
+
+class _ImageFallback extends StatelessWidget {
+  final double height;
+  final double? width;
+  final double iconSize;
+
+  const _ImageFallback({
+    required this.height,
+    this.width,
+    required this.iconSize,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: width ?? double.infinity,
+      height: height,
+      decoration: BoxDecoration(
+        color: _logoRed.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _logoRed.withValues(alpha: 0.22)),
+      ),
+      child: Icon(
+        Icons.inventory_2_rounded,
+        color: _logoRed,
+        size: iconSize,
       ),
     );
   }
@@ -648,19 +888,7 @@ class _NotificationBell extends StatelessWidget {
           children: [
             _IconButton(
               icon: Icons.notifications_none_rounded,
-              onTap: () {
-                ParcelStore.clearNotifications();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      count == 0
-                          ? 'Aucune notification'
-                          : '$count notification(s) colis consultée(s)',
-                    ),
-                    backgroundColor: _deepBlue,
-                  ),
-                );
-              },
+              onTap: () => _showNotifications(context),
             ),
             if (count > 0)
               Positioned(
@@ -688,6 +916,147 @@ class _NotificationBell extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+
+  void _showNotifications(BuildContext context) {
+    final notifications = List<ParcelRecord>.from(ParcelStore.notifications);
+    ParcelStore.clearNotifications();
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) {
+        return SafeArea(
+          child: Container(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.72,
+            ),
+            padding: const EdgeInsets.fromLTRB(18, 10, 18, 20),
+            decoration: const BoxDecoration(
+              color: _pageBackground,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 44,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: _deepBlue.withValues(alpha: 0.16),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                const Text(
+                  'Notifications',
+                  style: TextStyle(
+                    color: _deepBlue,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                if (notifications.isEmpty)
+                  const _NotificationEmptyState()
+                else
+                  Flexible(
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      physics: const BouncingScrollPhysics(),
+                      itemCount: notifications.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 10),
+                      itemBuilder: (context, index) {
+                        return _NotificationTile(parcel: notifications[index]);
+                      },
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _NotificationTile extends StatelessWidget {
+  final ParcelRecord parcel;
+
+  const _NotificationTile({required this.parcel});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _deepBlue.withValues(alpha: 0.08)),
+      ),
+      child: Row(
+        children: [
+          _ParcelThumbnail(parcel: parcel, size: 44),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  parcel.status,
+                  style: const TextStyle(
+                    color: _deepBlue,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${parcel.parcelNature} vers ${parcel.destinationCity}',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: _mutedText,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NotificationEmptyState extends StatelessWidget {
+  const _NotificationEmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 26, horizontal: 18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _deepBlue.withValues(alpha: 0.08)),
+      ),
+      child: const Text(
+        'Aucune notification pour le moment',
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          color: _mutedText,
+          fontSize: 15,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
     );
   }
 }

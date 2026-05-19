@@ -57,6 +57,7 @@ class ParcelStore {
   static final ValueNotifier<int> notificationCount = ValueNotifier<int>(0);
   static final List<ParcelRecord> pendingParcels = [];
   static final List<ParcelRecord> registeredParcels = [];
+  static final List<ParcelRecord> notifications = [];
 
   static void upsertPending(ParcelRecord parcel) {
     if (registeredParcels.any((item) => item.code == parcel.code)) return;
@@ -82,6 +83,10 @@ class ParcelStore {
       registeredParcels[index] = registered;
     }
 
+    // La cloche affiche les derniers colis finalisés. On garde la liste en
+    // mémoire pour que le clic montre un vrai contenu au lieu d'un simple badge.
+    notifications.removeWhere((item) => item.code == registered.code);
+    notifications.insert(0, registered);
     notificationCount.value += 1;
   }
 

@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:code_initial/presentation/pages/parcel/billet_page.dart';
+import 'package:code_initial/presentation/pages/parcel/colis_attente_page.dart';
 import 'package:code_initial/widgets/common/african_phone_field.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -153,9 +156,16 @@ class ParcelMenuContent extends StatelessWidget {
           ).push(MaterialPageRoute(builder: (_) => const SendParcelPage()));
         },
         onTrackParcel: () => _showComingSoon(context, 'Suivre un colis'),
-        onInitiations: () =>
-            _showComingSoon(context, "Liste des initiations d'envoi"),
+        onInitiations: () => _openPendingParcels(context),
         onMyParcels: () => _showComingSoon(context, 'Mes colis'),
+      ),
+    );
+  }
+
+  void _openPendingParcels(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const ColisAttentePage(initialTabIndex: 1),
       ),
     );
   }
@@ -384,10 +394,13 @@ class _SendParcelPageState extends State<SendParcelPage> {
         _lastNameController.text.trim().isEmpty ||
         _firstNameController.text.trim().isEmpty ||
         _phoneController.text.trim().isEmpty ||
+        _pickedAttachment == null ||
         _selectedNature == null ||
         _departureController.text.trim().isEmpty ||
         _valueController.text.trim().isEmpty) {
-      _showRequiredMessage("Remplissez tous les champs avant l'aperçu");
+      _showRequiredMessage(
+        "Remplissez tous les champs et importez l'image du colis avant l'aperçu",
+      );
       return;
     }
 
@@ -473,6 +486,7 @@ class _SendParcelPageState extends State<SendParcelPage> {
                         lastNameController: _lastNameController,
                         firstNameController: _firstNameController,
                         phoneController: _phoneController,
+                        attachmentPath: _pickedAttachment?.path,
                         attachmentName: _pickedAttachment?.name,
                         onDestinationTap: () => _showCityPicker(
                           title: 'Ville de destination',
@@ -491,10 +505,9 @@ class _SendParcelPageState extends State<SendParcelPage> {
   }
 
   void _showInitiationsMessage(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text("Liste des initiations d'envoi bientôt disponible"),
-        backgroundColor: _deepBlue,
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const ColisAttentePage(initialTabIndex: 1),
       ),
     );
   }
@@ -573,6 +586,7 @@ class _StepTwoForm extends StatelessWidget {
   final TextEditingController lastNameController;
   final TextEditingController firstNameController;
   final TextEditingController phoneController;
+  final String? attachmentPath;
   final String? attachmentName;
   final VoidCallback onDestinationTap;
   final VoidCallback onPickAttachment;
@@ -584,6 +598,7 @@ class _StepTwoForm extends StatelessWidget {
     required this.lastNameController,
     required this.firstNameController,
     required this.phoneController,
+    required this.attachmentPath,
     required this.attachmentName,
     required this.onDestinationTap,
     required this.onPickAttachment,
@@ -620,7 +635,13 @@ class _StepTwoForm extends StatelessWidget {
           child: AfricanPhoneField(controller: phoneController),
         ),
         const SizedBox(height: 12),
-        _AttachmentField(fileName: attachmentName, onTap: onPickAttachment),
+        // L'image sert de preuve visuelle du colis : on la met donc en avant
+        // et le bouton Aperçu la rend obligatoire dans la validation.
+        _AttachmentField(
+          fileName: attachmentName,
+          filePath: attachmentPath,
+          onTap: onPickAttachment,
+        ),
         const SizedBox(height: 30),
         _PrimaryParcelButton(label: 'Aperçu', onPressed: onPreview),
         const SizedBox(height: 14),
@@ -841,9 +862,14 @@ class _ParcelActionTile extends StatelessWidget {
 
 class _AttachmentField extends StatelessWidget {
   final String? fileName;
+  final String? filePath;
   final VoidCallback onTap;
 
-  const _AttachmentField({required this.fileName, required this.onTap});
+  const _AttachmentField({
+    required this.fileName,
+    required this.filePath,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -851,52 +877,78 @@ class _AttachmentField extends StatelessWidget {
 
     return Material(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(18),
       child: InkWell(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(18),
         onTap: onTap,
-        child: Container(
-          height: 66,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          constraints: BoxConstraints(minHeight: hasFile ? 118 : 82),
+          padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: _deepBlue.withValues(alpha: 0.08)),
+            color: hasFile
+                ? _logoRed.withValues(alpha: 0.035)
+                : Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: hasFile
+                  ? _logoRed.withValues(alpha: 0.52)
+                  : _deepBlue.withValues(alpha: 0.12),
+              width: hasFile ? 1.6 : 1,
+            ),
             boxShadow: [
               BoxShadow(
-                color: _deepBlue.withValues(alpha: 0.04),
-                blurRadius: 14,
-                offset: const Offset(0, 6),
+                color: hasFile
+                    ? _logoRed.withValues(alpha: 0.10)
+                    : _deepBlue.withValues(alpha: 0.04),
+                blurRadius: hasFile ? 18 : 14,
+                offset: const Offset(0, 8),
               ),
             ],
           ),
           child: Row(
             children: [
-              Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: _logoRed.withValues(alpha: 0.09),
-                  borderRadius: BorderRadius.circular(11),
-                ),
-                child: const Icon(
-                  Icons.upload_file_rounded,
-                  color: _logoRed,
-                  size: 19,
-                ),
+              _AttachmentPreview(
+                filePath: filePath,
+                hasFile: hasFile,
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 14),
               Expanded(
-                child: Text(
-                  hasFile ? fileName! : 'Importer un fichier ou une image',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: hasFile ? _deepBlue : const Color(0xFF6F7481),
-                    fontSize: 15.5,
-                    fontWeight: FontWeight.w800,
-                  ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      hasFile
+                          ? 'Image du colis importée'
+                          : 'Importer image du colis',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: hasFile ? _deepBlue : const Color(0xFF6F7481),
+                        fontSize: 15.5,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      hasFile
+                          ? fileName!
+                          : "Champ obligatoire avant l'aperçu du billet",
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: hasFile
+                            ? _deepBlue.withValues(alpha: 0.66)
+                            : _logoRed.withValues(alpha: 0.82),
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
                 ),
               ),
+              const SizedBox(width: 10),
               Icon(
                 hasFile
                     ? Icons.check_circle_rounded
@@ -905,6 +957,55 @@ class _AttachmentField extends StatelessWidget {
                 size: 24,
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AttachmentPreview extends StatelessWidget {
+  final String? filePath;
+  final bool hasFile;
+
+  const _AttachmentPreview({required this.filePath, required this.hasFile});
+
+  @override
+  Widget build(BuildContext context) {
+    if (!hasFile || filePath == null || filePath!.trim().isEmpty) {
+      return Container(
+        width: 52,
+        height: 52,
+        decoration: BoxDecoration(
+          color: _logoRed.withValues(alpha: 0.09),
+          borderRadius: BorderRadius.circular(15),
+        ),
+        child: const Icon(
+          Icons.upload_file_rounded,
+          color: _logoRed,
+          size: 24,
+        ),
+      );
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(15),
+      child: Image.file(
+        File(filePath!),
+        width: 72,
+        height: 72,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => Container(
+          width: 72,
+          height: 72,
+          decoration: BoxDecoration(
+            color: _logoRed.withValues(alpha: 0.09),
+            borderRadius: BorderRadius.circular(15),
+          ),
+          child: const Icon(
+            Icons.insert_photo_rounded,
+            color: _logoRed,
+            size: 24,
           ),
         ),
       ),
