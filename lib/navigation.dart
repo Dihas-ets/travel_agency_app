@@ -5,8 +5,10 @@ import 'package:code_initial/presentation/pages/welcome/welcome_page.dart';
 import 'package:code_initial/presentation/pages/onboarding/onboarding_page.dart';
 import 'package:code_initial/presentation/pages/register/register_page.dart';
 import 'package:code_initial/presentation/pages/login/login_page.dart';
+import 'package:code_initial/presentation/pages/login/collector_password_page.dart';
 import 'package:code_initial/presentation/pages/verify_code/verify_code_page.dart';
 import 'package:code_initial/presentation/pages/home/home_page.dart';
+import 'package:code_initial/presentation/pages/collector/collector_home_page.dart';
 import 'package:code_initial/presentation/pages/forgot_password/forgot_password_page.dart';
 import 'package:code_initial/presentation/pages/parcel/envois_effectues_page.dart';
 
@@ -22,6 +24,11 @@ class Nav {
     GetPage(name: Routes.LOGIN, page: () => const LoginPage()),
 
     GetPage(
+      name: Routes.COLLECTOR_PASSWORD,
+      page: () => const CollectorPasswordPage(),
+    ),
+
+    GetPage(
       name: Routes.FORGOT_PASSWORD,
       page: () => const ForgotPasswordPage(),
     ),
@@ -31,6 +38,8 @@ class Nav {
     GetPage(name: Routes.VERIFY_CODE, page: () => const VerifyCodePage()),
 
     GetPage(name: Routes.HOME, page: () => const HomePage()),
+
+    GetPage(name: Routes.COLLECTOR_HOME, page: () => const CollectorHomePage()),
     GetPage(
       name: Routes.ENVOIS_EFFECTUES,
       page: () => const EnvoisEffectuesPage(),
@@ -56,6 +65,9 @@ class Routes {
   /// Page de connexion.
   static const LOGIN = '/login';
 
+  /// Saisie du mot de passe percepteur après le numéro.
+  static const COLLECTOR_PASSWORD = '/collector-password';
+
   /// Page de réinitialisation du mot de passe.
   static const FORGOT_PASSWORD = '/forgot-password';
 
@@ -70,6 +82,9 @@ class Routes {
 
   /// Interface principale après connexion.
   static const HOME = '/home';
+
+  /// Interface principale du percepteur.
+  static const COLLECTOR_HOME = '/collector-home';
 
   /// Liste des envois effectués.
   static const ENVOIS_EFFECTUES = '/envois-effectues';

@@ -5955,6 +5955,10 @@ class _MainMenuSheetState extends State<_MainMenuSheet> {
     );
   }
 
+  void _logout() {
+    Navigator.of(context).pushNamedAndRemoveUntil('/welcomepage', (_) => false);
+  }
+
   @override
   Widget build(BuildContext context) {
     return DraggableScrollableSheet(
@@ -5981,6 +5985,7 @@ class _MainMenuSheetState extends State<_MainMenuSheet> {
                     onClose: () => Navigator.pop(context),
                     onAccountTap: () => setState(() => _showAccount = true),
                     onTermsTap: _showTerms,
+                    onLogoutTap: _logout,
                   ),
           ),
         );
@@ -5994,12 +5999,14 @@ class _MainMenuView extends StatelessWidget {
   final VoidCallback onClose;
   final VoidCallback onAccountTap;
   final VoidCallback onTermsTap;
+  final VoidCallback onLogoutTap;
 
   const _MainMenuView({
     required this.scrollController,
     required this.onClose,
     required this.onAccountTap,
     required this.onTermsTap,
+    required this.onLogoutTap,
     super.key,
   });
 
@@ -6067,6 +6074,11 @@ class _MainMenuView extends StatelessWidget {
             icon: Icons.description_outlined,
             title: "Conditions d'utilisation",
             onTap: onTermsTap,
+          ),
+          _MenuOptionTile(
+            icon: Icons.logout_rounded,
+            title: 'Déconnexion',
+            onTap: onLogoutTap,
           ),
           const SizedBox(height: 18),
           TextButton.icon(

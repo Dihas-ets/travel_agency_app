@@ -1,57 +1,42 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:code_initial/data/local/auth_local_store.dart';
 import 'package:code_initial/navigation.dart';
 import 'package:code_initial/widgets/login/login_widgets.dart';
 
-/// Page de connexion.
-///
-/// Elle demande d'abord un numéro de téléphone.
-/// Les clients inscrits continuent par OTP, les percepteurs par mot de passe.
-class LoginPage extends StatefulWidget {
-  const LoginPage({super.key});
+class CollectorPasswordPage extends StatefulWidget {
+  const CollectorPasswordPage({super.key});
 
   @override
-  State<LoginPage> createState() => _LoginPageState();
+  State<CollectorPasswordPage> createState() => _CollectorPasswordPageState();
 }
 
-class _LoginPageState extends State<LoginPage> {
-  final TextEditingController _telephoneController = TextEditingController();
+class _CollectorPasswordPageState extends State<CollectorPasswordPage> {
+  final TextEditingController _passwordController = TextEditingController();
 
-  /// Libère les contrôleurs quand la page est retirée de l'arbre Flutter.
   @override
   void dispose() {
-    _telephoneController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 
-  Future<void> _continuer() async {
-    final telephone = _telephoneController.text.trim();
-
-    if (telephone.isEmpty) {
+  void _seConnecter() {
+    if (_passwordController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("Veuillez entrer votre numéro de téléphone."),
+          content: Text('Veuillez entrer votre mot de passe.'),
           backgroundColor: Color(0xFFF80C0D),
         ),
       );
       return;
     }
 
-    final isClient = await AuthLocalStore.isRegisteredClientPhone(telephone);
-    if (isClient) {
-      Get.toNamed(
-        Routes.VERIFY_CODE,
-        arguments: {'flow': 'login', 'phone': telephone},
-      );
-      return;
-    }
-
-    Get.toNamed(Routes.COLLECTOR_PASSWORD, arguments: {'phone': telephone});
+    Get.offAllNamed(Routes.COLLECTOR_HOME);
   }
 
   @override
   Widget build(BuildContext context) {
+    final phone = (Get.arguments as Map?)?['phone']?.toString() ?? '';
+
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -64,23 +49,18 @@ class _LoginPageState extends State<LoginPage> {
         ),
         child: SafeArea(
           child: SingleChildScrollView(
-            // Le scroll évite que les champs soient masqués par le clavier.
-            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+            padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 10),
-
-                // Bouton retour + Logo TicBus
                 const LoginHeader(),
-
                 const SizedBox(height: 36),
-
                 const Center(
                   child: Column(
                     children: [
                       Text(
-                        "Se connecter",
+                        'Connexion percepteur',
                         style: TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.w900,
@@ -89,7 +69,7 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                       SizedBox(height: 8),
                       Text(
-                        "Retrouvez vos trajets et vos services TicBus.",
+                        'Entrez votre mot de passe pour accéder à votre espace.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 14,
@@ -100,9 +80,7 @@ class _LoginPageState extends State<LoginPage> {
                     ],
                   ),
                 ),
-
                 const SizedBox(height: 30),
-
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(20),
@@ -124,31 +102,46 @@ class _LoginPageState extends State<LoginPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Libellé du champ téléphone.
+                      if (phone.isNotEmpty) ...[
+                        Text(
+                          phone,
+                          style: const TextStyle(
+                            color: Color(0xFF5F6B86),
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                      ],
                       const Text(
-                        "Numéro de téléphone",
+                        'Mot de passe',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
                           color: Color(0xFF060663),
                         ),
                       ),
-
                       const SizedBox(height: 10),
-
-                      PhoneLoginField(controller: _telephoneController),
+                      PasswordField(controller: _passwordController),
+                      const SizedBox(height: 14),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: GestureDetector(
+                          onTap: () => Get.toNamed(Routes.FORGOT_PASSWORD),
+                          child: const Text(
+                            'Mot de passe oublié ?',
+                            style: TextStyle(
+                              color: Color(0xFFF80C0D),
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
-
                 const SizedBox(height: 28),
-
-                LoginButton(
-                  onPressed: _continuer,
-                  label: 'Suivant',
-                  icon: Icons.arrow_forward_rounded,
-                ),
-
+                LoginButton(onPressed: _seConnecter),
                 const SizedBox(height: 24),
               ],
             ),

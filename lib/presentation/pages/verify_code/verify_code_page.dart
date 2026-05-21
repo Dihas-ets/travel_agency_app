@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:get/get.dart';
+import 'package:code_initial/navigation.dart';
 
 /// Page de vérification du code reçu par téléphone.
 ///
@@ -44,6 +46,21 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
     if (value.isEmpty && index > 0) {
       _focusNodes[index - 1].requestFocus();
     }
+  }
+
+  void _validerCode() {
+    final code = _controllers.map((controller) => controller.text).join();
+    if (code.length != 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Veuillez entrer le code à 6 chiffres.'),
+          backgroundColor: Color(0xFFF80C0D),
+        ),
+      );
+      return;
+    }
+
+    Get.offAllNamed(Routes.HOME);
   }
 
   @override
@@ -283,9 +300,7 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
                   width: double.infinity,
                   height: 58,
                   child: ElevatedButton(
-                    onPressed: () {
-                      // Ici on peut ajouter la logique de validation du code.
-                    },
+                    onPressed: _validerCode,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFFF80C0D),
                       shape: RoundedRectangleBorder(

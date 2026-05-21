@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:code_initial/data/local/auth_local_store.dart';
 import 'package:code_initial/navigation.dart';
 // Import de tous les widgets de ce dossier
 import 'package:code_initial/widgets/register/register_widgets.dart';
 
 /// Page de création de compte.
 ///
-/// Elle récupère le nom, le prénom, le téléphone et le mot de passe de
-/// l'utilisateur avant d'envoyer vers la page de vérification du code.
+/// Elle récupère le nom, le prénom et le téléphone de l'utilisateur avant
+/// d'envoyer vers la page de vérification du code.
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
 
@@ -20,7 +21,6 @@ class _RegisterPageState extends State<RegisterPage> {
   final TextEditingController _nomController = TextEditingController();
   final TextEditingController _prenomController = TextEditingController();
   final TextEditingController _telephoneController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
 
   /// Libère les contrôleurs pour éviter de garder des ressources inutiles.
   @override
@@ -28,21 +28,16 @@ class _RegisterPageState extends State<RegisterPage> {
     _nomController.dispose();
     _prenomController.dispose();
     _telephoneController.dispose();
-    _passwordController.dispose();
     super.dispose();
   }
 
   /// Valide les champs obligatoires avant d'envoyer l'utilisateur au code.
-  void _envoyerCode() {
+  Future<void> _envoyerCode() async {
     final nom = _nomController.text.trim();
     final prenom = _prenomController.text.trim();
     final telephone = _telephoneController.text.trim();
-    final password = _passwordController.text.trim();
 
-    if (nom.isEmpty ||
-        prenom.isEmpty ||
-        telephone.isEmpty ||
-        password.isEmpty) {
+    if (nom.isEmpty || prenom.isEmpty || telephone.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
@@ -54,7 +49,12 @@ class _RegisterPageState extends State<RegisterPage> {
       return;
     }
 
-    Get.toNamed(Routes.VERIFY_CODE);
+    await AuthLocalStore.saveClientPhone(telephone);
+
+    Get.toNamed(
+      Routes.VERIFY_CODE,
+      arguments: {'flow': 'register', 'phone': telephone},
+    );
   }
 
   @override
@@ -163,11 +163,6 @@ class _RegisterPageState extends State<RegisterPage> {
 
                       // Champ téléphone avec sélection du pays par drapeau.
                       PhoneInputField(controller: _telephoneController),
-
-                      const SizedBox(height: 18),
-
-                      // Champ mot de passe.
-                      RegisterPasswordField(controller: _passwordController),
 
                       const SizedBox(height: 18),
 

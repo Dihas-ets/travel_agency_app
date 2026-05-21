@@ -1,0 +1,4141 @@
+import 'dart:async';
+import 'dart:typed_data';
+
+import 'package:flutter/material.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
+
+class CollectorHomePage extends StatefulWidget {
+  const CollectorHomePage({super.key});
+
+  @override
+  State<CollectorHomePage> createState() => _CollectorHomePageState();
+}
+
+class _CollectorHomePageState extends State<CollectorHomePage> {
+  int _currentIndex = 0;
+
+  final List<_CollectorTab> _tabs = const [
+    _CollectorTab('Voyage', Icons.directions_bus_filled_rounded),
+    _CollectorTab('Colis', Icons.inventory_2_rounded),
+    _CollectorTab('Depense', Icons.payments_rounded),
+    _CollectorTab('Profil', Icons.person_rounded),
+  ];
+
+  void _openMainMenu() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const _CollectorMainMenuSheet(),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final currentTab = _tabs[_currentIndex];
+
+    return Scaffold(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFF8FBFF), Color(0xFFFFFFFF), Color(0xFFFFF9F5)],
+          ),
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(22, 12, 22, 18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: _CollectorHeaderIconButton(
+                        icon: Icons.menu_rounded,
+                        onTap: _openMainMenu,
+                      ),
+                    ),
+                    Image.asset(
+                      'assets/images/logo_ticbus_no_background.png',
+                      height: 64,
+                      fit: BoxFit.contain,
+                    ),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: _CollectorNotificationIconButton(),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                const Text(
+                  'Espace percepteur',
+                  style: TextStyle(
+                    color: Color(0xFF060663),
+                    fontSize: 28,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  currentTab.title,
+                  style: const TextStyle(
+                    color: Color(0xFF5F6B86),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Expanded(child: _CollectorTabContent(tab: currentTab)),
+              ],
+            ),
+          ),
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Container(
+          margin: const EdgeInsets.fromLTRB(18, 0, 18, 14),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(26),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF060663).withValues(alpha: 0.12),
+                blurRadius: 24,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Row(
+            children: List.generate(_tabs.length, (index) {
+              final tab = _tabs[index];
+              final isActive = index == _currentIndex;
+
+              return Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() => _currentIndex = index),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 220),
+                    padding: const EdgeInsets.symmetric(vertical: 7),
+                    decoration: BoxDecoration(
+                      color: isActive
+                          ? const Color(0xFF060663)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          tab.icon,
+                          color: isActive
+                              ? Colors.white
+                              : const Color(0xFF7B849B),
+                          size: 20,
+                        ),
+                        const SizedBox(height: 2),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            tab.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: isActive
+                                  ? Colors.white
+                                  : const Color(0xFF7B849B),
+                              fontSize: 10.8,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CollectorNotificationStore {
+  static final ValueNotifier<int> count = ValueNotifier<int>(3);
+
+  static void add() => count.value += 1;
+
+  static void clear() => count.value = 0;
+}
+
+class _CollectorTabContent extends StatelessWidget {
+  final _CollectorTab tab;
+
+  const _CollectorTabContent({required this.tab});
+
+  @override
+  Widget build(BuildContext context) {
+    if (tab.title == 'Voyage') {
+      return const _CollectorVoyageContent();
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.68),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.86),
+          width: 1.1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(tab.icon, color: const Color(0xFFF80C0D), size: 34),
+          const SizedBox(height: 14),
+          Text(
+            tab.title,
+            style: const TextStyle(
+              color: Color(0xFF060663),
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _descriptionFor(tab.title),
+            style: const TextStyle(
+              color: Color(0xFF5F6B86),
+              fontSize: 14.5,
+              height: 1.45,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _descriptionFor(String title) {
+    switch (title) {
+      case 'Voyage':
+        return 'Gestion des voyages et des opérations liées aux tickets.';
+      case 'Colis':
+        return 'Suivi et traitement des colis confiés au percepteur.';
+      case 'Depense':
+        return 'Consultation et saisie des dépenses de service.';
+      default:
+        return 'Informations et paramètres du compte percepteur.';
+    }
+  }
+}
+
+class _CollectorHeaderIconButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _CollectorHeaderIconButton({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 46,
+        height: 46,
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.72),
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.08),
+              blurRadius: 12,
+              offset: const Offset(0, 5),
+            ),
+          ],
+        ),
+        child: Icon(icon, color: const Color(0xFF060663)),
+      ),
+    );
+  }
+}
+
+class _CollectorNotificationIconButton extends StatefulWidget {
+  const _CollectorNotificationIconButton();
+
+  @override
+  State<_CollectorNotificationIconButton> createState() =>
+      _CollectorNotificationIconButtonState();
+}
+
+class _CollectorNotificationIconButtonState
+    extends State<_CollectorNotificationIconButton> {
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<int>(
+      valueListenable: _CollectorNotificationStore.count,
+      builder: (context, count, _) {
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            _CollectorHeaderIconButton(
+              icon: Icons.notifications_none_rounded,
+              onTap: () {
+                _CollectorNotificationStore.clear();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      count == 0
+                          ? 'Aucune notification'
+                          : '$count notification(s) consultée(s)',
+                    ),
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              },
+            ),
+            if (count > 0)
+              Positioned(
+                right: -2,
+                top: -2,
+                child: Container(
+                  width: 19,
+                  height: 19,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFF80C0D),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Text(
+                      count > 9 ? '9+' : '$count',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _CollectorMainMenuSheet extends StatefulWidget {
+  const _CollectorMainMenuSheet();
+
+  @override
+  State<_CollectorMainMenuSheet> createState() =>
+      _CollectorMainMenuSheetState();
+}
+
+class _CollectorMainMenuSheetState extends State<_CollectorMainMenuSheet> {
+  bool _showProfile = false;
+
+  void _showTerms() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const _CollectorTermsSheet(),
+    );
+  }
+
+  void _logout() {
+    Navigator.of(context).pushNamedAndRemoveUntil('/welcomepage', (_) => false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.76,
+      minChildSize: 0.48,
+      maxChildSize: 0.92,
+      builder: (context, scrollController) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Color(0xFFF8FBFF),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+          ),
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 260),
+            child: _showProfile
+                ? _CollectorProfileMenuView(
+                    key: const ValueKey('collector-profile'),
+                    scrollController: scrollController,
+                    onBack: () => setState(() => _showProfile = false),
+                  )
+                : _CollectorMainMenuView(
+                    key: const ValueKey('collector-menu'),
+                    scrollController: scrollController,
+                    onClose: () => Navigator.pop(context),
+                    onProfileTap: () => setState(() => _showProfile = true),
+                    onTermsTap: _showTerms,
+                    onLogoutTap: _logout,
+                  ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _CollectorMainMenuView extends StatelessWidget {
+  final ScrollController scrollController;
+  final VoidCallback onClose;
+  final VoidCallback onProfileTap;
+  final VoidCallback onTermsTap;
+  final VoidCallback onLogoutTap;
+
+  const _CollectorMainMenuView({
+    super.key,
+    required this.scrollController,
+    required this.onClose,
+    required this.onProfileTap,
+    required this.onTermsTap,
+    required this.onLogoutTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      controller: scrollController,
+      padding: const EdgeInsets.fromLTRB(24, 12, 24, 28),
+      child: Column(
+        children: [
+          Center(
+            child: Container(
+              width: 44,
+              height: 5,
+              decoration: BoxDecoration(
+                color: const Color(0xFF060663).withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(20),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'v1.0.2',
+              style: TextStyle(
+                color: const Color(0xFF060663).withValues(alpha: 0.9),
+                fontSize: 14,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          Image.asset(
+            'assets/images/logo_ticbus_no_background.png',
+            height: 62,
+          ),
+          const SizedBox(height: 10),
+          const CircleAvatar(
+            radius: 48,
+            backgroundColor: Color(0xFF58648D),
+            child: Icon(Icons.person_rounded, color: Colors.white, size: 62),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'Percepteur TicBus',
+            style: TextStyle(
+              color: Color(0xFF060663),
+              fontSize: 27,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 26),
+          const _CollectorMenuSectionTitle(
+            icon: Icons.grid_view_rounded,
+            title: 'Menu principal',
+          ),
+          const SizedBox(height: 10),
+          _CollectorMenuOptionTile(
+            icon: Icons.account_circle_outlined,
+            title: 'Profil',
+            isSelected: true,
+            onTap: onProfileTap,
+          ),
+          _CollectorMenuOptionTile(
+            icon: Icons.description_outlined,
+            title: "Conditions d'utilisation",
+            onTap: onTermsTap,
+          ),
+          _CollectorMenuOptionTile(
+            icon: Icons.logout_rounded,
+            title: 'Déconnexion',
+            onTap: onLogoutTap,
+          ),
+          const SizedBox(height: 18),
+          TextButton.icon(
+            onPressed: onClose,
+            icon: const Icon(Icons.close_rounded),
+            label: const Text('Fermer le menu'),
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFF060663),
+              textStyle: const TextStyle(fontWeight: FontWeight.w900),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CollectorMenuSectionTitle extends StatelessWidget {
+  final IconData icon;
+  final String title;
+
+  const _CollectorMenuSectionTitle({required this.icon, required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Container(
+            height: 1,
+            color: const Color(0xFF060663).withValues(alpha: 0.08),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Icon(icon, color: const Color(0xFF57AFC2), size: 18),
+        const SizedBox(width: 7),
+        Text(
+          title,
+          style: const TextStyle(
+            color: Color(0xFF7B849B),
+            fontSize: 16,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Container(
+            height: 1,
+            color: const Color(0xFF060663).withValues(alpha: 0.08),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CollectorMenuOptionTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final VoidCallback onTap;
+  final bool isSelected;
+
+  const _CollectorMenuOptionTile({
+    required this.icon,
+    required this.title,
+    required this.onTap,
+    this.isSelected = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(4),
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFFF3F6FC) : Colors.transparent,
+          border: Border(
+            left: BorderSide(
+              color: isSelected ? const Color(0xFFF47B2A) : Colors.transparent,
+              width: 5,
+            ),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: const Color(0xFFF47B2A), size: 27),
+            const SizedBox(width: 15),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  color: Color(0xFF060663),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: const Color(0xFF060663).withValues(alpha: 0.42),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CollectorProfileMenuView extends StatelessWidget {
+  final ScrollController scrollController;
+  final VoidCallback onBack;
+
+  const _CollectorProfileMenuView({
+    super.key,
+    required this.scrollController,
+    required this.onBack,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      controller: scrollController,
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 42),
+      child: Column(
+        children: [
+          Center(
+            child: Container(
+              width: 52,
+              height: 6,
+              decoration: BoxDecoration(
+                color: const Color(0xFF060663).withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(20),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              _CollectorRoundIconButton(
+                icon: Icons.arrow_back_rounded,
+                onTap: onBack,
+              ),
+              Expanded(
+                child: Image.asset(
+                  'assets/images/logo_ticbus_no_background.png',
+                  height: 70,
+                ),
+              ),
+              const SizedBox(width: 52),
+            ],
+          ),
+          const SizedBox(height: 14),
+          const Text(
+            'Profil percepteur',
+            style: TextStyle(
+              color: Color(0xFF060663),
+              fontSize: 29,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 20),
+          const CircleAvatar(
+            radius: 68,
+            backgroundColor: Color(0xFF58648D),
+            child: Icon(Icons.person_rounded, color: Colors.white, size: 88),
+          ),
+          const SizedBox(height: 24),
+          const _CollectorProfilePanel(),
+        ],
+      ),
+    );
+  }
+}
+
+class _CollectorRoundIconButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _CollectorRoundIconButton({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 52,
+        height: 52,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(17),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.07),
+              blurRadius: 14,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Icon(icon, color: const Color(0xFF060663), size: 25),
+      ),
+    );
+  }
+}
+
+class _CollectorProfilePanel extends StatelessWidget {
+  const _CollectorProfilePanel();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: const Column(
+        children: [
+          _CollectorProfileInfoRow(
+            icon: Icons.badge_rounded,
+            title: 'Nom et prénom',
+            value: 'Percepteur TicBus',
+          ),
+          _CollectorProfileInfoRow(
+            icon: Icons.phone_rounded,
+            title: 'Téléphone',
+            value: '+229 01 00 00 00 00',
+          ),
+          _CollectorProfileInfoRow(
+            icon: Icons.location_city_rounded,
+            title: 'Agence',
+            value: 'Cotonou',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CollectorProfileInfoRow extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String value;
+
+  const _CollectorProfileInfoRow({
+    required this.icon,
+    required this.title,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FBFF),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: const Color(0xFF060663), size: 22),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Color(0xFF5F6B86),
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    color: Color(0xFF060663),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CollectorTermsSheet extends StatelessWidget {
+  const _CollectorTermsSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(26),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: const Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            "Conditions d'utilisation",
+            style: TextStyle(
+              color: Color(0xFF060663),
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          SizedBox(height: 8),
+          Text(
+            "L'utilisation de l'espace percepteur TicBus implique le respect des règles de validation des tickets, de présence et de traitement des opérations voyage.",
+            style: TextStyle(
+              color: Color(0xFF5F6B86),
+              fontSize: 13,
+              height: 1.42,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CollectorVoyageContent extends StatelessWidget {
+  const _CollectorVoyageContent();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.only(bottom: 18),
+      children: const [
+        _CollectorNewsSection(),
+        SizedBox(height: 22),
+        _CollectorVoyageMenu(),
+      ],
+    );
+  }
+}
+
+class _CollectorVoyageMenu extends StatelessWidget {
+  const _CollectorVoyageMenu();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 4),
+          child: Text(
+            'Menu',
+            style: TextStyle(
+              color: Color(0xFF060663),
+              fontSize: 19,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        GridView.count(
+          crossAxisCount: 2,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+          childAspectRatio: 1.15,
+          children: [
+            _CollectorMenuButton(
+              icon: Icons.login_rounded,
+              label: 'Connexion',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const _CollectorConnectionPage(),
+                ),
+              ),
+            ),
+            _CollectorMenuButton(
+              icon: Icons.qr_code_scanner_rounded,
+              label: 'Validation',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const _TicketValidationPage(),
+                ),
+              ),
+            ),
+            _CollectorMenuButton(
+              icon: Icons.confirmation_number_rounded,
+              label: 'Réservation',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const _CollectorReservationPage(),
+                ),
+              ),
+            ),
+            _CollectorMenuButton(
+              icon: Icons.history_rounded,
+              label: 'Historique',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const _CollectorHistoryPage(),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _CollectorMenuButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _CollectorMenuButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const deepBlue = Color(0xFF060663);
+    const red = Color(0xFFF80C0D);
+
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(22),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(22),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: deepBlue.withValues(alpha: 0.08)),
+            boxShadow: [
+              BoxShadow(
+                color: deepBlue.withValues(alpha: 0.07),
+                blurRadius: 18,
+                offset: const Offset(0, 9),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: red.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Icon(icon, color: red, size: 26),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: deepBlue,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CollectorConnectionPage extends StatefulWidget {
+  const _CollectorConnectionPage();
+
+  @override
+  State<_CollectorConnectionPage> createState() =>
+      _CollectorConnectionPageState();
+}
+
+class _CollectorConnectionPageState extends State<_CollectorConnectionPage> {
+  static const Color _deepBlue = Color(0xFF060663);
+  static const Color _ticBusRed = Color(0xFFF80C0D);
+
+  final List<TextEditingController> _otpControllers = List.generate(
+    6,
+    (_) => TextEditingController(),
+  );
+  final TextEditingController _requestController = TextEditingController(
+    text:
+        "Bonjour direction TicBus, merci de m'envoyer un code d'activation pour connecter mon voyage.",
+  );
+  bool _requestCode = false;
+
+  @override
+  void dispose() {
+    for (final controller in _otpControllers) {
+      controller.dispose();
+    }
+    _requestController.dispose();
+    super.dispose();
+  }
+
+  void _activate() {
+    final code = _otpControllers.map((item) => item.text.trim()).join();
+    if (code.length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Veuillez saisir les 6 chiffres du code.'),
+        ),
+      );
+      return;
+    }
+
+    _CollectorNotificationStore.add();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Voyage activé avec succès.'),
+        backgroundColor: _deepBlue,
+      ),
+    );
+  }
+
+  void _submitCodeRequest() {
+    if (_requestController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Veuillez saisir le message de demande.')),
+      );
+      return;
+    }
+
+    _CollectorNotificationStore.add();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Demande de code envoyée.'),
+        backgroundColor: _deepBlue,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF7F9FF),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 14, 18, 8),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: _CollectorHeaderIconButton(
+                      icon: Icons.arrow_back_rounded,
+                      onTap: () => Navigator.of(context).pop(),
+                    ),
+                  ),
+                  Image.asset(
+                    'assets/images/logo_ticbus_no_background.png',
+                    height: 56,
+                    fit: BoxFit.contain,
+                  ),
+                ],
+              ),
+            ),
+            const Text(
+              'Connexion voyage',
+              style: TextStyle(
+                color: _deepBlue,
+                fontSize: 24,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(18, 18, 18, 26),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(
+                          color: _deepBlue.withValues(alpha: 0.08),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.05),
+                            blurRadius: 18,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const Text(
+                            "Code d'activation",
+                            style: TextStyle(
+                              color: _deepBlue,
+                              fontSize: 17,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          Row(
+                            children: List.generate(
+                              _otpControllers.length,
+                              (index) => Expanded(
+                                child: Padding(
+                                  padding: EdgeInsets.only(
+                                    right: index == _otpControllers.length - 1
+                                        ? 0
+                                        : 8,
+                                  ),
+                                  child: _CollectorOtpBox(
+                                    controller: _otpControllers[index],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 18),
+                          SizedBox(
+                            height: 54,
+                            child: ElevatedButton(
+                              onPressed: _activate,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: _ticBusRed,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                              ),
+                              child: const Text(
+                                'Activer',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          InkWell(
+                            onTap: () =>
+                                setState(() => _requestCode = !_requestCode),
+                            borderRadius: BorderRadius.circular(18),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 12,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF8FBFF),
+                                borderRadius: BorderRadius.circular(18),
+                                border: Border.all(
+                                  color: _deepBlue.withValues(alpha: 0.10),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Checkbox(
+                                    value: _requestCode,
+                                    activeColor: _ticBusRed,
+                                    onChanged: (value) => setState(
+                                      () => _requestCode = value ?? false,
+                                    ),
+                                  ),
+                                  const Expanded(
+                                    child: Text(
+                                      'Faire une demande de code',
+                                      style: TextStyle(
+                                        color: _deepBlue,
+                                        fontSize: 14.5,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          if (_requestCode) ...[
+                            const SizedBox(height: 14),
+                            TextField(
+                              controller: _requestController,
+                              minLines: 3,
+                              maxLines: 5,
+                              style: const TextStyle(
+                                color: _deepBlue,
+                                fontWeight: FontWeight.w800,
+                              ),
+                              decoration: InputDecoration(
+                                filled: true,
+                                fillColor: const Color(0xFFF8FBFF),
+                                prefixIcon: const Icon(
+                                  Icons.mark_email_read_rounded,
+                                  color: _deepBlue,
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(18),
+                                  borderSide: BorderSide(
+                                    color: _deepBlue.withValues(alpha: 0.10),
+                                  ),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(18),
+                                  borderSide: const BorderSide(
+                                    color: _ticBusRed,
+                                    width: 1.5,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                            SizedBox(
+                              height: 52,
+                              child: OutlinedButton.icon(
+                                onPressed: _submitCodeRequest,
+                                icon: const Icon(Icons.send_rounded),
+                                label: const Text('Soumettre'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: _deepBlue,
+                                  side: BorderSide(
+                                    color: _deepBlue.withValues(alpha: 0.2),
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  textStyle: const TextStyle(
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CollectorOtpBox extends StatelessWidget {
+  final TextEditingController controller;
+
+  const _CollectorOtpBox({required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      textAlign: TextAlign.center,
+      maxLength: 1,
+      keyboardType: TextInputType.number,
+      style: const TextStyle(
+        color: Color(0xFF060663),
+        fontSize: 20,
+        fontWeight: FontWeight.w900,
+      ),
+      decoration: InputDecoration(
+        counterText: '',
+        filled: true,
+        fillColor: const Color(0xFFF8FBFF),
+        contentPadding: const EdgeInsets.symmetric(vertical: 16),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(
+            color: const Color(0xFF060663).withValues(alpha: 0.10),
+          ),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: Color(0xFFF80C0D), width: 1.5),
+        ),
+      ),
+    );
+  }
+}
+
+class _TicketValidationPage extends StatefulWidget {
+  const _TicketValidationPage();
+
+  @override
+  State<_TicketValidationPage> createState() => _TicketValidationPageState();
+}
+
+class _TicketValidationPageState extends State<_TicketValidationPage> {
+  String? _scannedCode;
+  bool _ticketVisible = false;
+
+  void _showTicket() {
+    setState(() {
+      _scannedCode ??= 'TK-2026-0487';
+      _ticketVisible = true;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const deepBlue = Color(0xFF060663);
+    const red = Color(0xFFF80C0D);
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFE8F0FF),
+      appBar: AppBar(
+        backgroundColor: deepBlue,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        title: const Text(
+          'Validation ticket',
+          style: TextStyle(fontWeight: FontWeight.w900),
+        ),
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
+          child: Column(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(22),
+                child: SizedBox(
+                  height: 320,
+                  width: double.infinity,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      MobileScanner(
+                        onDetect: (capture) {
+                          if (capture.barcodes.isEmpty) return;
+                          final value = capture.barcodes.first.rawValue;
+                          if (value == null || value.trim().isEmpty) return;
+                          setState(() => _scannedCode = value.trim());
+                        },
+                      ),
+                      Container(color: Colors.black.withValues(alpha: 0.18)),
+                      Center(
+                        child: Container(
+                          width: 210,
+                          height: 210,
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.white, width: 3),
+                            borderRadius: BorderRadius.circular(24),
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        left: 16,
+                        right: 16,
+                        bottom: 16,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.48),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Text(
+                            _scannedCode == null
+                                ? 'Placez le QR code du ticket dans le cadre'
+                                : 'Code détecté : $_scannedCode',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                height: 58,
+                child: ElevatedButton.icon(
+                  onPressed: _showTicket,
+                  icon: const Icon(Icons.verified_rounded),
+                  label: const Text('Valider'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: red,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    textStyle: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ),
+              if (_ticketVisible) ...[
+                const SizedBox(height: 16),
+                _TicketInfoCard(code: _scannedCode ?? 'TK-2026-0487'),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TicketInfoCard extends StatelessWidget {
+  final String code;
+
+  const _TicketInfoCard({required this.code});
+
+  @override
+  Widget build(BuildContext context) {
+    const deepBlue = Color(0xFF060663);
+    const red = Color(0xFFF80C0D);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: deepBlue.withValues(alpha: 0.08),
+            blurRadius: 18,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: red.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: const Icon(
+                  Icons.confirmation_number_rounded,
+                  color: red,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Infos du ticket',
+                  style: TextStyle(
+                    color: deepBlue,
+                    fontSize: 19,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _TicketInfoRow(title: 'Code ticket', value: code),
+          const _TicketInfoRow(title: 'Passager', value: 'Client TicBus'),
+          const _TicketInfoRow(title: 'Trajet', value: 'Cotonou -> Parakou'),
+          const _TicketInfoRow(title: 'Départ', value: '21/05/2026 à 08:30'),
+          const _TicketInfoRow(title: 'Siège', value: '12A'),
+          const _TicketInfoRow(title: 'Statut', value: 'Ticket valide'),
+        ],
+      ),
+    );
+  }
+}
+
+class _TicketInfoRow extends StatelessWidget {
+  final String title;
+  final String value;
+
+  const _TicketInfoRow({required this.title, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Text(
+              title,
+              style: const TextStyle(
+                color: Color(0xFF5F6B86),
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: const TextStyle(
+                color: Color(0xFF060663),
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+const List<String> _collectorBeninCities = [
+  'Abomey',
+  'Abomey-Calavi',
+  'Adjohoun',
+  'Allada',
+  'Aplahoué',
+  'Banikoara',
+  'Bassila',
+  'Bembèrèkè',
+  'Bétérou',
+  'Bohicon',
+  'Cotonou',
+  'Dassa-Zoumè',
+  'Djougou',
+  'Kandi',
+  'Lokossa',
+  'Natitingou',
+  'Ouidah',
+  'Parakou',
+  'Porto-Novo',
+  'Sakété',
+  'Savalou',
+  'Sèmè-Kpodji',
+  'Tchaourou',
+];
+
+class _CollectorReservationRecord {
+  final String reference;
+  final String departure;
+  final String destination;
+  final String date;
+  final String time;
+  final int passengerCount;
+  final String passengerName;
+  final String phone;
+  final String price;
+  final String status;
+
+  const _CollectorReservationRecord({
+    required this.reference,
+    required this.departure,
+    required this.destination,
+    required this.date,
+    required this.time,
+    required this.passengerCount,
+    required this.passengerName,
+    required this.phone,
+    required this.price,
+    required this.status,
+  });
+
+  _CollectorReservationRecord copyWith({String? status}) {
+    return _CollectorReservationRecord(
+      reference: reference,
+      departure: departure,
+      destination: destination,
+      date: date,
+      time: time,
+      passengerCount: passengerCount,
+      passengerName: passengerName,
+      phone: phone,
+      price: price,
+      status: status ?? this.status,
+    );
+  }
+}
+
+class _CollectorReservationStore {
+  static final List<_CollectorReservationRecord> reservations = [];
+
+  static void add(_CollectorReservationRecord reservation) {
+    reservations.insert(0, reservation);
+  }
+}
+
+class _CollectorReservationPage extends StatefulWidget {
+  const _CollectorReservationPage();
+
+  @override
+  State<_CollectorReservationPage> createState() =>
+      _CollectorReservationPageState();
+}
+
+class _CollectorReservationPageState extends State<_CollectorReservationPage> {
+  static const Color _deepBlue = Color(0xFF060663);
+  static const Color _ticBusRed = Color(0xFFF80C0D);
+
+  final TextEditingController _departController = TextEditingController(
+    text: 'Cotonou',
+  );
+  final TextEditingController _destinationController = TextEditingController(
+    text: 'Porto-Novo',
+  );
+  final TextEditingController _dateController = TextEditingController();
+  int _passengerCount = 1;
+  DateTime? _travelDate;
+
+  @override
+  void dispose() {
+    _departController.dispose();
+    _destinationController.dispose();
+    _dateController.dispose();
+    super.dispose();
+  }
+
+  int get _fare {
+    final seed =
+        _departController.text.length + _destinationController.text.length;
+    final base = 8000 + (seed % 5) * 500;
+    return base + _passengerCount * 1200;
+  }
+
+  Future<void> _pickDate() async {
+    final now = DateTime.now();
+    final date = await showDatePicker(
+      context: context,
+      initialDate: _travelDate ?? now,
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 120)),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: const ColorScheme.light(
+            primary: _ticBusRed,
+            onPrimary: Colors.white,
+            onSurface: _deepBlue,
+          ),
+          textButtonTheme: TextButtonThemeData(
+            style: TextButton.styleFrom(foregroundColor: _ticBusRed),
+          ),
+        ),
+        child: child!,
+      ),
+    );
+
+    if (date == null) return;
+    setState(() {
+      _travelDate = date;
+      _dateController.text =
+          '${date.day.toString().padLeft(2, '0')} ${_monthName(date.month)} ${date.year}';
+    });
+  }
+
+  void _showCityPicker({
+    required String title,
+    required TextEditingController controller,
+  }) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) {
+        return SafeArea(
+          child: Container(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.7,
+            ),
+            decoration: const BoxDecoration(
+              color: Color(0xFFF8FBFF),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+            ),
+            child: Column(
+              children: [
+                const SizedBox(height: 12),
+                Container(
+                  width: 42,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: _deepBlue.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 12, 8),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: const TextStyle(
+                            color: _deepBlue,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 18),
+                    itemCount: _collectorBeninCities.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    itemBuilder: (context, index) {
+                      final city = _collectorBeninCities[index];
+                      return Material(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        child: ListTile(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          leading: const Icon(
+                            Icons.location_on_outlined,
+                            color: _ticBusRed,
+                          ),
+                          title: Text(
+                            city,
+                            style: const TextStyle(
+                              color: _deepBlue,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          onTap: () {
+                            setState(() => controller.text = city);
+                            Navigator.pop(context);
+                          },
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _switchLocations() {
+    final first = _departController.text;
+    setState(() {
+      _departController.text = _destinationController.text;
+      _destinationController.text = first;
+    });
+  }
+
+  Future<void> _confirmReservation() async {
+    if (_departController.text.isEmpty ||
+        _destinationController.text.isEmpty ||
+        _travelDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Veuillez compléter tous les champs.')),
+      );
+      return;
+    }
+
+    if (_departController.text == _destinationController.text) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('La destination doit être différente du départ.'),
+        ),
+      );
+      return;
+    }
+
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => _CollectorPaymentDetailsPage(
+          departure: _departController.text.trim(),
+          destination: _destinationController.text.trim(),
+          date:
+              '${_travelDate!.day.toString().padLeft(2, '0')} ${_monthName(_travelDate!.month)} ${_travelDate!.year}',
+          priceAmount: _fare,
+          passengers: _passengerCount,
+          time: '10:00',
+        ),
+      ),
+    );
+    if (mounted) setState(() {});
+  }
+
+  String _monthName(int month) {
+    const months = [
+      'janvier',
+      'février',
+      'mars',
+      'avril',
+      'mai',
+      'juin',
+      'juillet',
+      'août',
+      'septembre',
+      'octobre',
+      'novembre',
+      'décembre',
+    ];
+    return months[month - 1];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF7F9FF),
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            Container(
+              width: double.infinity,
+              decoration: const BoxDecoration(
+                image: DecorationImage(
+                  image: AssetImage('assets/images/welcome_image.jpg'),
+                  fit: BoxFit.cover,
+                  colorFilter: ColorFilter.mode(
+                    Color(0x99060E27),
+                    BlendMode.darken,
+                  ),
+                ),
+                borderRadius: BorderRadius.vertical(
+                  bottom: Radius.circular(30),
+                ),
+              ),
+              padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: _CollectorHeaderIconButton(
+                          icon: Icons.arrow_back_rounded,
+                          onTap: () => Navigator.of(context).maybePop(),
+                        ),
+                      ),
+                      Image.asset(
+                        'assets/images/logo_ticbus_no_background.png',
+                        height: 44,
+                        width: 142,
+                        fit: BoxFit.contain,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 22),
+                  const Text(
+                    'Réserver un billet',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 26,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.35),
+                      ),
+                    ),
+                    child: const Text(
+                      'Réservation percepteur',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _buildReservationForm(),
+                    const SizedBox(height: 18),
+                    if (_CollectorReservationStore.reservations.isNotEmpty)
+                      ..._CollectorReservationStore.reservations.map(
+                        (item) => _CollectorReservationCard(item: item),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReservationForm() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(26),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 24,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: _deepBlue.withValues(alpha: 0.07)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.06),
+                  blurRadius: 18,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Stack(
+              children: [
+                Column(
+                  children: [
+                    _CollectorCityField(
+                      controller: _departController,
+                      label: 'De',
+                      hint: 'Ville de départ',
+                      isFirst: true,
+                      onTap: () => _showCityPicker(
+                        title: 'Choisir la ville de départ',
+                        controller: _departController,
+                      ),
+                    ),
+                    _CollectorCityField(
+                      controller: _destinationController,
+                      label: 'À',
+                      hint: 'Ville de destination',
+                      isFirst: false,
+                      onTap: () => _showCityPicker(
+                        title: 'Choisir la ville d’arrivée',
+                        controller: _destinationController,
+                      ),
+                    ),
+                  ],
+                ),
+                Positioned(
+                  right: 12,
+                  top: 0,
+                  bottom: 0,
+                  child: Center(
+                    child: GestureDetector(
+                      onTap: _switchLocations,
+                      child: Container(
+                        width: 46,
+                        height: 46,
+                        decoration: BoxDecoration(
+                          color: _deepBlue,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: _deepBlue.withValues(alpha: 0.18),
+                              blurRadius: 14,
+                              offset: const Offset(0, 8),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.swap_vert_rounded,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              Expanded(
+                child: _CollectorSmallField(
+                  label: 'Date de départ',
+                  value: _dateController.text.isEmpty
+                      ? 'Sélectionner une date'
+                      : _dateController.text,
+                  icon: Icons.calendar_month_rounded,
+                  onTap: _pickDate,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _CollectorSmallField(
+                  label: 'Retour',
+                  value: 'Ajouter un retour',
+                  icon: Icons.sync_alt_rounded,
+                  disabled: true,
+                  onTap: () {},
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          _CollectorPassengerCard(
+            count: _passengerCount,
+            onMinus: () {
+              if (_passengerCount > 1) {
+                setState(() => _passengerCount -= 1);
+              }
+            },
+            onPlus: () {
+              if (_passengerCount < 8) {
+                setState(() => _passengerCount += 1);
+              }
+            },
+          ),
+          const SizedBox(height: 22),
+          SizedBox(
+            height: 52,
+            child: ElevatedButton(
+              onPressed: _confirmReservation,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _ticBusRed,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                elevation: 0,
+              ),
+              child: const Text(
+                'Suivant',
+                style: TextStyle(
+                  fontSize: 16.5,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CollectorCityField extends StatelessWidget {
+  final TextEditingController controller;
+  final String label;
+  final String hint;
+  final bool isFirst;
+  final VoidCallback onTap;
+
+  const _CollectorCityField({
+    required this.controller,
+    required this.label,
+    required this.hint,
+    required this.isFirst,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 15, 68, 15),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: isFirst
+                ? BorderSide(
+                    color: const Color(0xFF060663).withValues(alpha: 0.08),
+                  )
+                : BorderSide.none,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF80C0D).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Icon(
+                Icons.location_on_rounded,
+                color: Color(0xFFF80C0D),
+                size: 21,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      color: Color(0xFF5F6B86),
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    controller.text.isEmpty ? hint : controller.text,
+                    style: const TextStyle(
+                      color: Color(0xFF060663),
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CollectorSmallField extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool disabled;
+
+  const _CollectorSmallField({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.onTap,
+    this.disabled = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const deepBlue = Color(0xFF060663);
+
+    return GestureDetector(
+      onTap: disabled ? null : onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+        decoration: BoxDecoration(
+          color: disabled ? Colors.white : const Color(0xFFF8FBFF),
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: deepBlue.withValues(alpha: 0.12)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                color: disabled
+                    ? const Color(0xFFB4BFD4)
+                    : const Color(0xFF5F6B86),
+                fontSize: 12.5,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Icon(icon, size: 18, color: deepBlue),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    value,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: deepBlue,
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CollectorPassengerCard extends StatelessWidget {
+  final int count;
+  final VoidCallback onMinus;
+  final VoidCallback onPlus;
+
+  const _CollectorPassengerCard({
+    required this.count,
+    required this.onMinus,
+    required this.onPlus,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const deepBlue = Color(0xFF060663);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FBFF),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: deepBlue.withValues(alpha: 0.12)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: deepBlue.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Icon(Icons.person_rounded, color: deepBlue, size: 22),
+          ),
+          const SizedBox(width: 14),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Passager(s)',
+                  style: TextStyle(
+                    color: Color(0xFF5F6B86),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'Sélectionnez le nombre de voyageurs',
+                  style: TextStyle(
+                    color: Color(0xFF7F8BAA),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          _CollectorStepperButton(icon: Icons.remove, onTap: onMinus),
+          const SizedBox(width: 10),
+          Text(
+            '$count',
+            style: const TextStyle(
+              color: deepBlue,
+              fontSize: 17,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(width: 10),
+          _CollectorStepperButton(icon: Icons.add, onTap: onPlus),
+        ],
+      ),
+    );
+  }
+}
+
+class _CollectorStepperButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _CollectorStepperButton({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        width: 34,
+        height: 34,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: const Color(0xFF060663).withValues(alpha: 0.18),
+          ),
+        ),
+        child: Icon(icon, size: 18, color: const Color(0xFF060663)),
+      ),
+    );
+  }
+}
+
+class _CollectorPaymentDetailsPage extends StatefulWidget {
+  final String departure;
+  final String destination;
+  final String date;
+  final int priceAmount;
+  final int passengers;
+  final String time;
+
+  const _CollectorPaymentDetailsPage({
+    required this.departure,
+    required this.destination,
+    required this.date,
+    required this.priceAmount,
+    required this.passengers,
+    this.time = '10:00',
+  });
+
+  @override
+  State<_CollectorPaymentDetailsPage> createState() =>
+      _CollectorPaymentDetailsPageState();
+}
+
+class _CollectorPaymentDetailsPageState
+    extends State<_CollectorPaymentDetailsPage> {
+  final TextEditingController _requesterPhoneController =
+      TextEditingController();
+  final TextEditingController _passengerNameController = TextEditingController(
+    text: 'Client TicBus',
+  );
+
+  @override
+  void dispose() {
+    _requesterPhoneController.dispose();
+    _passengerNameController.dispose();
+    super.dispose();
+  }
+
+  void _finishReservation() {
+    final phone = _requesterPhoneController.text.trim();
+    final passenger = _passengerNameController.text.trim();
+
+    if (phone.isEmpty || passenger.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Veuillez compléter les informations.')),
+      );
+      return;
+    }
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => _CollectorPaymentChoicePage(
+          reservation: _buildReservation(
+            passengerName: passenger,
+            phone: phone,
+            status: 'En attente paiement',
+          ),
+          priceAmount: widget.priceAmount,
+        ),
+      ),
+    );
+  }
+
+  _CollectorReservationRecord _buildReservation({
+    required String passengerName,
+    required String phone,
+    required String status,
+  }) {
+    return _CollectorReservationRecord(
+      reference: 'TB${DateTime.now().millisecondsSinceEpoch}',
+      departure: widget.departure,
+      destination: widget.destination,
+      date: widget.date,
+      time: widget.time,
+      passengerCount: widget.passengers,
+      passengerName: passengerName,
+      phone: phone,
+      price: '${_formatAmount(widget.priceAmount)} CFA',
+      status: status,
+    );
+  }
+
+  String _formatAmount(int amount) {
+    final value = amount.toString();
+    final buffer = StringBuffer();
+    for (var i = 0; i < value.length; i++) {
+      final remaining = value.length - i;
+      buffer.write(value[i]);
+      if (remaining > 1 && remaining % 3 == 1) buffer.write(' ');
+    }
+    return buffer.toString();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const deepBlue = Color(0xFF060663);
+    const red = Color(0xFFF80C0D);
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF6F8FF),
+      appBar: AppBar(
+        backgroundColor: deepBlue,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        title: const Text(
+          'Confirmation',
+          style: TextStyle(fontWeight: FontWeight.w900),
+        ),
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _CollectorTripSummaryCard(
+                departure: widget.departure,
+                destination: widget.destination,
+                date: widget.date,
+                time: widget.time,
+                passengerCount: widget.passengers,
+                price: '${_formatAmount(widget.priceAmount)} CFA',
+              ),
+              const SizedBox(height: 16),
+              _CollectorTextInput(
+                controller: _requesterPhoneController,
+                label: 'Téléphone demandeur',
+                icon: Icons.phone_rounded,
+                keyboardType: TextInputType.phone,
+              ),
+              const SizedBox(height: 12),
+              _CollectorTextInput(
+                controller: _passengerNameController,
+                label: 'Nom du passager',
+                icon: Icons.person_rounded,
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                height: 54,
+                child: ElevatedButton.icon(
+                  onPressed: _finishReservation,
+                  icon: const Icon(Icons.check_circle_rounded),
+                  label: const Text('Confirmer la réservation'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: red,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    textStyle: const TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 15.5,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CollectorPaymentChoicePage extends StatefulWidget {
+  final _CollectorReservationRecord reservation;
+  final int priceAmount;
+
+  const _CollectorPaymentChoicePage({
+    required this.reservation,
+    required this.priceAmount,
+  });
+
+  @override
+  State<_CollectorPaymentChoicePage> createState() =>
+      _CollectorPaymentChoicePageState();
+}
+
+class _CollectorPaymentChoicePageState
+    extends State<_CollectorPaymentChoicePage> {
+  String _mode = 'cash';
+  String? _method;
+  final TextEditingController _clientCodeController = TextEditingController();
+  bool _paymentRequestSent = false;
+
+  static const Color _deepBlue = Color(0xFF060663);
+
+  @override
+  void dispose() {
+    _clientCodeController.dispose();
+    super.dispose();
+  }
+
+  void _confirmCash() {
+    _completeReservation('Confirmée - Cash');
+  }
+
+  void _sendPaymentRequest() {
+    if (_method == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Choisissez une méthode de paiement.')),
+      );
+      return;
+    }
+
+    setState(() => _paymentRequestSent = true);
+    _CollectorNotificationStore.add();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Demande envoyée au ${widget.reservation.phone}. Le client peut saisir son code.',
+        ),
+        backgroundColor: _deepBlue,
+      ),
+    );
+  }
+
+  void _confirmRemotePayment() {
+    if (!_paymentRequestSent || _clientCodeController.text.trim().length < 4) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Veuillez envoyer la demande puis saisir le code client.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    _completeReservation('Confirmée - ${_methodLabel(_method!)}');
+  }
+
+  void _completeReservation(String status) {
+    final reservation = widget.reservation.copyWith(status: status);
+    _CollectorReservationStore.add(reservation);
+    _CollectorNotificationStore.add();
+
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => _CollectorGeneratedTicketPage(reservation: reservation),
+      ),
+    );
+  }
+
+  String _methodLabel(String value) {
+    switch (value) {
+      case 'moov':
+        return 'Moov';
+      case 'celtiis':
+        return 'Celtiis';
+      case 'mtn':
+        return 'MTN';
+      case 'wave':
+        return 'Wave';
+      case 'card':
+        return 'Carte bancaire';
+      case 'bitcoin':
+        return 'Bitcoin';
+      default:
+        return value;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF6F8FF),
+      appBar: AppBar(
+        backgroundColor: _deepBlue,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        title: const Text(
+          'Paiement',
+          style: TextStyle(fontWeight: FontWeight.w900),
+        ),
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _CollectorTripSummaryCard(
+                departure: widget.reservation.departure,
+                destination: widget.reservation.destination,
+                date: widget.reservation.date,
+                time: widget.reservation.time,
+                passengerCount: widget.reservation.passengerCount,
+                price: widget.reservation.price,
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 16,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text(
+                      'Mode de règlement',
+                      style: TextStyle(
+                        color: _deepBlue,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _CollectorModeButton(
+                            label: 'Cash',
+                            icon: Icons.payments_rounded,
+                            selected: _mode == 'cash',
+                            onTap: () => setState(() => _mode = 'cash'),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _CollectorModeButton(
+                            label: 'Autre paiement',
+                            icon: Icons.phone_android_rounded,
+                            selected: _mode == 'remote',
+                            onTap: () => setState(() => _mode = 'remote'),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    if (_mode == 'cash')
+                      _CollectorCashPaymentPanel(onConfirm: _confirmCash)
+                    else
+                      _CollectorRemotePaymentPanel(
+                        selectedMethod: _method,
+                        requestSent: _paymentRequestSent,
+                        clientCodeController: _clientCodeController,
+                        onMethodTap: (method) => setState(() {
+                          _method = method;
+                          _paymentRequestSent = false;
+                          _clientCodeController.clear();
+                        }),
+                        onSendRequest: _sendPaymentRequest,
+                        onConfirmPayment: _confirmRemotePayment,
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CollectorModeButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _CollectorModeButton({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFFF80C0D) : const Color(0xFFF8FBFF),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: selected
+                ? const Color(0xFFF80C0D)
+                : const Color(0xFF060663).withValues(alpha: 0.10),
+          ),
+        ),
+        child: Column(
+          children: [
+            Icon(
+              icon,
+              color: selected ? Colors.white : const Color(0xFF060663),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: selected ? Colors.white : const Color(0xFF060663),
+                fontSize: 13,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CollectorCashPaymentPanel extends StatelessWidget {
+  final VoidCallback onConfirm;
+
+  const _CollectorCashPaymentPanel({required this.onConfirm});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8FBFF),
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: const Text(
+            "Le percepteur reçoit directement l'argent du client puis confirme la réservation.",
+            style: TextStyle(
+              color: Color(0xFF5F6B86),
+              height: 1.35,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+        const SizedBox(height: 14),
+        SizedBox(
+          height: 54,
+          child: ElevatedButton.icon(
+            onPressed: onConfirm,
+            icon: const Icon(Icons.check_circle_rounded),
+            label: const Text('Confirmer le paiement cash'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFF80C0D),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              textStyle: const TextStyle(fontWeight: FontWeight.w900),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CollectorRemotePaymentPanel extends StatelessWidget {
+  final String? selectedMethod;
+  final bool requestSent;
+  final TextEditingController clientCodeController;
+  final ValueChanged<String> onMethodTap;
+  final VoidCallback onSendRequest;
+  final VoidCallback onConfirmPayment;
+
+  const _CollectorRemotePaymentPanel({
+    required this.selectedMethod,
+    required this.requestSent,
+    required this.clientCodeController,
+    required this.onMethodTap,
+    required this.onSendRequest,
+    required this.onConfirmPayment,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const methods = [
+      ('moov', 'Moov', 'assets/images/logo_moov.png'),
+      ('celtiis', 'Celtiis', 'assets/images/logo_celtiis.png'),
+      ('mtn', 'MTN', 'assets/images/logo_mtn.png'),
+      ('wave', 'Wave', null),
+      ('card', 'Carte bancaire', 'assets/images/logo_carte.png'),
+      ('bitcoin', 'Bitcoin', null),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        GridView.count(
+          crossAxisCount: 2,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisSpacing: 10,
+          mainAxisSpacing: 10,
+          childAspectRatio: 2.3,
+          children: methods.map((method) {
+            return _CollectorPaymentMethodTile(
+              value: method.$1,
+              label: method.$2,
+              imagePath: method.$3,
+              selected: selectedMethod == method.$1,
+              onTap: () => onMethodTap(method.$1),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 14),
+        SizedBox(
+          height: 52,
+          child: OutlinedButton.icon(
+            onPressed: onSendRequest,
+            icon: const Icon(Icons.send_to_mobile_rounded),
+            label: const Text('Envoyer la demande au client'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFF060663),
+              side: BorderSide(
+                color: const Color(0xFF060663).withValues(alpha: 0.2),
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              textStyle: const TextStyle(fontWeight: FontWeight.w900),
+            ),
+          ),
+        ),
+        if (requestSent) ...[
+          const SizedBox(height: 14),
+          TextField(
+            controller: clientCodeController,
+            keyboardType: TextInputType.number,
+            maxLength: 6,
+            style: const TextStyle(
+              color: Color(0xFF060663),
+              fontWeight: FontWeight.w900,
+            ),
+            decoration: InputDecoration(
+              counterText: '',
+              labelText: 'Code reçu par le client',
+              prefixIcon: const Icon(
+                Icons.password_rounded,
+                color: Color(0xFFF80C0D),
+              ),
+              filled: true,
+              fillColor: const Color(0xFFF8FBFF),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(18),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            height: 54,
+            child: ElevatedButton.icon(
+              onPressed: onConfirmPayment,
+              icon: const Icon(Icons.verified_rounded),
+              label: const Text('Valider le paiement'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFF80C0D),
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                textStyle: const TextStyle(fontWeight: FontWeight.w900),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _CollectorPaymentMethodTile extends StatelessWidget {
+  final String value;
+  final String label;
+  final String? imagePath;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _CollectorPaymentMethodTile({
+    required this.value,
+    required this.label,
+    required this.imagePath,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFFFFF1F1) : const Color(0xFFF8FBFF),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: selected
+                ? const Color(0xFFF80C0D)
+                : const Color(0xFF060663).withValues(alpha: 0.08),
+            width: selected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            if (imagePath != null)
+              Image.asset(
+                imagePath!,
+                width: 30,
+                height: 30,
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => _methodIcon(),
+              )
+            else
+              _methodIcon(),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xFF060663),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _methodIcon() {
+    final icon = value == 'bitcoin'
+        ? Icons.currency_bitcoin_rounded
+        : value == 'wave'
+        ? Icons.waves_rounded
+        : Icons.credit_card_rounded;
+
+    return Icon(icon, color: const Color(0xFFF80C0D), size: 28);
+  }
+}
+
+class _CollectorTextInput extends StatelessWidget {
+  final TextEditingController controller;
+  final String label;
+  final IconData icon;
+  final TextInputType? keyboardType;
+
+  const _CollectorTextInput({
+    required this.controller,
+    required this.label,
+    required this.icon,
+    this.keyboardType,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      keyboardType: keyboardType,
+      style: const TextStyle(
+        color: Color(0xFF060663),
+        fontWeight: FontWeight.w900,
+      ),
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon, color: const Color(0xFFF80C0D)),
+        filled: true,
+        fillColor: Colors.white,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: BorderSide.none,
+        ),
+      ),
+    );
+  }
+}
+
+class _CollectorTripSummaryCard extends StatelessWidget {
+  final String departure;
+  final String destination;
+  final String date;
+  final String time;
+  final int passengerCount;
+  final String price;
+
+  const _CollectorTripSummaryCard({
+    required this.departure,
+    required this.destination,
+    required this.date,
+    required this.time,
+    required this.passengerCount,
+    required this.price,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 18,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Résumé du voyage',
+            style: TextStyle(
+              color: Color(0xFF060663),
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 14),
+          _TicketInfoRow(title: 'Trajet', value: '$departure -> $destination'),
+          _TicketInfoRow(title: 'Départ', value: '$date à $time'),
+          _TicketInfoRow(title: 'Passagers', value: '$passengerCount'),
+          _TicketInfoRow(title: 'Total', value: price),
+        ],
+      ),
+    );
+  }
+}
+
+class _CollectorGeneratedTicketPage extends StatelessWidget {
+  final _CollectorReservationRecord reservation;
+
+  const _CollectorGeneratedTicketPage({required this.reservation});
+
+  Future<void> _downloadPdf(BuildContext context) async {
+    try {
+      final bytes = await _buildTicketPdf();
+      await Printing.sharePdf(
+        bytes: bytes,
+        filename: 'ticket_ticbus_${reservation.reference}.pdf',
+      );
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Impossible de générer le PDF du ticket.'),
+          backgroundColor: Color(0xFFF80C0D),
+        ),
+      );
+    }
+  }
+
+  Future<Uint8List> _buildTicketPdf() async {
+    final pdf = pw.Document();
+    final deepBlue = PdfColor.fromHex('#060663');
+    final red = PdfColor.fromHex('#F80C0D');
+    final light = PdfColor.fromHex('#F8FBFF');
+    final muted = PdfColor.fromHex('#687089');
+
+    pdf.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(32),
+        build: (context) {
+          return pw.Container(
+            padding: const pw.EdgeInsets.all(22),
+            decoration: pw.BoxDecoration(
+              border: pw.Border.all(color: PdfColor.fromHex('#E6EAF2')),
+              borderRadius: pw.BorderRadius.circular(18),
+            ),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  children: [
+                    pw.Text(
+                      'TicBus',
+                      style: pw.TextStyle(
+                        color: deepBlue,
+                        fontSize: 28,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
+                    pw.Container(
+                      padding: const pw.EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
+                      ),
+                      decoration: pw.BoxDecoration(
+                        color: light,
+                        borderRadius: pw.BorderRadius.circular(12),
+                      ),
+                      child: pw.Text(
+                        reservation.status,
+                        style: pw.TextStyle(
+                          color: red,
+                          fontWeight: pw.FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                pw.SizedBox(height: 24),
+                pw.Center(
+                  child: pw.Column(
+                    children: [
+                      pw.Text(
+                        reservation.reference,
+                        style: pw.TextStyle(
+                          color: deepBlue,
+                          fontSize: 24,
+                          fontWeight: pw.FontWeight.bold,
+                        ),
+                      ),
+                      pw.SizedBox(height: 14),
+                      pw.BarcodeWidget(
+                        barcode: pw.Barcode.qrCode(),
+                        data: reservation.reference,
+                        width: 120,
+                        height: 120,
+                      ),
+                    ],
+                  ),
+                ),
+                pw.SizedBox(height: 28),
+                _pdfRow('Passager', reservation.passengerName, deepBlue, muted),
+                _pdfRow('Telephone', reservation.phone, deepBlue, muted),
+                _pdfRow(
+                  'Trajet',
+                  '${reservation.departure} -> ${reservation.destination}',
+                  deepBlue,
+                  muted,
+                ),
+                _pdfRow(
+                  'Depart',
+                  '${reservation.date} a ${reservation.time}',
+                  deepBlue,
+                  muted,
+                ),
+                _pdfRow(
+                  'Passagers',
+                  '${reservation.passengerCount}',
+                  deepBlue,
+                  muted,
+                ),
+                _pdfRow('Montant', reservation.price, deepBlue, muted),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+
+    return pdf.save();
+  }
+
+  pw.Widget _pdfRow(
+    String title,
+    String value,
+    PdfColor deepBlue,
+    PdfColor muted,
+  ) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.only(bottom: 14),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Text(
+            title,
+            style: pw.TextStyle(
+              color: muted,
+              fontSize: 12,
+              fontWeight: pw.FontWeight.bold,
+            ),
+          ),
+          pw.SizedBox(height: 5),
+          pw.Text(
+            value,
+            style: pw.TextStyle(
+              color: deepBlue,
+              fontSize: 15,
+              fontWeight: pw.FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFE8F0FF),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF060663),
+        foregroundColor: Colors.white,
+        elevation: 0,
+        title: const Text(
+          'Billet généré',
+          style: TextStyle(fontWeight: FontWeight.w900),
+        ),
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _CollectorReservationCard(item: reservation),
+              const SizedBox(height: 16),
+              SizedBox(
+                height: 54,
+                child: ElevatedButton.icon(
+                  onPressed: () => _downloadPdf(context),
+                  icon: const Icon(Icons.picture_as_pdf_rounded),
+                  label: const Text('Télécharger en PDF'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFF80C0D),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    textStyle: const TextStyle(fontWeight: FontWeight.w900),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 54,
+                child: OutlinedButton.icon(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.history_rounded),
+                  label: const Text('Retour à la réservation'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF060663),
+                    side: BorderSide(
+                      color: const Color(0xFF060663).withValues(alpha: 0.24),
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    textStyle: const TextStyle(fontWeight: FontWeight.w900),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CollectorReservationCard extends StatelessWidget {
+  final _CollectorReservationRecord item;
+
+  const _CollectorReservationCard({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: const Color(0xFF060663).withValues(alpha: 0.08),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF80C0D).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: const Icon(
+                  Icons.confirmation_number_rounded,
+                  color: Color(0xFFF80C0D),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  item.reference,
+                  style: const TextStyle(
+                    color: Color(0xFF060663),
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              Text(
+                item.status,
+                style: const TextStyle(
+                  color: Color(0xFFF80C0D),
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          _TicketInfoRow(
+            title: 'Trajet',
+            value: '${item.departure} -> ${item.destination}',
+          ),
+          _TicketInfoRow(title: 'Départ', value: '${item.date} à ${item.time}'),
+          _TicketInfoRow(title: 'Passager', value: item.passengerName),
+          _TicketInfoRow(title: 'Téléphone', value: item.phone),
+          _TicketInfoRow(title: 'Total', value: item.price),
+        ],
+      ),
+    );
+  }
+}
+
+class _CollectorAttendanceList extends StatelessWidget {
+  final String title;
+  final String emptyMessage;
+
+  const _CollectorAttendanceList({
+    required this.title,
+    required this.emptyMessage,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      children: [_CollectorEmptyCard(title: title, message: emptyMessage)],
+    );
+  }
+}
+
+class _CollectorEmptyCard extends StatelessWidget {
+  final String title;
+  final String message;
+
+  const _CollectorEmptyCard({required this.title, required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: const Color(0xFF060663).withValues(alpha: 0.08),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              color: Color(0xFF060663),
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            message,
+            style: const TextStyle(
+              color: Color(0xFF5F6B86),
+              fontSize: 14,
+              height: 1.4,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+enum _CollectorHistoryScope { reservations, absent, present }
+
+class _CollectorHistoryPage extends StatefulWidget {
+  const _CollectorHistoryPage();
+
+  @override
+  State<_CollectorHistoryPage> createState() => _CollectorHistoryPageState();
+}
+
+class _CollectorHistoryPageState extends State<_CollectorHistoryPage> {
+  _CollectorHistoryScope _scope = _CollectorHistoryScope.reservations;
+
+  @override
+  Widget build(BuildContext context) {
+    const deepBlue = Color(0xFF060663);
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FBFF),
+      appBar: AppBar(
+        backgroundColor: deepBlue,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        title: const Text(
+          'Historique voyage',
+          style: TextStyle(fontWeight: FontWeight.w900),
+        ),
+      ),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  _HistoryActionButton(
+                    icon: Icons.confirmation_number_rounded,
+                    label: 'Réservation',
+                    selected: _scope == _CollectorHistoryScope.reservations,
+                    onTap: () => setState(
+                      () => _scope = _CollectorHistoryScope.reservations,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  _HistoryActionButton(
+                    icon: Icons.person_off_rounded,
+                    label: 'Absent',
+                    selected: _scope == _CollectorHistoryScope.absent,
+                    onTap: () =>
+                        setState(() => _scope = _CollectorHistoryScope.absent),
+                  ),
+                  const SizedBox(width: 8),
+                  _HistoryActionButton(
+                    icon: Icons.how_to_reg_rounded,
+                    label: 'Présent',
+                    selected: _scope == _CollectorHistoryScope.present,
+                    onTap: () =>
+                        setState(() => _scope = _CollectorHistoryScope.present),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              if (_scope == _CollectorHistoryScope.reservations)
+                Expanded(
+                  child: _CollectorReservationList(
+                    onNewReservation: () async {
+                      await Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const _CollectorReservationPage(),
+                        ),
+                      );
+                      if (mounted) setState(() {});
+                    },
+                  ),
+                )
+              else
+                Expanded(
+                  child: _CollectorAttendanceList(
+                    title: _scope == _CollectorHistoryScope.absent
+                        ? 'Passagers absents'
+                        : 'Passagers présents',
+                    emptyMessage: _scope == _CollectorHistoryScope.absent
+                        ? 'Aucun passager absent enregistré.'
+                        : 'Aucun passager présent enregistré.',
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CollectorReservationList extends StatelessWidget {
+  final VoidCallback onNewReservation;
+
+  const _CollectorReservationList({required this.onNewReservation});
+
+  @override
+  Widget build(BuildContext context) {
+    final reservations = _CollectorReservationStore.reservations;
+
+    return ListView(
+      children: [
+        SizedBox(
+          height: 54,
+          child: ElevatedButton.icon(
+            onPressed: onNewReservation,
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('Nouvelle réservation'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFF80C0D),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              textStyle: const TextStyle(fontWeight: FontWeight.w900),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        if (reservations.isEmpty)
+          const _CollectorEmptyCard(
+            title: 'Aucune réservation',
+            message:
+                'Les réservations faites par le percepteur apparaîtront ici.',
+          )
+        else
+          ...reservations.map((item) => _CollectorReservationCard(item: item)),
+      ],
+    );
+  }
+}
+
+class _HistoryActionButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool selected;
+
+  const _HistoryActionButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    required this.selected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const deepBlue = Color(0xFF060663);
+    return Expanded(
+      child: SizedBox(
+        height: 58,
+        child: OutlinedButton(
+          onPressed: onTap,
+          style: OutlinedButton.styleFrom(
+            foregroundColor: selected ? Colors.white : deepBlue,
+            side: BorderSide(color: deepBlue.withValues(alpha: 0.18)),
+            backgroundColor: selected ? const Color(0xFFF80C0D) : Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+            ),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 19),
+              const SizedBox(height: 3),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CollectorNewsArticle {
+  final String category;
+  final String title;
+  final String date;
+  final String image;
+  final String excerpt;
+  final List<String> body;
+
+  const _CollectorNewsArticle({
+    required this.category,
+    required this.title,
+    required this.date,
+    required this.image,
+    required this.excerpt,
+    required this.body,
+  });
+}
+
+const List<_CollectorNewsArticle> _collectorNewsArticles = [
+  _CollectorNewsArticle(
+    category: 'Annonces',
+    title: 'Nouveau départ sur Gouré',
+    date: '28/03/2026',
+    image: 'assets/images/welcome_image.jpg',
+    excerpt:
+        'TicBus renforce son réseau avec un nouveau départ pensé pour faciliter les déplacements réguliers.',
+    body: [
+      'TicBus informe son aimable clientèle de la mise en place d’un nouveau départ sur l’axe Gouré afin de rendre les voyages plus simples, plus réguliers et plus confortables.',
+      'Cette nouvelle desserte répond à la demande des voyageurs qui souhaitent mieux organiser leurs déplacements entre les grandes villes et les localités desservies par TicBus.',
+      'Les clients sont invités à se rapprocher des agences TicBus pour confirmer les horaires, les disponibilités et les conditions de réservation.',
+    ],
+  ),
+  _CollectorNewsArticle(
+    category: 'Annonces',
+    title: "Renforcement des départs sur l'axe Tchaourou",
+    date: '25/03/2026',
+    image: 'assets/images/onboarding1.png',
+    excerpt:
+        'De nouveaux horaires sont ajoutés pour offrir plus de flexibilité aux voyageurs.',
+    body: [
+      'Pour mieux accompagner les besoins de mobilité, TicBus annonce un renforcement progressif des départs sur l’axe Tchaourou.',
+      'Cette organisation permet aux voyageurs de choisir des créneaux plus adaptés à leurs programmes personnels, professionnels ou familiaux.',
+      'Les équipes en agence restent disponibles pour orienter les clients et les aider à choisir le départ le plus pratique.',
+    ],
+  ),
+  _CollectorNewsArticle(
+    category: 'Presse',
+    title: 'TicBus modernise l’accueil dans ses agences',
+    date: '18/03/2026',
+    image: 'assets/images/onboarding2.png',
+    excerpt:
+        'Un parcours client plus fluide est déployé pour améliorer l’achat de tickets et l’information voyageur.',
+    body: [
+      'TicBus poursuit l’amélioration de l’expérience client dans ses agences avec des espaces plus lisibles, un accueil renforcé et une meilleure orientation des voyageurs.',
+      'L’objectif est de réduire l’attente, d’améliorer la qualité des informations et de rendre chaque étape du voyage plus agréable.',
+      'Cette modernisation s’inscrit dans une démarche continue de qualité de service.',
+    ],
+  ),
+  _CollectorNewsArticle(
+    category: 'Conseils',
+    title: 'Bien préparer son voyage avec TicBus',
+    date: '12/03/2026',
+    image: 'assets/images/onboarding3.png',
+    excerpt:
+        'Quelques réflexes simples pour voyager sereinement et éviter les oublis avant le départ.',
+    body: [
+      'Avant chaque départ, TicBus recommande aux voyageurs de vérifier leur ticket, leur pièce d’identité et l’heure de présentation en agence.',
+      'Il est conseillé d’arriver suffisamment tôt afin d’effectuer les formalités sans stress et d’embarquer dans de bonnes conditions.',
+      'Pour les bagages et colis, les équipes TicBus peuvent préciser les règles applicables selon le trajet choisi.',
+    ],
+  ),
+  _CollectorNewsArticle(
+    category: 'Communiqués',
+    title: 'Suivi des colis disponible dans les agences TicBus',
+    date: '08/03/2026',
+    image: 'assets/images/logo_ticbus.jpeg',
+    excerpt:
+        'Les clients peuvent obtenir des informations sur leurs colis directement auprès des points TicBus.',
+    body: [
+      'TicBus rappelle à sa clientèle que le suivi des colis est disponible auprès de ses agences et points de contact.',
+      'Les clients sont invités à conserver leurs références d’envoi afin de faciliter les vérifications et accélérer la prise en charge.',
+      'Ce service accompagne les voyageurs et expéditeurs dans une logique de proximité et de fiabilité.',
+    ],
+  ),
+];
+
+class _CollectorNewsSection extends StatefulWidget {
+  const _CollectorNewsSection();
+
+  @override
+  State<_CollectorNewsSection> createState() => _CollectorNewsSectionState();
+}
+
+class _CollectorNewsSectionState extends State<_CollectorNewsSection> {
+  late final PageController _pageController;
+  Timer? _timer;
+  int _pageIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(initialPage: 0);
+
+    _timer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (!mounted) return;
+      setState(
+        () => _pageIndex = (_pageIndex + 1) % _collectorNewsArticles.length,
+      );
+      if (!_pageController.hasClients) return;
+      _pageController.animateToPage(
+        _pageIndex,
+        duration: const Duration(milliseconds: 480),
+        curve: Curves.easeInOut,
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const red = Color(0xFFF80C0D);
+    const deepBlue = Color(0xFF060663);
+
+    void openDetail(_CollectorNewsArticle article) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => _CollectorNewsDetailPage(article: article),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Actualités',
+                style: TextStyle(
+                  color: deepBlue,
+                  fontSize: 19,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              OutlinedButton(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const _CollectorNewsListPage(),
+                    ),
+                  );
+                },
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: red,
+                  side: const BorderSide(color: red, width: 1.3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+                child: const Text(
+                  'Voir plus',
+                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13.5),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 138,
+          child: PageView.builder(
+            controller: _pageController,
+            itemCount: _collectorNewsArticles.length,
+            physics: const NeverScrollableScrollPhysics(),
+            itemBuilder: (context, index) {
+              final item = _collectorNewsArticles[index];
+
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                child: _CollectorNewsHeroTile(
+                  article: item,
+                  compact: true,
+                  onTap: () => openDetail(item),
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(_collectorNewsArticles.length, (i) {
+            final isActive = i == _pageIndex;
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              width: isActive ? 22 : 10,
+              height: 6,
+              decoration: BoxDecoration(
+                color: isActive ? red : Colors.black.withValues(alpha: 0.25),
+                borderRadius: BorderRadius.circular(99),
+              ),
+            );
+          }),
+        ),
+      ],
+    );
+  }
+}
+
+class _CollectorNewsHeroTile extends StatelessWidget {
+  final _CollectorNewsArticle article;
+  final VoidCallback onTap;
+  final bool compact;
+
+  const _CollectorNewsHeroTile({
+    required this.article,
+    required this.onTap,
+    this.compact = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const red = Color(0xFFF80C0D);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(22),
+        onTap: onTap,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(22),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Image.asset(
+                article.image,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(
+                  color: const Color(0xFFF8FBFF),
+                  child: const Icon(Icons.image_not_supported_rounded),
+                ),
+              ),
+              Container(color: Colors.black.withValues(alpha: 0.43)),
+              Positioned(
+                left: 12,
+                top: 12,
+                child: _CollectorNewsCategoryPill(category: article.category),
+              ),
+              Positioned(
+                left: 14,
+                right: 14,
+                bottom: compact ? 14 : 18,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.event_rounded,
+                          color: Colors.white,
+                          size: 15,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Publié le ${article.date}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 12.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 7),
+                    Text(
+                      article.title,
+                      maxLines: compact ? 2 : 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: compact ? 14.2 : 18,
+                        fontWeight: FontWeight.w900,
+                        height: 1.22,
+                      ),
+                    ),
+                    if (!compact) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        article.excerpt,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.86),
+                          fontSize: 13.2,
+                          fontWeight: FontWeight.w600,
+                          height: 1.35,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              Positioned(
+                right: 12,
+                top: 12,
+                child: Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: red,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.arrow_forward_rounded,
+                    color: Colors.white,
+                    size: 18,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CollectorNewsCategoryPill extends StatelessWidget {
+  final String category;
+
+  const _CollectorNewsCategoryPill({required this.category});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF80C0D),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        category,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 11.5,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+  }
+}
+
+class _CollectorNewsListPage extends StatelessWidget {
+  const _CollectorNewsListPage();
+
+  @override
+  Widget build(BuildContext context) {
+    const deepBlue = Color(0xFF060663);
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FBFF),
+      appBar: AppBar(
+        backgroundColor: deepBlue,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        title: const Text(
+          'Actualités',
+          style: TextStyle(fontWeight: FontWeight.w900),
+        ),
+      ),
+      body: SafeArea(
+        child: ListView.separated(
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
+          itemCount: _collectorNewsArticles.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 14),
+          itemBuilder: (context, index) {
+            final article = _collectorNewsArticles[index];
+            return SizedBox(
+              height: 178,
+              child: _CollectorNewsHeroTile(
+                article: article,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => _CollectorNewsDetailPage(article: article),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _CollectorNewsDetailPage extends StatelessWidget {
+  final _CollectorNewsArticle article;
+
+  const _CollectorNewsDetailPage({required this.article});
+
+  @override
+  Widget build(BuildContext context) {
+    const deepBlue = Color(0xFF060663);
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FBFF),
+      appBar: AppBar(
+        backgroundColor: deepBlue,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        title: const Text(
+          'Actualité',
+          style: TextStyle(fontWeight: FontWeight.w900),
+        ),
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
+          children: [
+            SizedBox(
+              height: 230,
+              child: _CollectorNewsHeroTile(article: article, onTap: () {}),
+            ),
+            const SizedBox(height: 18),
+            Text(
+              article.title,
+              style: const TextStyle(
+                color: deepBlue,
+                fontSize: 24,
+                fontWeight: FontWeight.w900,
+                height: 1.15,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Publié le ${article.date}',
+              style: const TextStyle(
+                color: Color(0xFF5F6B86),
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              article.excerpt,
+              style: const TextStyle(
+                color: Color(0xFF5F6B86),
+                fontSize: 15,
+                height: 1.45,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 14),
+            ...article.body.map(
+              (paragraph) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Text(
+                  paragraph,
+                  style: const TextStyle(
+                    color: Color(0xFF1A1A2E),
+                    fontSize: 15,
+                    height: 1.55,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CollectorTab {
+  final String title;
+  final IconData icon;
+
+  const _CollectorTab(this.title, this.icon);
+}

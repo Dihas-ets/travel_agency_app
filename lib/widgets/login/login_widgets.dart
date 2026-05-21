@@ -119,8 +119,15 @@ class _PasswordFieldState extends State<PasswordField> {
 class LoginButton extends StatelessWidget {
   /// Action exécutée quand l'utilisateur appuie sur le bouton.
   final VoidCallback onPressed;
+  final String label;
+  final IconData icon;
 
-  const LoginButton({super.key, required this.onPressed});
+  const LoginButton({
+    super.key,
+    required this.onPressed,
+    this.label = "Se connecter",
+    this.icon = Icons.login_rounded,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -136,14 +143,14 @@ class LoginButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
           ),
         ),
-        child: const Row(
+        child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.login_rounded, color: Colors.white, size: 22),
-            SizedBox(width: 10),
+            Icon(icon, color: Colors.white, size: 22),
+            const SizedBox(width: 10),
             Text(
-              "Se connecter",
-              style: TextStyle(
+              label,
+              style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
