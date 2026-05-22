@@ -1,11 +1,14 @@
 import 'dart:async';
-import 'dart:typed_data';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 class CollectorHomePage extends StatefulWidget {
   const CollectorHomePage({super.key});
@@ -172,10 +175,96 @@ class _CollectorHomePageState extends State<CollectorHomePage> {
 
 class _CollectorNotificationStore {
   static final ValueNotifier<int> count = ValueNotifier<int>(3);
+  static final List<_CollectorNotificationItem> notifications = [
+    _CollectorNotificationItem(
+      title: 'Bienvenue',
+      message: 'Votre espace percepteur TicBus est prêt.',
+      time: 'Maintenant',
+    ),
+    _CollectorNotificationItem(
+      title: 'Voyage',
+      message: 'Consultez les réservations et confirmez les paiements.',
+      time: 'Aujourd’hui',
+    ),
+    _CollectorNotificationItem(
+      title: 'Colis',
+      message: 'Les nouvelles opérations colis apparaîtront ici.',
+      time: 'Aujourd’hui',
+    ),
+  ];
 
-  static void add() => count.value += 1;
+  static void add({
+    String title = 'Nouvelle notification',
+    String message = 'Une nouvelle opération a été enregistrée.',
+  }) {
+    notifications.insert(
+      0,
+      _CollectorNotificationItem(
+        title: title,
+        message: message,
+        time: 'Maintenant',
+      ),
+    );
+    count.value += 1;
+  }
 
   static void clear() => count.value = 0;
+}
+
+class _CollectorNotificationItem {
+  final String title;
+  final String message;
+  final String time;
+
+  const _CollectorNotificationItem({
+    required this.title,
+    required this.message,
+    required this.time,
+  });
+}
+
+class _CollectorProfileData {
+  final String fullName;
+  final String phone;
+  final String agency;
+  final String role;
+
+  const _CollectorProfileData({
+    required this.fullName,
+    required this.phone,
+    required this.agency,
+    required this.role,
+  });
+
+  _CollectorProfileData copyWith({
+    String? fullName,
+    String? phone,
+    String? agency,
+    String? role,
+  }) {
+    return _CollectorProfileData(
+      fullName: fullName ?? this.fullName,
+      phone: phone ?? this.phone,
+      agency: agency ?? this.agency,
+      role: role ?? this.role,
+    );
+  }
+}
+
+class _CollectorProfileStore {
+  static final ValueNotifier<_CollectorProfileData> profile =
+      ValueNotifier<_CollectorProfileData>(
+        const _CollectorProfileData(
+          fullName: 'Percepteur TicBus',
+          phone: '+229 01 00 00 00 00',
+          agency: 'Cotonou',
+          role: 'Percepteur voyage',
+        ),
+      );
+
+  static void update(_CollectorProfileData data) {
+    profile.value = data;
+  }
 }
 
 class _CollectorTabContent extends StatelessWidget {
@@ -187,6 +276,9 @@ class _CollectorTabContent extends StatelessWidget {
   Widget build(BuildContext context) {
     if (tab.title == 'Voyage') {
       return const _CollectorVoyageContent();
+    }
+    if (tab.title == 'Profil') {
+      return const _CollectorProfileTabContent();
     }
 
     return Container(
@@ -300,16 +392,11 @@ class _CollectorNotificationIconButtonState
             _CollectorHeaderIconButton(
               icon: Icons.notifications_none_rounded,
               onTap: () {
-                _CollectorNotificationStore.clear();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      count == 0
-                          ? 'Aucune notification'
-                          : '$count notification(s) consultée(s)',
-                    ),
-                    duration: const Duration(seconds: 2),
-                  ),
+                showModalBottomSheet(
+                  context: context,
+                  backgroundColor: Colors.transparent,
+                  isScrollControlled: true,
+                  builder: (_) => const _CollectorNotificationsSheet(),
                 );
               },
             ),
@@ -337,6 +424,138 @@ class _CollectorNotificationIconButtonState
                 ),
               ),
           ],
+        );
+      },
+    );
+  }
+}
+
+class _CollectorNotificationsSheet extends StatelessWidget {
+  const _CollectorNotificationsSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    _CollectorNotificationStore.clear();
+    final notifications = _CollectorNotificationStore.notifications;
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.62,
+      minChildSize: 0.36,
+      maxChildSize: 0.88,
+      builder: (context, scrollController) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Color(0xFFF8FBFF),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: ListView(
+            controller: scrollController,
+            padding: const EdgeInsets.fromLTRB(18, 12, 18, 24),
+            children: [
+              Center(
+                child: Container(
+                  width: 44,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF060663).withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Notifications',
+                      style: TextStyle(
+                        color: Color(0xFF060663),
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              if (notifications.isEmpty)
+                const _CollectorEmptyCard(
+                  title: 'Aucune notification',
+                  message: 'Les alertes de réservation apparaîtront ici.',
+                )
+              else
+                ...notifications.map(
+                  (item) => Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(
+                        color: const Color(0xFF060663).withValues(alpha: 0.08),
+                      ),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: const Color(
+                              0xFFF80C0D,
+                            ).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: const Icon(
+                            Icons.notifications_active_rounded,
+                            color: Color(0xFFF80C0D),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                item.title,
+                                style: const TextStyle(
+                                  color: Color(0xFF060663),
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              const SizedBox(height: 5),
+                              Text(
+                                item.message,
+                                style: const TextStyle(
+                                  color: Color(0xFF5F6B86),
+                                  height: 1.35,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(height: 7),
+                              Text(
+                                item.time,
+                                style: const TextStyle(
+                                  color: Color(0xFF9AA4BA),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
         );
       },
     );
@@ -698,6 +917,88 @@ class _CollectorProfilePanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return ValueListenableBuilder<_CollectorProfileData>(
+      valueListenable: _CollectorProfileStore.profile,
+      builder: (context, profile, _) {
+        return _CollectorProfileEditor(profile: profile);
+      },
+    );
+  }
+}
+
+class _CollectorProfileEditor extends StatefulWidget {
+  final _CollectorProfileData profile;
+
+  const _CollectorProfileEditor({required this.profile});
+
+  @override
+  State<_CollectorProfileEditor> createState() =>
+      _CollectorProfileEditorState();
+}
+
+class _CollectorProfileEditorState extends State<_CollectorProfileEditor> {
+  late final TextEditingController _nameController;
+  late final TextEditingController _phoneController;
+  late final TextEditingController _agencyController;
+  late final TextEditingController _roleController;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.profile.fullName);
+    _phoneController = TextEditingController(text: widget.profile.phone);
+    _agencyController = TextEditingController(text: widget.profile.agency);
+    _roleController = TextEditingController(text: widget.profile.role);
+  }
+
+  @override
+  void didUpdateWidget(covariant _CollectorProfileEditor oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.profile != widget.profile) {
+      _nameController.text = widget.profile.fullName;
+      _phoneController.text = widget.profile.phone;
+      _agencyController.text = widget.profile.agency;
+      _roleController.text = widget.profile.role;
+    }
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _phoneController.dispose();
+    _agencyController.dispose();
+    _roleController.dispose();
+    super.dispose();
+  }
+
+  void _saveProfile() {
+    final nextProfile = widget.profile.copyWith(
+      fullName: _nameController.text.trim().isEmpty
+          ? widget.profile.fullName
+          : _nameController.text.trim(),
+      phone: _phoneController.text.trim().isEmpty
+          ? widget.profile.phone
+          : _phoneController.text.trim(),
+      agency: _agencyController.text.trim().isEmpty
+          ? widget.profile.agency
+          : _agencyController.text.trim(),
+      role: _roleController.text.trim().isEmpty
+          ? widget.profile.role
+          : _roleController.text.trim(),
+    );
+
+    _CollectorProfileStore.update(nextProfile);
+    FocusScope.of(context).unfocus();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Profil percepteur mis à jour.'),
+        backgroundColor: Color(0xFF060663),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
@@ -712,22 +1013,50 @@ class _CollectorProfilePanel extends StatelessWidget {
           ),
         ],
       ),
-      child: const Column(
+      child: Column(
         children: [
-          _CollectorProfileInfoRow(
+          _CollectorProfileEditField(
             icon: Icons.badge_rounded,
-            title: 'Nom et prénom',
-            value: 'Percepteur TicBus',
+            label: 'Nom et prénom',
+            controller: _nameController,
           ),
-          _CollectorProfileInfoRow(
+          const SizedBox(height: 14),
+          _CollectorProfileEditField(
             icon: Icons.phone_rounded,
-            title: 'Téléphone',
-            value: '+229 01 00 00 00 00',
+            label: 'Téléphone',
+            controller: _phoneController,
+            keyboardType: TextInputType.phone,
           ),
-          _CollectorProfileInfoRow(
+          const SizedBox(height: 14),
+          _CollectorProfileEditField(
             icon: Icons.location_city_rounded,
-            title: 'Agence',
-            value: 'Cotonou',
+            label: 'Agence',
+            controller: _agencyController,
+          ),
+          const SizedBox(height: 14),
+          _CollectorProfileEditField(
+            icon: Icons.work_rounded,
+            label: 'Fonction',
+            controller: _roleController,
+          ),
+          const SizedBox(height: 18),
+          SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: ElevatedButton.icon(
+              onPressed: _saveProfile,
+              icon: const Icon(Icons.save_rounded),
+              label: const Text('Enregistrer le profil'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFF80C0D),
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                textStyle: const TextStyle(fontWeight: FontWeight.w900),
+              ),
+            ),
           ),
         ],
       ),
@@ -735,15 +1064,17 @@ class _CollectorProfilePanel extends StatelessWidget {
   }
 }
 
-class _CollectorProfileInfoRow extends StatelessWidget {
+class _CollectorProfileEditField extends StatelessWidget {
   final IconData icon;
-  final String title;
-  final String value;
+  final String label;
+  final TextEditingController controller;
+  final TextInputType? keyboardType;
 
-  const _CollectorProfileInfoRow({
+  const _CollectorProfileEditField({
     required this.icon,
-    required this.title,
-    required this.value,
+    required this.label,
+    required this.controller,
+    this.keyboardType,
   });
 
   @override
@@ -768,31 +1099,59 @@ class _CollectorProfileInfoRow extends StatelessWidget {
           ),
           const SizedBox(width: 14),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: Color(0xFF5F6B86),
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w800,
-                  ),
+            child: TextField(
+              controller: controller,
+              keyboardType: keyboardType,
+              style: const TextStyle(
+                color: Color(0xFF060663),
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+              ),
+              decoration: InputDecoration(
+                labelText: label,
+                labelStyle: const TextStyle(
+                  color: Color(0xFF5F6B86),
+                  fontWeight: FontWeight.w800,
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  value,
-                  style: const TextStyle(
-                    color: Color(0xFF060663),
-                    fontSize: 16,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ],
+                border: InputBorder.none,
+                isDense: true,
+              ),
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _CollectorProfileTabContent extends StatelessWidget {
+  const _CollectorProfileTabContent();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.only(bottom: 18),
+      children: const [
+        Center(
+          child: CircleAvatar(
+            radius: 52,
+            backgroundColor: Color(0xFF58648D),
+            child: Icon(Icons.person_rounded, color: Colors.white, size: 66),
+          ),
+        ),
+        SizedBox(height: 16),
+        Text(
+          'Profil percepteur',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: Color(0xFF060663),
+            fontSize: 24,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        SizedBox(height: 18),
+        _CollectorProfilePanel(),
+      ],
     );
   }
 }
@@ -1580,6 +1939,39 @@ const List<String> _collectorBeninCities = [
   'Tchaourou',
 ];
 
+class _CollectorCityPosition {
+  final double latitude;
+  final double longitude;
+
+  const _CollectorCityPosition(this.latitude, this.longitude);
+}
+
+const Map<String, _CollectorCityPosition> _collectorCityPositions = {
+  'Abomey': _CollectorCityPosition(7.1829, 1.9912),
+  'Abomey-Calavi': _CollectorCityPosition(6.4485, 2.3557),
+  'Adjohoun': _CollectorCityPosition(6.7167, 2.4833),
+  'Allada': _CollectorCityPosition(6.6655, 2.1514),
+  'Aplahoué': _CollectorCityPosition(6.9333, 1.6833),
+  'Banikoara': _CollectorCityPosition(11.2985, 2.4386),
+  'Bassila': _CollectorCityPosition(9.0081, 1.6654),
+  'Bembèrèkè': _CollectorCityPosition(10.2283, 2.6633),
+  'Bétérou': _CollectorCityPosition(9.1992, 2.2586),
+  'Bohicon': _CollectorCityPosition(7.1783, 2.0667),
+  'Cotonou': _CollectorCityPosition(6.3703, 2.3912),
+  'Dassa-Zoumè': _CollectorCityPosition(7.75, 2.1833),
+  'Djougou': _CollectorCityPosition(9.7085, 1.6659),
+  'Kandi': _CollectorCityPosition(11.1342, 2.9386),
+  'Lokossa': _CollectorCityPosition(6.6387, 1.7167),
+  'Natitingou': _CollectorCityPosition(10.3042, 1.3796),
+  'Ouidah': _CollectorCityPosition(6.3631, 2.0851),
+  'Parakou': _CollectorCityPosition(9.3372, 2.6303),
+  'Porto-Novo': _CollectorCityPosition(6.4969, 2.6289),
+  'Sakété': _CollectorCityPosition(6.7362, 2.6587),
+  'Savalou': _CollectorCityPosition(7.9281, 1.9756),
+  'Sèmè-Kpodji': _CollectorCityPosition(6.3654, 2.6161),
+  'Tchaourou': _CollectorCityPosition(8.8865, 2.5975),
+};
+
 class _CollectorReservationRecord {
   final String reference;
   final String departure;
@@ -1648,22 +2040,160 @@ class _CollectorReservationPageState extends State<_CollectorReservationPage> {
     text: 'Porto-Novo',
   );
   final TextEditingController _dateController = TextEditingController();
+  final TextEditingController _amountController = TextEditingController();
   int _passengerCount = 1;
   DateTime? _travelDate;
+  Position? _currentPosition;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncFareAmount();
+  }
 
   @override
   void dispose() {
     _departController.dispose();
     _destinationController.dispose();
     _dateController.dispose();
+    _amountController.dispose();
     super.dispose();
   }
 
   int get _fare {
-    final seed =
-        _departController.text.length + _destinationController.text.length;
-    final base = 8000 + (seed % 5) * 500;
-    return base + _passengerCount * 1200;
+    final distance = _routeDistanceKm(
+      _departController.text.trim(),
+      _destinationController.text.trim(),
+    );
+    final base = 900;
+    final perPassenger = (base + distance * 95).round();
+    final roundedFare = ((perPassenger / 100).ceil() * 100)
+        .clamp(1200, 65000)
+        .toInt();
+    return roundedFare * _passengerCount;
+  }
+
+  void _syncFareAmount() {
+    _amountController.text = _formatAmount(_fare);
+  }
+
+  int _currentAmount() {
+    final raw = _amountController.text.replaceAll(RegExp(r'[^0-9]'), '');
+    return int.tryParse(raw) ?? _fare;
+  }
+
+  String _formatAmount(int amount) {
+    final value = amount.toString();
+    final buffer = StringBuffer();
+    for (var i = 0; i < value.length; i++) {
+      final remaining = value.length - i;
+      buffer.write(value[i]);
+      if (remaining > 1 && remaining % 3 == 1) buffer.write(' ');
+    }
+    return buffer.toString();
+  }
+
+  double _routeDistanceKm(String departure, String destination) {
+    final from = _positionFor(departure);
+    final to = _positionFor(destination);
+    if (from == null || to == null) {
+      final seed = departure.length * 17 + destination.length * 31;
+      return 35 + (seed % 420).toDouble();
+    }
+
+    return _distanceKm(
+      from.latitude,
+      from.longitude,
+      to.latitude,
+      to.longitude,
+    );
+  }
+
+  _CollectorCityPosition? _positionFor(String city) {
+    if (city.startsWith('Ma position') && _currentPosition != null) {
+      return _CollectorCityPosition(
+        _currentPosition!.latitude,
+        _currentPosition!.longitude,
+      );
+    }
+    return _collectorCityPositions[city];
+  }
+
+  double _distanceKm(
+    double latitudeA,
+    double longitudeA,
+    double latitudeB,
+    double longitudeB,
+  ) {
+    const earthRadiusKm = 6371.0;
+    final dLat = _degreesToRadians(latitudeB - latitudeA);
+    final dLon = _degreesToRadians(longitudeB - longitudeA);
+    final a =
+        math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(_degreesToRadians(latitudeA)) *
+            math.cos(_degreesToRadians(latitudeB)) *
+            math.sin(dLon / 2) *
+            math.sin(dLon / 2);
+    return earthRadiusKm * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+  }
+
+  double _degreesToRadians(double degrees) => degrees * math.pi / 180;
+
+  Future<void> _useCurrentLocation(TextEditingController controller) async {
+    Navigator.pop(context);
+
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Activez la localisation pour utiliser Ma position.'),
+            backgroundColor: _ticBusRed,
+          ),
+        );
+        return;
+      }
+
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Permission de localisation refusée.'),
+            backgroundColor: _ticBusRed,
+          ),
+        );
+        return;
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _currentPosition = position;
+        controller.text =
+            'Ma position (${position.latitude.toStringAsFixed(5)}, ${position.longitude.toStringAsFixed(5)})';
+        _syncFareAmount();
+      });
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Impossible de récupérer la position actuelle.'),
+          backgroundColor: _ticBusRed,
+        ),
+      );
+    }
   }
 
   Future<void> _pickDate() async {
@@ -1699,6 +2229,7 @@ class _CollectorReservationPageState extends State<_CollectorReservationPage> {
   void _showCityPicker({
     required String title,
     required TextEditingController controller,
+    bool includeCurrentLocation = false,
   }) {
     showModalBottomSheet(
       context: context,
@@ -1749,10 +2280,39 @@ class _CollectorReservationPageState extends State<_CollectorReservationPage> {
                 Expanded(
                   child: ListView.separated(
                     padding: const EdgeInsets.fromLTRB(16, 4, 16, 18),
-                    itemCount: _collectorBeninCities.length,
+                    itemCount:
+                        _collectorBeninCities.length +
+                        (includeCurrentLocation ? 1 : 0),
                     separatorBuilder: (_, __) => const SizedBox(height: 8),
                     itemBuilder: (context, index) {
-                      final city = _collectorBeninCities[index];
+                      if (includeCurrentLocation && index == 0) {
+                        return Material(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          child: ListTile(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            leading: const Icon(
+                              Icons.my_location_rounded,
+                              color: _ticBusRed,
+                            ),
+                            title: const Text(
+                              'Ma position',
+                              style: TextStyle(
+                                color: _deepBlue,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            onTap: () => _useCurrentLocation(controller),
+                          ),
+                        );
+                      }
+
+                      final cityIndex = includeCurrentLocation
+                          ? index - 1
+                          : index;
+                      final city = _collectorBeninCities[cityIndex];
                       return Material(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(16),
@@ -1772,7 +2332,10 @@ class _CollectorReservationPageState extends State<_CollectorReservationPage> {
                             ),
                           ),
                           onTap: () {
-                            setState(() => controller.text = city);
+                            setState(() {
+                              controller.text = city;
+                              _syncFareAmount();
+                            });
                             Navigator.pop(context);
                           },
                         ),
@@ -1793,6 +2356,7 @@ class _CollectorReservationPageState extends State<_CollectorReservationPage> {
     setState(() {
       _departController.text = _destinationController.text;
       _destinationController.text = first;
+      _syncFareAmount();
     });
   }
 
@@ -1822,7 +2386,7 @@ class _CollectorReservationPageState extends State<_CollectorReservationPage> {
           destination: _destinationController.text.trim(),
           date:
               '${_travelDate!.day.toString().padLeft(2, '0')} ${_monthName(_travelDate!.month)} ${_travelDate!.year}',
-          priceAmount: _fare,
+          priceAmount: _currentAmount(),
           passengers: _passengerCount,
           time: '10:00',
         ),
@@ -1994,6 +2558,7 @@ class _CollectorReservationPageState extends State<_CollectorReservationPage> {
                       onTap: () => _showCityPicker(
                         title: 'Choisir la ville de départ',
                         controller: _departController,
+                        includeCurrentLocation: true,
                       ),
                     ),
                     _CollectorCityField(
@@ -2042,41 +2607,42 @@ class _CollectorReservationPageState extends State<_CollectorReservationPage> {
             ),
           ),
           const SizedBox(height: 18),
-          Row(
-            children: [
-              Expanded(
-                child: _CollectorSmallField(
-                  label: 'Date de départ',
-                  value: _dateController.text.isEmpty
-                      ? 'Sélectionner une date'
-                      : _dateController.text,
-                  icon: Icons.calendar_month_rounded,
-                  onTap: _pickDate,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _CollectorSmallField(
-                  label: 'Retour',
-                  value: 'Ajouter un retour',
-                  icon: Icons.sync_alt_rounded,
-                  disabled: true,
-                  onTap: () {},
-                ),
-              ),
-            ],
+          _CollectorSmallField(
+            label: 'Date de départ',
+            value: _dateController.text.isEmpty
+                ? 'Sélectionner une date'
+                : _dateController.text,
+            icon: Icons.calendar_month_rounded,
+            onTap: _pickDate,
           ),
           const SizedBox(height: 14),
+          if (_destinationController.text.isNotEmpty) ...[
+            _CollectorTextInput(
+              controller: _amountController,
+              label: 'Montant',
+              icon: Icons.payments_rounded,
+              keyboardType: TextInputType.number,
+              suffixText: 'CFA',
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            ),
+            const SizedBox(height: 14),
+          ],
           _CollectorPassengerCard(
             count: _passengerCount,
             onMinus: () {
               if (_passengerCount > 1) {
-                setState(() => _passengerCount -= 1);
+                setState(() {
+                  _passengerCount -= 1;
+                  _syncFareAmount();
+                });
               }
             },
             onPlus: () {
               if (_passengerCount < 8) {
-                setState(() => _passengerCount += 1);
+                setState(() {
+                  _passengerCount += 1;
+                  _syncFareAmount();
+                });
               }
             },
           ),
@@ -2190,14 +2756,12 @@ class _CollectorSmallField extends StatelessWidget {
   final String value;
   final IconData icon;
   final VoidCallback onTap;
-  final bool disabled;
 
   const _CollectorSmallField({
     required this.label,
     required this.value,
     required this.icon,
     required this.onTap,
-    this.disabled = false,
   });
 
   @override
@@ -2205,11 +2769,11 @@ class _CollectorSmallField extends StatelessWidget {
     const deepBlue = Color(0xFF060663);
 
     return GestureDetector(
-      onTap: disabled ? null : onTap,
+      onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
         decoration: BoxDecoration(
-          color: disabled ? Colors.white : const Color(0xFFF8FBFF),
+          color: const Color(0xFFF8FBFF),
           borderRadius: BorderRadius.circular(22),
           border: Border.all(color: deepBlue.withValues(alpha: 0.12)),
         ),
@@ -2218,10 +2782,8 @@ class _CollectorSmallField extends StatelessWidget {
           children: [
             Text(
               label,
-              style: TextStyle(
-                color: disabled
-                    ? const Color(0xFFB4BFD4)
-                    : const Color(0xFF5F6B86),
+              style: const TextStyle(
+                color: Color(0xFF5F6B86),
                 fontSize: 12.5,
                 fontWeight: FontWeight.w900,
               ),
@@ -2381,9 +2943,8 @@ class _CollectorPaymentDetailsPageState
     extends State<_CollectorPaymentDetailsPage> {
   final TextEditingController _requesterPhoneController =
       TextEditingController();
-  final TextEditingController _passengerNameController = TextEditingController(
-    text: 'Client TicBus',
-  );
+  final TextEditingController _passengerNameController =
+      TextEditingController();
 
   @override
   void dispose() {
@@ -2479,16 +3040,16 @@ class _CollectorPaymentDetailsPageState
               ),
               const SizedBox(height: 16),
               _CollectorTextInput(
-                controller: _requesterPhoneController,
-                label: 'Téléphone demandeur',
-                icon: Icons.phone_rounded,
-                keyboardType: TextInputType.phone,
-              ),
-              const SizedBox(height: 12),
-              _CollectorTextInput(
                 controller: _passengerNameController,
                 label: 'Nom du passager',
                 icon: Icons.person_rounded,
+              ),
+              const SizedBox(height: 12),
+              _CollectorTextInput(
+                controller: _requesterPhoneController,
+                label: 'Téléphone du demandeur',
+                icon: Icons.phone_rounded,
+                keyboardType: TextInputType.phone,
               ),
               const SizedBox(height: 20),
               SizedBox(
@@ -2561,7 +3122,11 @@ class _CollectorPaymentChoicePageState
     }
 
     setState(() => _paymentRequestSent = true);
-    _CollectorNotificationStore.add();
+    _CollectorNotificationStore.add(
+      title: 'Demande de paiement',
+      message:
+          'Demande envoyée au ${widget.reservation.phone} via ${_methodLabel(_method!)}.',
+    );
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
@@ -2590,7 +3155,11 @@ class _CollectorPaymentChoicePageState
   void _completeReservation(String status) {
     final reservation = widget.reservation.copyWith(status: status);
     _CollectorReservationStore.add(reservation);
-    _CollectorNotificationStore.add();
+    _CollectorNotificationStore.add(
+      title: 'Réservation confirmée',
+      message:
+          '${reservation.passengerName} - ${reservation.departure} vers ${reservation.destination}.',
+    );
 
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
@@ -2611,8 +3180,6 @@ class _CollectorPaymentChoicePageState
         return 'Wave';
       case 'card':
         return 'Carte bancaire';
-      case 'bitcoin':
-        return 'Bitcoin';
       default:
         return value;
     }
@@ -2845,7 +3412,6 @@ class _CollectorRemotePaymentPanel extends StatelessWidget {
       ('mtn', 'MTN', 'assets/images/logo_mtn.png'),
       ('wave', 'Wave', null),
       ('card', 'Carte bancaire', 'assets/images/logo_carte.png'),
-      ('bitcoin', 'Bitcoin', null),
     ];
 
     return Column(
@@ -3000,9 +3566,7 @@ class _CollectorPaymentMethodTile extends StatelessWidget {
   }
 
   Widget _methodIcon() {
-    final icon = value == 'bitcoin'
-        ? Icons.currency_bitcoin_rounded
-        : value == 'wave'
+    final icon = value == 'wave'
         ? Icons.waves_rounded
         : Icons.credit_card_rounded;
 
@@ -3015,12 +3579,16 @@ class _CollectorTextInput extends StatelessWidget {
   final String label;
   final IconData icon;
   final TextInputType? keyboardType;
+  final String? suffixText;
+  final List<TextInputFormatter>? inputFormatters;
 
   const _CollectorTextInput({
     required this.controller,
     required this.label,
     required this.icon,
     this.keyboardType,
+    this.suffixText,
+    this.inputFormatters,
   });
 
   @override
@@ -3028,12 +3596,14 @@ class _CollectorTextInput extends StatelessWidget {
     return TextField(
       controller: controller,
       keyboardType: keyboardType,
+      inputFormatters: inputFormatters,
       style: const TextStyle(
         color: Color(0xFF060663),
         fontWeight: FontWeight.w900,
       ),
       decoration: InputDecoration(
         labelText: label,
+        suffixText: suffixText,
         prefixIcon: Icon(icon, color: const Color(0xFFF80C0D)),
         filled: true,
         fillColor: Colors.white,
@@ -3174,28 +3744,6 @@ class _CollectorGeneratedTicketPage extends StatelessWidget {
                     ),
                   ],
                 ),
-                pw.SizedBox(height: 24),
-                pw.Center(
-                  child: pw.Column(
-                    children: [
-                      pw.Text(
-                        reservation.reference,
-                        style: pw.TextStyle(
-                          color: deepBlue,
-                          fontSize: 24,
-                          fontWeight: pw.FontWeight.bold,
-                        ),
-                      ),
-                      pw.SizedBox(height: 14),
-                      pw.BarcodeWidget(
-                        barcode: pw.Barcode.qrCode(),
-                        data: reservation.reference,
-                        width: 120,
-                        height: 120,
-                      ),
-                    ],
-                  ),
-                ),
                 pw.SizedBox(height: 28),
                 _pdfRow('Passager', reservation.passengerName, deepBlue, muted),
                 _pdfRow('Telephone', reservation.phone, deepBlue, muted),
@@ -3218,6 +3766,28 @@ class _CollectorGeneratedTicketPage extends StatelessWidget {
                   muted,
                 ),
                 _pdfRow('Montant', reservation.price, deepBlue, muted),
+                pw.Spacer(),
+                pw.Center(
+                  child: pw.Column(
+                    children: [
+                      pw.Text(
+                        reservation.reference,
+                        style: pw.TextStyle(
+                          color: deepBlue,
+                          fontSize: 18,
+                          fontWeight: pw.FontWeight.bold,
+                        ),
+                      ),
+                      pw.SizedBox(height: 12),
+                      pw.BarcodeWidget(
+                        barcode: pw.Barcode.qrCode(),
+                        data: reservation.reference,
+                        width: 120,
+                        height: 120,
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           );
@@ -3281,6 +3851,44 @@ class _CollectorGeneratedTicketPage extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _CollectorReservationCard(item: reservation),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: const Color(0xFF060663).withValues(alpha: 0.08),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    const Text(
+                      'Code QR du billet',
+                      style: TextStyle(
+                        color: Color(0xFF060663),
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    QrImageView(
+                      data: reservation.reference,
+                      version: QrVersions.auto,
+                      size: 150,
+                      backgroundColor: Colors.white,
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      reservation.reference,
+                      style: const TextStyle(
+                        color: Color(0xFF5F6B86),
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               const SizedBox(height: 16),
               SizedBox(
                 height: 54,

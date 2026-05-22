@@ -11,6 +11,8 @@ class CollectorPasswordPage extends StatefulWidget {
 }
 
 class _CollectorPasswordPageState extends State<CollectorPasswordPage> {
+  static const String _defaultCollectorPassword = '1234';
+
   final TextEditingController _passwordController = TextEditingController();
 
   @override
@@ -20,10 +22,10 @@ class _CollectorPasswordPageState extends State<CollectorPasswordPage> {
   }
 
   void _seConnecter() {
-    if (_passwordController.text.trim().isEmpty) {
+    if (_passwordController.text.trim() != _defaultCollectorPassword) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Veuillez entrer votre mot de passe.'),
+          content: Text('Mot de passe percepteur incorrect.'),
           backgroundColor: Color(0xFFF80C0D),
         ),
       );
@@ -69,7 +71,7 @@ class _CollectorPasswordPageState extends State<CollectorPasswordPage> {
                       ),
                       SizedBox(height: 8),
                       Text(
-                        'Entrez votre mot de passe pour accéder à votre espace.',
+                        'Entrez le mot de passe percepteur pour accéder à votre espace.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 14,
@@ -103,11 +105,21 @@ class _CollectorPasswordPageState extends State<CollectorPasswordPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       if (phone.isNotEmpty) ...[
+                        const Text(
+                          'Numéro percepteur',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF5F6B86),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
                         Text(
                           phone,
                           style: const TextStyle(
-                            color: Color(0xFF5F6B86),
-                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF060663),
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
                           ),
                         ),
                         const SizedBox(height: 18),
@@ -122,21 +134,6 @@ class _CollectorPasswordPageState extends State<CollectorPasswordPage> {
                       ),
                       const SizedBox(height: 10),
                       PasswordField(controller: _passwordController),
-                      const SizedBox(height: 14),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: GestureDetector(
-                          onTap: () => Get.toNamed(Routes.FORGOT_PASSWORD),
-                          child: const Text(
-                            'Mot de passe oublié ?',
-                            style: TextStyle(
-                              color: Color(0xFFF80C0D),
-                              fontWeight: FontWeight.w700,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ),
-                      ),
                     ],
                   ),
                 ),
