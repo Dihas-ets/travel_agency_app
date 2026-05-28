@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'navigation.dart';
+import 'utils/app_colors.dart';
 
 /// Point d'entrée de l'application.
 ///
@@ -31,7 +32,7 @@ class Main extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GetMaterialApp(
-      title: "Transport",
+      title: "Fofana Voyage",
       // La première page est déterminée par Routes.initialRoute.
       initialRoute: initialRoute,
       // Toutes les routes GetX disponibles dans l'application.
@@ -47,6 +48,28 @@ class Main extends StatelessWidget {
       // L'interface de l'application est affichée en français par défaut.
       locale: const Locale('fr', 'FR'),
       theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: AppColors.primary,
+          primary: AppColors.primary,
+          secondary: AppColors.darkGreen,
+          surface: Colors.white,
+        ),
+        scaffoldBackgroundColor: AppColors.background,
+        appBarTheme: const AppBarTheme(
+          backgroundColor: AppColors.darkGreen,
+          foregroundColor: Colors.white,
+          elevation: 0,
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
+          ),
+        ),
+        floatingActionButtonTheme: const FloatingActionButtonThemeData(
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
+        ),
         // Montserrat est appliquée à toute la typographie de l'application.
         textTheme: GoogleFonts.montserratTextTheme(Theme.of(context).textTheme),
       ),

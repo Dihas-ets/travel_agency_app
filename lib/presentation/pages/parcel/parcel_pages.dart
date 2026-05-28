@@ -6,8 +6,8 @@ import 'package:code_initial/presentation/pages/parcel/colis_attente_page.dart';
 import 'package:code_initial/widgets/common/african_phone_field.dart';
 import 'package:image_picker/image_picker.dart';
 
-const Color _deepBlue = Color(0xFF060663);
-const Color _logoRed = Color(0xFFF80C0D);
+const Color _deepBlue = Color(0xFF0B4F2A);
+const Color _logoRed = Color(0xFF16A34A);
 const Color _pageBackground = Color(0xFFF8F9FE);
 
 const List<String> _beninCities = [
@@ -409,11 +409,11 @@ class _SendParcelPageState extends State<SendParcelPage> {
     final randomSuffix = (millis % 100000).toString().padLeft(5, '0');
 
     // Reference colis lisible pour l'utilisateur et unique pour le test local.
-    // Le prefixe TicBus garde la marque coherente sur le billet, le QR code
+    // Le prefixe Fofana garde la marque coherente sur le billet, le QR code
     // et la liste des envois.
     final datePrefix =
         '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}';
-    final code = 'TicBus-$datePrefix-$randomSuffix';
+    final code = 'Fofana-$datePrefix-$randomSuffix';
 
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -677,7 +677,7 @@ class _ParcelHeader extends StatelessWidget {
               child: _HeaderButton(icon: Icons.menu_rounded, onTap: onMenuTap),
             ),
             Image.asset(
-              'assets/images/logo_ticbus_no_background.png',
+              'assets/images/logo_fofana_no_background.png',
               height: 54,
               fit: BoxFit.contain,
             ),

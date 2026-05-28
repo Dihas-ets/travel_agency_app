@@ -6,7 +6,7 @@ import '../common/african_phone_field.dart';
 ///
 /// Les séparer de LoginPage garde la page principale plus lisible.
 
-/// Header de la page : bouton retour à gauche + logo TicBus centré
+/// Header de la page : bouton retour à gauche + logo Fofana centré
 class LoginHeader extends StatelessWidget {
   const LoginHeader({super.key});
 
@@ -29,13 +29,13 @@ class LoginHeader extends StatelessWidget {
             ],
           ),
           child: IconButton(
-            icon: const Icon(Icons.arrow_back, color: Color(0xFF060663)),
+            icon: const Icon(Icons.arrow_back, color: Color(0xFF0B4F2A)),
             onPressed: () => Navigator.pop(context),
           ),
         ),
 
-        // Logo TicBus chargé depuis les assets
-        Image.asset('assets/images/logo_ticbus_no_background.png', height: 68),
+        // Logo Fofana chargé depuis les assets
+        Image.asset('assets/images/logo_fofana_no_background.png', height: 68),
 
         // SizedBox vide de même largeur que l'IconButton (48px)
         // → permet de centrer visuellement le logo
@@ -79,7 +79,7 @@ class _PasswordFieldState extends State<PasswordField> {
         color: Colors.white.withValues(alpha: 0.88),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: const Color(0xFF060663).withValues(alpha: 0.24),
+          color: const Color(0xFF0B4F2A).withValues(alpha: 0.24),
           width: 1.4,
         ),
       ),
@@ -106,7 +106,7 @@ class _PasswordFieldState extends State<PasswordField> {
             },
             child: Icon(
               _obscureText ? Icons.visibility_off : Icons.visibility,
-              color: const Color(0xFF060663),
+              color: const Color(0xFF0B4F2A),
             ),
           ),
         ),
@@ -137,7 +137,7 @@ class LoginButton extends StatelessWidget {
       child: ElevatedButton(
         onPressed: onPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFFF80C0D),
+          backgroundColor: const Color(0xFF16A34A),
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),

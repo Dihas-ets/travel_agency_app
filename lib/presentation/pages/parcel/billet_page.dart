@@ -78,7 +78,7 @@ class BilletPage extends StatelessWidget {
 
       await Printing.sharePdf(
         bytes: bytes,
-        filename: 'billet_ticbus_$safeCode.pdf',
+        filename: 'billet_fofana_$safeCode.pdf',
       );
     } catch (_) {
       if (!context.mounted) return;
@@ -86,7 +86,7 @@ class BilletPage extends StatelessWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text("Impossible de générer le PDF du billet."),
-          backgroundColor: Color(0xFFF80C0D),
+          backgroundColor: Color(0xFF16A34A),
         ),
       );
     }
@@ -97,9 +97,9 @@ class BilletPage extends StatelessWidget {
     required String time,
   }) async {
     final pdf = pw.Document();
-    final deepBlue = PdfColor.fromHex('#060663');
-    final logoRed = PdfColor.fromHex('#F80C0D');
-    final lightRed = PdfColor.fromHex('#FFF1F1');
+    final deepBlue = PdfColor.fromHex('#0B4F2A');
+    final logoRed = PdfColor.fromHex('#16A34A');
+    final lightRed = PdfColor.fromHex('#EAF7EF');
     final border = PdfColor.fromHex('#E6EAF2');
     final muted = PdfColor.fromHex('#687089');
     pw.MemoryImage? attachmentImage;
@@ -135,7 +135,7 @@ class BilletPage extends StatelessWidget {
                       crossAxisAlignment: pw.CrossAxisAlignment.start,
                       children: [
                         pw.Text(
-                          'TicBus',
+                          'Fofana',
                           style: pw.TextStyle(
                             color: deepBlue,
                             fontSize: 28,
@@ -325,7 +325,7 @@ class BilletPage extends StatelessWidget {
                     borderRadius: pw.BorderRadius.circular(12),
                   ),
                   child: pw.Text(
-                    "Les frais d'envoi seront determines par l'equipe TicBus en agence.",
+                    "Les frais d'envoi seront determines par l'equipe Fofana en agence.",
                     textAlign: pw.TextAlign.center,
                     style: pw.TextStyle(
                       color: deepBlue,
@@ -376,9 +376,9 @@ class BilletPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const Color deepBlue = Color(0xFF060663);
-    const Color logoRed = Color(0xFFF80C0D);
-    const Color pageBg = Color(0xFFE8F0FF);
+    const Color deepBlue = Color(0xFF0B4F2A);
+    const Color logoRed = Color(0xFF16A34A);
+    const Color pageBg = Color(0xFFEAF7EF);
     final hasAttachment =
         attachmentPath != null && attachmentPath!.trim().isNotEmpty;
 
@@ -500,7 +500,7 @@ class BilletPage extends StatelessWidget {
                         borderRadius: BorderRadius.circular(14),
                       ),
                       child: Text(
-                        "Les frais d'envoi seront déterminés par l'équipe TicBus en agence",
+                        "Les frais d'envoi seront déterminés par l'équipe Fofana en agence",
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: deepBlue.withValues(alpha: 0.85),
@@ -699,7 +699,7 @@ class _SingleInfoBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const deepBlue = Color(0xFF060663);
+    const deepBlue = Color(0xFF0B4F2A);
 
     return _Block(
       title: title,
@@ -730,7 +730,7 @@ class _InfoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const deepBlue = Color(0xFF060663);
+    const deepBlue = Color(0xFF0B4F2A);
 
     TextStyle valueStyle() {
       return TextStyle(
@@ -776,7 +776,7 @@ class _Block extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const deepBlue = Color(0xFF060663);
+    const deepBlue = Color(0xFF0B4F2A);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

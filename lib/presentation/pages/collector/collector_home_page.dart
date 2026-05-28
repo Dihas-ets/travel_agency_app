@@ -66,7 +66,7 @@ class _CollectorHomePageState extends State<CollectorHomePage> {
                       ),
                     ),
                     Image.asset(
-                      'assets/images/logo_ticbus_no_background.png',
+                      'assets/images/logo_fofana_no_background.png',
                       height: 64,
                       fit: BoxFit.contain,
                     ),
@@ -80,7 +80,7 @@ class _CollectorHomePageState extends State<CollectorHomePage> {
                 const Text(
                   'Espace percepteur',
                   style: TextStyle(
-                    color: Color(0xFF060663),
+                    color: Color(0xFF0B4F2A),
                     fontSize: 28,
                     fontWeight: FontWeight.w900,
                   ),
@@ -111,7 +111,7 @@ class _CollectorHomePageState extends State<CollectorHomePage> {
             borderRadius: BorderRadius.circular(26),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF060663).withValues(alpha: 0.12),
+                color: const Color(0xFF0B4F2A).withValues(alpha: 0.12),
                 blurRadius: 24,
                 offset: const Offset(0, 10),
               ),
@@ -130,7 +130,7 @@ class _CollectorHomePageState extends State<CollectorHomePage> {
                     padding: const EdgeInsets.symmetric(vertical: 7),
                     decoration: BoxDecoration(
                       color: isActive
-                          ? const Color(0xFF060663)
+                          ? const Color(0xFF0B4F2A)
                           : Colors.transparent,
                       borderRadius: BorderRadius.circular(20),
                     ),
@@ -178,7 +178,7 @@ class _CollectorNotificationStore {
   static final List<_CollectorNotificationItem> notifications = [
     _CollectorNotificationItem(
       title: 'Bienvenue',
-      message: 'Votre espace percepteur TicBus est prêt.',
+      message: 'Votre espace percepteur Fofana est prêt.',
       time: 'Maintenant',
     ),
     _CollectorNotificationItem(
@@ -255,7 +255,7 @@ class _CollectorProfileStore {
   static final ValueNotifier<_CollectorProfileData> profile =
       ValueNotifier<_CollectorProfileData>(
         const _CollectorProfileData(
-          fullName: 'Percepteur TicBus',
+          fullName: 'Percepteur Fofana',
           phone: '+229 01 00 00 00 00',
           agency: 'Cotonou',
           role: 'Percepteur voyage',
@@ -302,12 +302,12 @@ class _CollectorTabContent extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(tab.icon, color: const Color(0xFFF80C0D), size: 34),
+          Icon(tab.icon, color: const Color(0xFF16A34A), size: 34),
           const SizedBox(height: 14),
           Text(
             tab.title,
             style: const TextStyle(
-              color: Color(0xFF060663),
+              color: Color(0xFF0B4F2A),
               fontSize: 22,
               fontWeight: FontWeight.w900,
             ),
@@ -365,7 +365,7 @@ class _CollectorHeaderIconButton extends StatelessWidget {
             ),
           ],
         ),
-        child: Icon(icon, color: const Color(0xFF060663)),
+        child: Icon(icon, color: const Color(0xFF0B4F2A)),
       ),
     );
   }
@@ -408,7 +408,7 @@ class _CollectorNotificationIconButtonState
                   width: 19,
                   height: 19,
                   decoration: const BoxDecoration(
-                    color: Color(0xFFF80C0D),
+                    color: Color(0xFF16A34A),
                     shape: BoxShape.circle,
                   ),
                   child: Center(
@@ -457,7 +457,7 @@ class _CollectorNotificationsSheet extends StatelessWidget {
                   width: 44,
                   height: 5,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF060663).withValues(alpha: 0.16),
+                    color: const Color(0xFF0B4F2A).withValues(alpha: 0.16),
                     borderRadius: BorderRadius.circular(20),
                   ),
                 ),
@@ -469,7 +469,7 @@ class _CollectorNotificationsSheet extends StatelessWidget {
                     child: Text(
                       'Notifications',
                       style: TextStyle(
-                        color: Color(0xFF060663),
+                        color: Color(0xFF0B4F2A),
                         fontSize: 22,
                         fontWeight: FontWeight.w900,
                       ),
@@ -489,75 +489,225 @@ class _CollectorNotificationsSheet extends StatelessWidget {
                 )
               else
                 ...notifications.map(
-                  (item) => Container(
-                    margin: const EdgeInsets.only(bottom: 10),
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(
-                        color: const Color(0xFF060663).withValues(alpha: 0.08),
-                      ),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: const Color(
-                              0xFFF80C0D,
-                            ).withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: const Icon(
-                            Icons.notifications_active_rounded,
-                            color: Color(0xFFF80C0D),
-                          ),
+                  (item) => _CollectorNotificationTile(
+                    item: item,
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              _CollectorNotificationDetailPage(item: item),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                item.title,
-                                style: const TextStyle(
-                                  color: Color(0xFF060663),
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                              const SizedBox(height: 5),
-                              Text(
-                                item.message,
-                                style: const TextStyle(
-                                  color: Color(0xFF5F6B86),
-                                  height: 1.35,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              const SizedBox(height: 7),
-                              Text(
-                                item.time,
-                                style: const TextStyle(
-                                  color: Color(0xFF9AA4BA),
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
+                      );
+                    },
                   ),
                 ),
             ],
           ),
         );
       },
+    );
+  }
+}
+
+class _CollectorNotificationTile extends StatelessWidget {
+  final _CollectorNotificationItem item;
+  final VoidCallback onTap;
+
+  const _CollectorNotificationTile({required this.item, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: onTap,
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: const Color(0xFF0B4F2A).withValues(alpha: 0.08),
+            ),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF16A34A).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(
+                  Icons.notifications_active_rounded,
+                  color: Color(0xFF16A34A),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.title,
+                      style: const TextStyle(
+                        color: Color(0xFF0B4F2A),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      item.message,
+                      style: const TextStyle(
+                        color: Color(0xFF5F6B86),
+                        height: 1.35,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 7),
+                    Text(
+                      item.time,
+                      style: const TextStyle(
+                        color: Color(0xFF9AA4BA),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: Color(0xFF16A34A),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CollectorNotificationDetailPage extends StatelessWidget {
+  final _CollectorNotificationItem item;
+
+  const _CollectorNotificationDetailPage({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    const deepBlue = Color(0xFF0B4F2A);
+    const green = Color(0xFF16A34A);
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FBFF),
+      appBar: AppBar(
+        backgroundColor: deepBlue,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        title: const Text(
+          'Détail notification',
+          style: TextStyle(fontWeight: FontWeight.w900),
+        ),
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
+          children: [
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: green,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 54,
+                    height: 54,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Icon(
+                      Icons.notifications_active_rounded,
+                      color: Colors.white,
+                      size: 28,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Text(
+                      item.title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 21,
+                        fontWeight: FontWeight.w900,
+                        height: 1.15,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: deepBlue.withValues(alpha: 0.08)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Message',
+                    style: TextStyle(
+                      color: deepBlue,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    item.message,
+                    style: const TextStyle(
+                      color: Color(0xFF5F6B86),
+                      fontSize: 15,
+                      height: 1.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.schedule_rounded,
+                        color: green,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        item.time,
+                        style: const TextStyle(
+                          color: Color(0xFF0B4F2A),
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -648,7 +798,7 @@ class _CollectorMainMenuView extends StatelessWidget {
               width: 44,
               height: 5,
               decoration: BoxDecoration(
-                color: const Color(0xFF060663).withValues(alpha: 0.16),
+                color: const Color(0xFF0B4F2A).withValues(alpha: 0.16),
                 borderRadius: BorderRadius.circular(20),
               ),
             ),
@@ -659,14 +809,14 @@ class _CollectorMainMenuView extends StatelessWidget {
             child: Text(
               'v1.0.2',
               style: TextStyle(
-                color: const Color(0xFF060663).withValues(alpha: 0.9),
+                color: const Color(0xFF0B4F2A).withValues(alpha: 0.9),
                 fontSize: 14,
                 fontWeight: FontWeight.w900,
               ),
             ),
           ),
           Image.asset(
-            'assets/images/logo_ticbus_no_background.png',
+            'assets/images/logo_fofana_no_background.png',
             height: 62,
           ),
           const SizedBox(height: 10),
@@ -677,9 +827,9 @@ class _CollectorMainMenuView extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           const Text(
-            'Percepteur TicBus',
+            'Percepteur Fofana',
             style: TextStyle(
-              color: Color(0xFF060663),
+              color: Color(0xFF0B4F2A),
               fontSize: 27,
               fontWeight: FontWeight.w900,
             ),
@@ -712,7 +862,7 @@ class _CollectorMainMenuView extends StatelessWidget {
             icon: const Icon(Icons.close_rounded),
             label: const Text('Fermer le menu'),
             style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFF060663),
+              foregroundColor: const Color(0xFF0B4F2A),
               textStyle: const TextStyle(fontWeight: FontWeight.w900),
             ),
           ),
@@ -735,7 +885,7 @@ class _CollectorMenuSectionTitle extends StatelessWidget {
         Expanded(
           child: Container(
             height: 1,
-            color: const Color(0xFF060663).withValues(alpha: 0.08),
+            color: const Color(0xFF0B4F2A).withValues(alpha: 0.08),
           ),
         ),
         const SizedBox(width: 12),
@@ -753,7 +903,7 @@ class _CollectorMenuSectionTitle extends StatelessWidget {
         Expanded(
           child: Container(
             height: 1,
-            color: const Color(0xFF060663).withValues(alpha: 0.08),
+            color: const Color(0xFF0B4F2A).withValues(alpha: 0.08),
           ),
         ),
       ],
@@ -799,7 +949,7 @@ class _CollectorMenuOptionTile extends StatelessWidget {
               child: Text(
                 title,
                 style: const TextStyle(
-                  color: Color(0xFF060663),
+                  color: Color(0xFF0B4F2A),
                   fontSize: 16,
                   fontWeight: FontWeight.w900,
                 ),
@@ -807,7 +957,7 @@ class _CollectorMenuOptionTile extends StatelessWidget {
             ),
             Icon(
               Icons.chevron_right_rounded,
-              color: const Color(0xFF060663).withValues(alpha: 0.42),
+              color: const Color(0xFF0B4F2A).withValues(alpha: 0.42),
             ),
           ],
         ),
@@ -838,7 +988,7 @@ class _CollectorProfileMenuView extends StatelessWidget {
               width: 52,
               height: 6,
               decoration: BoxDecoration(
-                color: const Color(0xFF060663).withValues(alpha: 0.16),
+                color: const Color(0xFF0B4F2A).withValues(alpha: 0.16),
                 borderRadius: BorderRadius.circular(20),
               ),
             ),
@@ -852,7 +1002,7 @@ class _CollectorProfileMenuView extends StatelessWidget {
               ),
               Expanded(
                 child: Image.asset(
-                  'assets/images/logo_ticbus_no_background.png',
+                  'assets/images/logo_fofana_no_background.png',
                   height: 70,
                 ),
               ),
@@ -863,7 +1013,7 @@ class _CollectorProfileMenuView extends StatelessWidget {
           const Text(
             'Profil percepteur',
             style: TextStyle(
-              color: Color(0xFF060663),
+              color: Color(0xFF0B4F2A),
               fontSize: 29,
               fontWeight: FontWeight.w900,
             ),
@@ -906,7 +1056,7 @@ class _CollectorRoundIconButton extends StatelessWidget {
             ),
           ],
         ),
-        child: Icon(icon, color: const Color(0xFF060663), size: 25),
+        child: Icon(icon, color: const Color(0xFF0B4F2A), size: 25),
       ),
     );
   }
@@ -992,7 +1142,7 @@ class _CollectorProfileEditorState extends State<_CollectorProfileEditor> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Profil percepteur mis à jour.'),
-        backgroundColor: Color(0xFF060663),
+        backgroundColor: Color(0xFF0B4F2A),
       ),
     );
   }
@@ -1048,7 +1198,7 @@ class _CollectorProfileEditorState extends State<_CollectorProfileEditor> {
               icon: const Icon(Icons.save_rounded),
               label: const Text('Enregistrer le profil'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFF80C0D),
+                backgroundColor: const Color(0xFF16A34A),
                 foregroundColor: Colors.white,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
@@ -1095,7 +1245,7 @@ class _CollectorProfileEditField extends StatelessWidget {
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(icon, color: const Color(0xFF060663), size: 22),
+            child: Icon(icon, color: const Color(0xFF0B4F2A), size: 22),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -1103,7 +1253,7 @@ class _CollectorProfileEditField extends StatelessWidget {
               controller: controller,
               keyboardType: keyboardType,
               style: const TextStyle(
-                color: Color(0xFF060663),
+                color: Color(0xFF0B4F2A),
                 fontSize: 16,
                 fontWeight: FontWeight.w900,
               ),
@@ -1144,7 +1294,7 @@ class _CollectorProfileTabContent extends StatelessWidget {
           'Profil percepteur',
           textAlign: TextAlign.center,
           style: TextStyle(
-            color: Color(0xFF060663),
+            color: Color(0xFF0B4F2A),
             fontSize: 24,
             fontWeight: FontWeight.w900,
           ),
@@ -1182,14 +1332,14 @@ class _CollectorTermsSheet extends StatelessWidget {
           Text(
             "Conditions d'utilisation",
             style: TextStyle(
-              color: Color(0xFF060663),
+              color: Color(0xFF0B4F2A),
               fontSize: 18,
               fontWeight: FontWeight.w900,
             ),
           ),
           SizedBox(height: 8),
           Text(
-            "L'utilisation de l'espace percepteur TicBus implique le respect des règles de validation des tickets, de présence et de traitement des opérations voyage.",
+            "L'utilisation de l'espace percepteur Fofana implique le respect des règles de validation des tickets, de présence et de traitement des opérations voyage.",
             style: TextStyle(
               color: Color(0xFF5F6B86),
               fontSize: 13,
@@ -1232,7 +1382,7 @@ class _CollectorVoyageMenu extends StatelessWidget {
           child: Text(
             'Menu',
             style: TextStyle(
-              color: Color(0xFF060663),
+              color: Color(0xFF0B4F2A),
               fontSize: 19,
               fontWeight: FontWeight.w900,
             ),
@@ -1303,8 +1453,8 @@ class _CollectorMenuButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const deepBlue = Color(0xFF060663);
-    const red = Color(0xFFF80C0D);
+    const deepBlue = Color(0xFF0B4F2A);
+    const red = Color(0xFF16A34A);
 
     return Material(
       color: Colors.white,
@@ -1365,8 +1515,8 @@ class _CollectorConnectionPage extends StatefulWidget {
 }
 
 class _CollectorConnectionPageState extends State<_CollectorConnectionPage> {
-  static const Color _deepBlue = Color(0xFF060663);
-  static const Color _ticBusRed = Color(0xFFF80C0D);
+  static const Color _deepBlue = Color(0xFF0B4F2A);
+  static const Color _fofanaGreen = Color(0xFF16A34A);
 
   final List<TextEditingController> _otpControllers = List.generate(
     6,
@@ -1374,7 +1524,7 @@ class _CollectorConnectionPageState extends State<_CollectorConnectionPage> {
   );
   final TextEditingController _requestController = TextEditingController(
     text:
-        "Bonjour direction TicBus, merci de m'envoyer un code d'activation pour connecter mon voyage.",
+        "Bonjour direction Fofana, merci de m'envoyer un code d'activation pour connecter mon voyage.",
   );
   bool _requestCode = false;
 
@@ -1444,7 +1594,7 @@ class _CollectorConnectionPageState extends State<_CollectorConnectionPage> {
                     ),
                   ),
                   Image.asset(
-                    'assets/images/logo_ticbus_no_background.png',
+                    'assets/images/logo_fofana_no_background.png',
                     height: 56,
                     fit: BoxFit.contain,
                   ),
@@ -1517,7 +1667,7 @@ class _CollectorConnectionPageState extends State<_CollectorConnectionPage> {
                             child: ElevatedButton(
                               onPressed: _activate,
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: _ticBusRed,
+                                backgroundColor: _fofanaGreen,
                                 foregroundColor: Colors.white,
                                 elevation: 0,
                                 shape: RoundedRectangleBorder(
@@ -1554,7 +1704,7 @@ class _CollectorConnectionPageState extends State<_CollectorConnectionPage> {
                                 children: [
                                   Checkbox(
                                     value: _requestCode,
-                                    activeColor: _ticBusRed,
+                                    activeColor: _fofanaGreen,
                                     onChanged: (value) => setState(
                                       () => _requestCode = value ?? false,
                                     ),
@@ -1599,7 +1749,7 @@ class _CollectorConnectionPageState extends State<_CollectorConnectionPage> {
                                 focusedBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(18),
                                   borderSide: const BorderSide(
-                                    color: _ticBusRed,
+                                    color: _fofanaGreen,
                                     width: 1.5,
                                   ),
                                 ),
@@ -1654,7 +1804,7 @@ class _CollectorOtpBox extends StatelessWidget {
       maxLength: 1,
       keyboardType: TextInputType.number,
       style: const TextStyle(
-        color: Color(0xFF060663),
+        color: Color(0xFF0B4F2A),
         fontSize: 20,
         fontWeight: FontWeight.w900,
       ),
@@ -1666,12 +1816,12 @@ class _CollectorOtpBox extends StatelessWidget {
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide(
-            color: const Color(0xFF060663).withValues(alpha: 0.10),
+            color: const Color(0xFF0B4F2A).withValues(alpha: 0.10),
           ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: Color(0xFFF80C0D), width: 1.5),
+          borderSide: const BorderSide(color: Color(0xFF16A34A), width: 1.5),
         ),
       ),
     );
@@ -1698,11 +1848,11 @@ class _TicketValidationPageState extends State<_TicketValidationPage> {
 
   @override
   Widget build(BuildContext context) {
-    const deepBlue = Color(0xFF060663);
-    const red = Color(0xFFF80C0D);
+    const deepBlue = Color(0xFF0B4F2A);
+    const red = Color(0xFF16A34A);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFE8F0FF),
+      backgroundColor: const Color(0xFFEAF7EF),
       appBar: AppBar(
         backgroundColor: deepBlue,
         foregroundColor: Colors.white,
@@ -1814,8 +1964,8 @@ class _TicketInfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const deepBlue = Color(0xFF060663);
-    const red = Color(0xFFF80C0D);
+    const deepBlue = Color(0xFF0B4F2A);
+    const red = Color(0xFF16A34A);
 
     return Container(
       width: double.infinity,
@@ -1863,7 +2013,7 @@ class _TicketInfoCard extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           _TicketInfoRow(title: 'Code ticket', value: code),
-          const _TicketInfoRow(title: 'Passager', value: 'Client TicBus'),
+          const _TicketInfoRow(title: 'Passager', value: 'Client Fofana'),
           const _TicketInfoRow(title: 'Trajet', value: 'Cotonou -> Parakou'),
           const _TicketInfoRow(title: 'Départ', value: '21/05/2026 à 08:30'),
           const _TicketInfoRow(title: 'Siège', value: '12A'),
@@ -1902,7 +2052,7 @@ class _TicketInfoRow extends StatelessWidget {
               value,
               textAlign: TextAlign.right,
               style: const TextStyle(
-                color: Color(0xFF060663),
+                color: Color(0xFF0B4F2A),
                 fontWeight: FontWeight.w900,
               ),
             ),
@@ -2030,8 +2180,8 @@ class _CollectorReservationPage extends StatefulWidget {
 }
 
 class _CollectorReservationPageState extends State<_CollectorReservationPage> {
-  static const Color _deepBlue = Color(0xFF060663);
-  static const Color _ticBusRed = Color(0xFFF80C0D);
+  static const Color _deepBlue = Color(0xFF0B4F2A);
+  static const Color _fofanaGreen = Color(0xFF16A34A);
 
   final TextEditingController _departController = TextEditingController(
     text: 'Cotonou',
@@ -2149,7 +2299,7 @@ class _CollectorReservationPageState extends State<_CollectorReservationPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Activez la localisation pour utiliser Ma position.'),
-            backgroundColor: _ticBusRed,
+            backgroundColor: _fofanaGreen,
           ),
         );
         return;
@@ -2166,7 +2316,7 @@ class _CollectorReservationPageState extends State<_CollectorReservationPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Permission de localisation refusée.'),
-            backgroundColor: _ticBusRed,
+            backgroundColor: _fofanaGreen,
           ),
         );
         return;
@@ -2190,7 +2340,7 @@ class _CollectorReservationPageState extends State<_CollectorReservationPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Impossible de récupérer la position actuelle.'),
-          backgroundColor: _ticBusRed,
+          backgroundColor: _fofanaGreen,
         ),
       );
     }
@@ -2206,12 +2356,12 @@ class _CollectorReservationPageState extends State<_CollectorReservationPage> {
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
           colorScheme: const ColorScheme.light(
-            primary: _ticBusRed,
+            primary: _fofanaGreen,
             onPrimary: Colors.white,
             onSurface: _deepBlue,
           ),
           textButtonTheme: TextButtonThemeData(
-            style: TextButton.styleFrom(foregroundColor: _ticBusRed),
+            style: TextButton.styleFrom(foregroundColor: _fofanaGreen),
           ),
         ),
         child: child!,
@@ -2295,7 +2445,7 @@ class _CollectorReservationPageState extends State<_CollectorReservationPage> {
                             ),
                             leading: const Icon(
                               Icons.my_location_rounded,
-                              color: _ticBusRed,
+                              color: _fofanaGreen,
                             ),
                             title: const Text(
                               'Ma position',
@@ -2322,7 +2472,7 @@ class _CollectorReservationPageState extends State<_CollectorReservationPage> {
                           ),
                           leading: const Icon(
                             Icons.location_on_outlined,
-                            color: _ticBusRed,
+                            color: _fofanaGreen,
                           ),
                           title: Text(
                             city,
@@ -2451,7 +2601,7 @@ class _CollectorReservationPageState extends State<_CollectorReservationPage> {
                         ),
                       ),
                       Image.asset(
-                        'assets/images/logo_ticbus_no_background.png',
+                        'assets/images/logo_fofana_no_background.png',
                         height: 44,
                         width: 142,
                         fit: BoxFit.contain,
@@ -2652,7 +2802,7 @@ class _CollectorReservationPageState extends State<_CollectorReservationPage> {
             child: ElevatedButton(
               onPressed: _confirmReservation,
               style: ElevatedButton.styleFrom(
-                backgroundColor: _ticBusRed,
+                backgroundColor: _fofanaGreen,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
@@ -2699,7 +2849,7 @@ class _CollectorCityField extends StatelessWidget {
           border: Border(
             bottom: isFirst
                 ? BorderSide(
-                    color: const Color(0xFF060663).withValues(alpha: 0.08),
+                    color: const Color(0xFF0B4F2A).withValues(alpha: 0.08),
                   )
                 : BorderSide.none,
           ),
@@ -2710,12 +2860,12 @@ class _CollectorCityField extends StatelessWidget {
               width: 38,
               height: 38,
               decoration: BoxDecoration(
-                color: const Color(0xFFF80C0D).withValues(alpha: 0.1),
+                color: const Color(0xFF16A34A).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(14),
               ),
               child: const Icon(
                 Icons.location_on_rounded,
-                color: Color(0xFFF80C0D),
+                color: Color(0xFF16A34A),
                 size: 21,
               ),
             ),
@@ -2736,7 +2886,7 @@ class _CollectorCityField extends StatelessWidget {
                   Text(
                     controller.text.isEmpty ? hint : controller.text,
                     style: const TextStyle(
-                      color: Color(0xFF060663),
+                      color: Color(0xFF0B4F2A),
                       fontSize: 16,
                       fontWeight: FontWeight.w900,
                     ),
@@ -2766,7 +2916,7 @@ class _CollectorSmallField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const deepBlue = Color(0xFF060663);
+    const deepBlue = Color(0xFF0B4F2A);
 
     return GestureDetector(
       onTap: onTap,
@@ -2827,7 +2977,7 @@ class _CollectorPassengerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const deepBlue = Color(0xFF060663);
+    const deepBlue = Color(0xFF0B4F2A);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -2908,10 +3058,10 @@ class _CollectorStepperButton extends StatelessWidget {
           color: Colors.white,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: const Color(0xFF060663).withValues(alpha: 0.18),
+            color: const Color(0xFF0B4F2A).withValues(alpha: 0.18),
           ),
         ),
-        child: Icon(icon, size: 18, color: const Color(0xFF060663)),
+        child: Icon(icon, size: 18, color: const Color(0xFF0B4F2A)),
       ),
     );
   }
@@ -3010,8 +3160,8 @@ class _CollectorPaymentDetailsPageState
 
   @override
   Widget build(BuildContext context) {
-    const deepBlue = Color(0xFF060663);
-    const red = Color(0xFFF80C0D);
+    const deepBlue = Color(0xFF0B4F2A);
+    const red = Color(0xFF16A34A);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF6F8FF),
@@ -3101,7 +3251,7 @@ class _CollectorPaymentChoicePageState
   final TextEditingController _clientCodeController = TextEditingController();
   bool _paymentRequestSent = false;
 
-  static const Color _deepBlue = Color(0xFF060663);
+  static const Color _deepBlue = Color(0xFF0B4F2A);
 
   @override
   void dispose() {
@@ -3308,26 +3458,26 @@ class _CollectorModeButton extends StatelessWidget {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFFF80C0D) : const Color(0xFFF8FBFF),
+          color: selected ? const Color(0xFF16A34A) : const Color(0xFFF8FBFF),
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
             color: selected
-                ? const Color(0xFFF80C0D)
-                : const Color(0xFF060663).withValues(alpha: 0.10),
+                ? const Color(0xFF16A34A)
+                : const Color(0xFF0B4F2A).withValues(alpha: 0.10),
           ),
         ),
         child: Column(
           children: [
             Icon(
               icon,
-              color: selected ? Colors.white : const Color(0xFF060663),
+              color: selected ? Colors.white : const Color(0xFF0B4F2A),
             ),
             const SizedBox(height: 8),
             Text(
               label,
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: selected ? Colors.white : const Color(0xFF060663),
+                color: selected ? Colors.white : const Color(0xFF0B4F2A),
                 fontSize: 13,
                 fontWeight: FontWeight.w900,
               ),
@@ -3372,7 +3522,7 @@ class _CollectorCashPaymentPanel extends StatelessWidget {
             icon: const Icon(Icons.check_circle_rounded),
             label: const Text('Confirmer le paiement cash'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFF80C0D),
+              backgroundColor: const Color(0xFF16A34A),
               foregroundColor: Colors.white,
               elevation: 0,
               shape: RoundedRectangleBorder(
@@ -3442,9 +3592,9 @@ class _CollectorRemotePaymentPanel extends StatelessWidget {
             icon: const Icon(Icons.send_to_mobile_rounded),
             label: const Text('Envoyer la demande au client'),
             style: OutlinedButton.styleFrom(
-              foregroundColor: const Color(0xFF060663),
+              foregroundColor: const Color(0xFF0B4F2A),
               side: BorderSide(
-                color: const Color(0xFF060663).withValues(alpha: 0.2),
+                color: const Color(0xFF0B4F2A).withValues(alpha: 0.2),
               ),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
@@ -3460,7 +3610,7 @@ class _CollectorRemotePaymentPanel extends StatelessWidget {
             keyboardType: TextInputType.number,
             maxLength: 6,
             style: const TextStyle(
-              color: Color(0xFF060663),
+              color: Color(0xFF0B4F2A),
               fontWeight: FontWeight.w900,
             ),
             decoration: InputDecoration(
@@ -3468,7 +3618,7 @@ class _CollectorRemotePaymentPanel extends StatelessWidget {
               labelText: 'Code reçu par le client',
               prefixIcon: const Icon(
                 Icons.password_rounded,
-                color: Color(0xFFF80C0D),
+                color: Color(0xFF16A34A),
               ),
               filled: true,
               fillColor: const Color(0xFFF8FBFF),
@@ -3486,7 +3636,7 @@ class _CollectorRemotePaymentPanel extends StatelessWidget {
               icon: const Icon(Icons.verified_rounded),
               label: const Text('Valider le paiement'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFF80C0D),
+                backgroundColor: const Color(0xFF16A34A),
                 foregroundColor: Colors.white,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
@@ -3525,12 +3675,12 @@ class _CollectorPaymentMethodTile extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10),
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFFFFF1F1) : const Color(0xFFF8FBFF),
+          color: selected ? const Color(0xFFEAF7EF) : const Color(0xFFF8FBFF),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: selected
-                ? const Color(0xFFF80C0D)
-                : const Color(0xFF060663).withValues(alpha: 0.08),
+                ? const Color(0xFF16A34A)
+                : const Color(0xFF0B4F2A).withValues(alpha: 0.08),
             width: selected ? 1.5 : 1,
           ),
         ),
@@ -3553,7 +3703,7 @@ class _CollectorPaymentMethodTile extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  color: Color(0xFF060663),
+                  color: Color(0xFF0B4F2A),
                   fontSize: 13,
                   fontWeight: FontWeight.w900,
                 ),
@@ -3570,7 +3720,7 @@ class _CollectorPaymentMethodTile extends StatelessWidget {
         ? Icons.waves_rounded
         : Icons.credit_card_rounded;
 
-    return Icon(icon, color: const Color(0xFFF80C0D), size: 28);
+    return Icon(icon, color: const Color(0xFF16A34A), size: 28);
   }
 }
 
@@ -3598,13 +3748,13 @@ class _CollectorTextInput extends StatelessWidget {
       keyboardType: keyboardType,
       inputFormatters: inputFormatters,
       style: const TextStyle(
-        color: Color(0xFF060663),
+        color: Color(0xFF0B4F2A),
         fontWeight: FontWeight.w900,
       ),
       decoration: InputDecoration(
         labelText: label,
         suffixText: suffixText,
-        prefixIcon: Icon(icon, color: const Color(0xFFF80C0D)),
+        prefixIcon: Icon(icon, color: const Color(0xFF16A34A)),
         filled: true,
         fillColor: Colors.white,
         border: OutlineInputBorder(
@@ -3654,7 +3804,7 @@ class _CollectorTripSummaryCard extends StatelessWidget {
           const Text(
             'Résumé du voyage',
             style: TextStyle(
-              color: Color(0xFF060663),
+              color: Color(0xFF0B4F2A),
               fontSize: 18,
               fontWeight: FontWeight.w900,
             ),
@@ -3680,14 +3830,14 @@ class _CollectorGeneratedTicketPage extends StatelessWidget {
       final bytes = await _buildTicketPdf();
       await Printing.sharePdf(
         bytes: bytes,
-        filename: 'ticket_ticbus_${reservation.reference}.pdf',
+        filename: 'ticket_fofana_${reservation.reference}.pdf',
       );
     } catch (_) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Impossible de générer le PDF du ticket.'),
-          backgroundColor: Color(0xFFF80C0D),
+          backgroundColor: Color(0xFF16A34A),
         ),
       );
     }
@@ -3695,8 +3845,8 @@ class _CollectorGeneratedTicketPage extends StatelessWidget {
 
   Future<Uint8List> _buildTicketPdf() async {
     final pdf = pw.Document();
-    final deepBlue = PdfColor.fromHex('#060663');
-    final red = PdfColor.fromHex('#F80C0D');
+    final deepBlue = PdfColor.fromHex('#0B4F2A');
+    final red = PdfColor.fromHex('#16A34A');
     final light = PdfColor.fromHex('#F8FBFF');
     final muted = PdfColor.fromHex('#687089');
 
@@ -3718,7 +3868,7 @@ class _CollectorGeneratedTicketPage extends StatelessWidget {
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                   children: [
                     pw.Text(
-                      'TicBus',
+                      'Fofana',
                       style: pw.TextStyle(
                         color: deepBlue,
                         fontSize: 28,
@@ -3834,9 +3984,9 @@ class _CollectorGeneratedTicketPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFE8F0FF),
+      backgroundColor: const Color(0xFFEAF7EF),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF060663),
+        backgroundColor: const Color(0xFF0B4F2A),
         foregroundColor: Colors.white,
         elevation: 0,
         title: const Text(
@@ -3858,7 +4008,7 @@ class _CollectorGeneratedTicketPage extends StatelessWidget {
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(24),
                   border: Border.all(
-                    color: const Color(0xFF060663).withValues(alpha: 0.08),
+                    color: const Color(0xFF0B4F2A).withValues(alpha: 0.08),
                   ),
                 ),
                 child: Column(
@@ -3866,7 +4016,7 @@ class _CollectorGeneratedTicketPage extends StatelessWidget {
                     const Text(
                       'Code QR du billet',
                       style: TextStyle(
-                        color: Color(0xFF060663),
+                        color: Color(0xFF0B4F2A),
                         fontSize: 18,
                         fontWeight: FontWeight.w900,
                       ),
@@ -3897,7 +4047,7 @@ class _CollectorGeneratedTicketPage extends StatelessWidget {
                   icon: const Icon(Icons.picture_as_pdf_rounded),
                   label: const Text('Télécharger en PDF'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFF80C0D),
+                    backgroundColor: const Color(0xFF16A34A),
                     foregroundColor: Colors.white,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
@@ -3915,9 +4065,9 @@ class _CollectorGeneratedTicketPage extends StatelessWidget {
                   icon: const Icon(Icons.history_rounded),
                   label: const Text('Retour à la réservation'),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF060663),
+                    foregroundColor: const Color(0xFF0B4F2A),
                     side: BorderSide(
-                      color: const Color(0xFF060663).withValues(alpha: 0.24),
+                      color: const Color(0xFF0B4F2A).withValues(alpha: 0.24),
                     ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
@@ -3948,7 +4098,7 @@ class _CollectorReservationCard extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(
-          color: const Color(0xFF060663).withValues(alpha: 0.08),
+          color: const Color(0xFF0B4F2A).withValues(alpha: 0.08),
         ),
       ),
       child: Column(
@@ -3960,12 +4110,12 @@ class _CollectorReservationCard extends StatelessWidget {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF80C0D).withValues(alpha: 0.1),
+                  color: const Color(0xFF16A34A).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(15),
                 ),
                 child: const Icon(
                   Icons.confirmation_number_rounded,
-                  color: Color(0xFFF80C0D),
+                  color: Color(0xFF16A34A),
                 ),
               ),
               const SizedBox(width: 12),
@@ -3973,7 +4123,7 @@ class _CollectorReservationCard extends StatelessWidget {
                 child: Text(
                   item.reference,
                   style: const TextStyle(
-                    color: Color(0xFF060663),
+                    color: Color(0xFF0B4F2A),
                     fontSize: 17,
                     fontWeight: FontWeight.w900,
                   ),
@@ -3982,7 +4132,7 @@ class _CollectorReservationCard extends StatelessWidget {
               Text(
                 item.status,
                 style: const TextStyle(
-                  color: Color(0xFFF80C0D),
+                  color: Color(0xFF16A34A),
                   fontWeight: FontWeight.w900,
                 ),
               ),
@@ -4034,7 +4184,7 @@ class _CollectorEmptyCard extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(
-          color: const Color(0xFF060663).withValues(alpha: 0.08),
+          color: const Color(0xFF0B4F2A).withValues(alpha: 0.08),
         ),
       ),
       child: Column(
@@ -4043,7 +4193,7 @@ class _CollectorEmptyCard extends StatelessWidget {
           Text(
             title,
             style: const TextStyle(
-              color: Color(0xFF060663),
+              color: Color(0xFF0B4F2A),
               fontSize: 16,
               fontWeight: FontWeight.w900,
             ),
@@ -4078,7 +4228,7 @@ class _CollectorHistoryPageState extends State<_CollectorHistoryPage> {
 
   @override
   Widget build(BuildContext context) {
-    const deepBlue = Color(0xFF060663);
+    const deepBlue = Color(0xFF0B4F2A);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FBFF),
@@ -4176,7 +4326,7 @@ class _CollectorReservationList extends StatelessWidget {
             icon: const Icon(Icons.add_rounded),
             label: const Text('Nouvelle réservation'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFF80C0D),
+              backgroundColor: const Color(0xFF16A34A),
               foregroundColor: Colors.white,
               elevation: 0,
               shape: RoundedRectangleBorder(
@@ -4215,7 +4365,7 @@ class _HistoryActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const deepBlue = Color(0xFF060663);
+    const deepBlue = Color(0xFF0B4F2A);
     return Expanded(
       child: SizedBox(
         height: 58,
@@ -4224,7 +4374,7 @@ class _HistoryActionButton extends StatelessWidget {
           style: OutlinedButton.styleFrom(
             foregroundColor: selected ? Colors.white : deepBlue,
             side: BorderSide(color: deepBlue.withValues(alpha: 0.18)),
-            backgroundColor: selected ? const Color(0xFFF80C0D) : Colors.white,
+            backgroundColor: selected ? const Color(0xFF16A34A) : Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: 6),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(18),
@@ -4279,11 +4429,11 @@ const List<_CollectorNewsArticle> _collectorNewsArticles = [
     date: '28/03/2026',
     image: 'assets/images/welcome_image.jpg',
     excerpt:
-        'TicBus renforce son réseau avec un nouveau départ pensé pour faciliter les déplacements réguliers.',
+        'Fofana renforce son réseau avec un nouveau départ pensé pour faciliter les déplacements réguliers.',
     body: [
-      'TicBus informe son aimable clientèle de la mise en place d’un nouveau départ sur l’axe Gouré afin de rendre les voyages plus simples, plus réguliers et plus confortables.',
-      'Cette nouvelle desserte répond à la demande des voyageurs qui souhaitent mieux organiser leurs déplacements entre les grandes villes et les localités desservies par TicBus.',
-      'Les clients sont invités à se rapprocher des agences TicBus pour confirmer les horaires, les disponibilités et les conditions de réservation.',
+      'Fofana informe son aimable clientèle de la mise en place d’un nouveau départ sur l’axe Gouré afin de rendre les voyages plus simples, plus réguliers et plus confortables.',
+      'Cette nouvelle desserte répond à la demande des voyageurs qui souhaitent mieux organiser leurs déplacements entre les grandes villes et les localités desservies par Fofana.',
+      'Les clients sont invités à se rapprocher des agences Fofana pour confirmer les horaires, les disponibilités et les conditions de réservation.',
     ],
   ),
   _CollectorNewsArticle(
@@ -4294,46 +4444,46 @@ const List<_CollectorNewsArticle> _collectorNewsArticles = [
     excerpt:
         'De nouveaux horaires sont ajoutés pour offrir plus de flexibilité aux voyageurs.',
     body: [
-      'Pour mieux accompagner les besoins de mobilité, TicBus annonce un renforcement progressif des départs sur l’axe Tchaourou.',
+      'Pour mieux accompagner les besoins de mobilité, Fofana annonce un renforcement progressif des départs sur l’axe Tchaourou.',
       'Cette organisation permet aux voyageurs de choisir des créneaux plus adaptés à leurs programmes personnels, professionnels ou familiaux.',
       'Les équipes en agence restent disponibles pour orienter les clients et les aider à choisir le départ le plus pratique.',
     ],
   ),
   _CollectorNewsArticle(
     category: 'Presse',
-    title: 'TicBus modernise l’accueil dans ses agences',
+    title: 'Fofana modernise l’accueil dans ses agences',
     date: '18/03/2026',
     image: 'assets/images/onboarding2.png',
     excerpt:
         'Un parcours client plus fluide est déployé pour améliorer l’achat de tickets et l’information voyageur.',
     body: [
-      'TicBus poursuit l’amélioration de l’expérience client dans ses agences avec des espaces plus lisibles, un accueil renforcé et une meilleure orientation des voyageurs.',
+      'Fofana poursuit l’amélioration de l’expérience client dans ses agences avec des espaces plus lisibles, un accueil renforcé et une meilleure orientation des voyageurs.',
       'L’objectif est de réduire l’attente, d’améliorer la qualité des informations et de rendre chaque étape du voyage plus agréable.',
       'Cette modernisation s’inscrit dans une démarche continue de qualité de service.',
     ],
   ),
   _CollectorNewsArticle(
     category: 'Conseils',
-    title: 'Bien préparer son voyage avec TicBus',
+    title: 'Bien préparer son voyage avec Fofana',
     date: '12/03/2026',
     image: 'assets/images/onboarding3.png',
     excerpt:
         'Quelques réflexes simples pour voyager sereinement et éviter les oublis avant le départ.',
     body: [
-      'Avant chaque départ, TicBus recommande aux voyageurs de vérifier leur ticket, leur pièce d’identité et l’heure de présentation en agence.',
+      'Avant chaque départ, Fofana recommande aux voyageurs de vérifier leur ticket, leur pièce d’identité et l’heure de présentation en agence.',
       'Il est conseillé d’arriver suffisamment tôt afin d’effectuer les formalités sans stress et d’embarquer dans de bonnes conditions.',
-      'Pour les bagages et colis, les équipes TicBus peuvent préciser les règles applicables selon le trajet choisi.',
+      'Pour les bagages et colis, les équipes Fofana peuvent préciser les règles applicables selon le trajet choisi.',
     ],
   ),
   _CollectorNewsArticle(
     category: 'Communiqués',
-    title: 'Suivi des colis disponible dans les agences TicBus',
+    title: 'Suivi des colis disponible dans les agences Fofana',
     date: '08/03/2026',
-    image: 'assets/images/logo_ticbus.jpeg',
+    image: 'assets/images/logo_fofana.png',
     excerpt:
-        'Les clients peuvent obtenir des informations sur leurs colis directement auprès des points TicBus.',
+        'Les clients peuvent obtenir des informations sur leurs colis directement auprès des points Fofana.',
     body: [
-      'TicBus rappelle à sa clientèle que le suivi des colis est disponible auprès de ses agences et points de contact.',
+      'Fofana rappelle à sa clientèle que le suivi des colis est disponible auprès de ses agences et points de contact.',
       'Les clients sont invités à conserver leurs références d’envoi afin de faciliter les vérifications et accélérer la prise en charge.',
       'Ce service accompagne les voyageurs et expéditeurs dans une logique de proximité et de fiabilité.',
     ],
@@ -4380,8 +4530,8 @@ class _CollectorNewsSectionState extends State<_CollectorNewsSection> {
 
   @override
   Widget build(BuildContext context) {
-    const red = Color(0xFFF80C0D);
-    const deepBlue = Color(0xFF060663);
+    const red = Color(0xFF16A34A);
+    const deepBlue = Color(0xFF0B4F2A);
 
     void openDetail(_CollectorNewsArticle article) {
       Navigator.of(context).push(
@@ -4490,7 +4640,7 @@ class _CollectorNewsHeroTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const red = Color(0xFFF80C0D);
+    const red = Color(0xFF16A34A);
 
     return Material(
       color: Colors.transparent,
@@ -4605,7 +4755,7 @@ class _CollectorNewsCategoryPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFFF80C0D),
+        color: const Color(0xFF16A34A),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
@@ -4625,7 +4775,7 @@ class _CollectorNewsListPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const deepBlue = Color(0xFF060663);
+    const deepBlue = Color(0xFF0B4F2A);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FBFF),
@@ -4670,7 +4820,7 @@ class _CollectorNewsDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const deepBlue = Color(0xFF060663);
+    const deepBlue = Color(0xFF0B4F2A);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FBFF),

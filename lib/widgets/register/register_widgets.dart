@@ -5,7 +5,7 @@ import '../common/african_phone_field.dart';
 /// Fichier contenant tous les widgets utilisés dans RegisterPage.
 /// Les regrouper ici permet de garder register_page.dart lisible.
 
-/// Header de la page : bouton retour à gauche + logo TicBus centré.
+/// Header de la page : bouton retour à gauche + logo Fofana centré.
 class RegisterHeader extends StatelessWidget {
   const RegisterHeader({super.key});
 
@@ -28,13 +28,13 @@ class RegisterHeader extends StatelessWidget {
             ],
           ),
           child: IconButton(
-            icon: const Icon(Icons.arrow_back, color: Color(0xFF060663)),
+            icon: const Icon(Icons.arrow_back, color: Color(0xFF0B4F2A)),
             onPressed: () => Navigator.pop(context),
           ),
         ),
 
-        // Logo TicBus chargé depuis les assets.
-        Image.asset('assets/images/logo_ticbus_no_background.png', height: 68),
+        // Logo Fofana chargé depuis les assets.
+        Image.asset('assets/images/logo_fofana_no_background.png', height: 68),
 
         // Même largeur que l'IconButton pour garder le logo centré.
         const SizedBox(width: 48),
@@ -77,7 +77,7 @@ class RegisterTextField extends StatelessWidget {
             style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF060663),
+              color: Color(0xFF0B4F2A),
             ),
           ),
           const SizedBox(height: 6),
@@ -89,7 +89,7 @@ class RegisterTextField extends StatelessWidget {
             color: Colors.white.withValues(alpha: 0.88),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: const Color(0xFF060663).withValues(alpha: 0.24),
+              color: const Color(0xFF0B4F2A).withValues(alpha: 0.24),
               width: 1.4,
             ),
           ),
@@ -179,7 +179,7 @@ class _RegisterPasswordFieldState extends State<RegisterPasswordField> {
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
-            color: Color(0xFF060663),
+            color: Color(0xFF0B4F2A),
           ),
         ),
         const SizedBox(height: 6),
@@ -188,7 +188,7 @@ class _RegisterPasswordFieldState extends State<RegisterPasswordField> {
             color: Colors.white.withValues(alpha: 0.88),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: const Color(0xFF060663).withValues(alpha: 0.24),
+              color: const Color(0xFF0B4F2A).withValues(alpha: 0.24),
               width: 1.4,
             ),
           ),
@@ -217,7 +217,7 @@ class _RegisterPasswordFieldState extends State<RegisterPasswordField> {
                 },
                 icon: Icon(
                   _obscureText ? Icons.visibility_off : Icons.visibility,
-                  color: const Color(0xFF060663),
+                  color: const Color(0xFF0B4F2A),
                 ),
               ),
             ),
@@ -240,19 +240,19 @@ class WhatsAppInfoBox extends StatelessWidget {
         color: const Color(0xFFFFF4F4).withValues(alpha: 0.92),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: const Color(0xFFF80C0D).withValues(alpha: 0.28),
+          color: const Color(0xFF16A34A).withValues(alpha: 0.28),
           width: 1.3,
         ),
       ),
       child: const Row(
         children: [
-          Icon(Icons.info, color: Color(0xFFF80C0D), size: 20),
+          Icon(Icons.info, color: Color(0xFF16A34A), size: 20),
           SizedBox(width: 10),
           Expanded(
             child: Text(
               "De préférence votre numéro WhatsApp",
               style: TextStyle(
-                color: Color(0xFF060663),
+                color: Color(0xFF0B4F2A),
                 fontWeight: FontWeight.w500,
                 fontSize: 13,
               ),
@@ -279,7 +279,7 @@ class SubmitButton extends StatelessWidget {
       child: ElevatedButton(
         onPressed: onPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFFF80C0D),
+          backgroundColor: const Color(0xFF16A34A),
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),

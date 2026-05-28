@@ -25,7 +25,7 @@
 	<key>NSHumanReadableCopyright</key>
 	<string>$(PRODUCT_COPYRIGHT)</string>
 	<key>NSCameraUsageDescription</key>
-	<string>TicBus utilise la caméra pour scanner le QR code des tickets.</string>
+	<string>Fofana utilise la caméra pour scanner le QR code des tickets.</string>
 	<key>NSMainNibFile</key>
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>

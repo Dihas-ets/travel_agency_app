@@ -1,11 +1,11 @@
 {
-    "name": "Tic Bus",
-    "short_name": "Tic Bus",
+    "name": "Fofana Voyage",
+    "short_name": "Fofana Voyage",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "Tic Bus travel app.",
+    "description": "Fofana Voyage travel app.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

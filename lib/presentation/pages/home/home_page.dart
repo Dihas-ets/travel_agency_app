@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -108,7 +108,7 @@ class _HomePageState extends State<HomePage> {
     _HomeTab(
       title: 'Accueil',
       icon: Icons.home_rounded,
-      headline: 'Bienvenue chez TicBus',
+      headline: 'Bienvenue chez Fofana',
       description:
           'Réservez vos voyages, suivez vos colis et gérez votre profil.',
     ),
@@ -124,7 +124,7 @@ class _HomePageState extends State<HomePage> {
       icon: Icons.inventory_2_rounded,
       headline: 'Vos colis',
       description:
-          'Envoyez et suivez vos colis en toute simplicité avec TicBus.',
+          'Envoyez et suivez vos colis en toute simplicité avec Fofana.',
     ),
     _HomeTab(
       title: 'Profil',
@@ -192,7 +192,7 @@ class _HomePageState extends State<HomePage> {
                         ),
                       ),
                       Image.asset(
-                        'assets/images/logo_ticbus_no_background.png',
+                        'assets/images/logo_fofana_no_background.png',
                         height: 64,
                         fit: BoxFit.contain,
                       ),
@@ -209,7 +209,7 @@ class _HomePageState extends State<HomePage> {
                     Text(
                       currentTab.headline,
                       style: const TextStyle(
-                        color: Color(0xFF060663),
+                        color: Color(0xFF0B4F2A),
                         fontSize: 28,
                         fontWeight: FontWeight.w900,
                       ),
@@ -265,7 +265,7 @@ class _HomePageState extends State<HomePage> {
             borderRadius: BorderRadius.circular(26),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF060663).withValues(alpha: 0.12),
+                color: const Color(0xFF0B4F2A).withValues(alpha: 0.12),
                 blurRadius: 24,
                 offset: const Offset(0, 10),
               ),
@@ -285,7 +285,7 @@ class _HomePageState extends State<HomePage> {
                     padding: const EdgeInsets.symmetric(vertical: 7),
                     decoration: BoxDecoration(
                       color: isActive
-                          ? const Color(0xFF060663)
+                          ? const Color(0xFF0B4F2A)
                           : Colors.transparent,
                       borderRadius: BorderRadius.circular(20),
                     ),
@@ -341,8 +341,8 @@ class _ConnectedHomeContentState extends State<_ConnectedHomeContent> {
 
   bool? _isLocationActive;
 
-  static const Color _ticBusRed = Color(0xFFF80C0D);
-  static const Color _deepBlue = Color(0xFF060663);
+  static const Color _fofanaGreen = Color(0xFF16A34A);
+  static const Color _deepBlue = Color(0xFF0B4F2A);
 
   @override
   void initState() {
@@ -441,12 +441,12 @@ class _ConnectedHomeContentState extends State<_ConnectedHomeContent> {
                         width: 42,
                         height: 42,
                         decoration: BoxDecoration(
-                          color: _ticBusRed.withValues(alpha: 0.12),
+                          color: _fofanaGreen.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(14),
                         ),
                         child: const Icon(
                           Icons.location_city_rounded,
-                          color: _ticBusRed,
+                          color: _fofanaGreen,
                           size: 21,
                         ),
                       ),
@@ -512,7 +512,7 @@ class _ConnectedHomeContentState extends State<_ConnectedHomeContent> {
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(
                                 color: isSelected
-                                    ? _ticBusRed.withValues(alpha: 0.34)
+                                    ? _fofanaGreen.withValues(alpha: 0.34)
                                     : _deepBlue.withValues(alpha: 0.06),
                               ),
                             ),
@@ -522,7 +522,7 @@ class _ConnectedHomeContentState extends State<_ConnectedHomeContent> {
                                   isSelected
                                       ? Icons.check_circle_rounded
                                       : Icons.location_on_outlined,
-                                  color: isSelected ? _ticBusRed : _deepBlue,
+                                  color: isSelected ? _fofanaGreen : _deepBlue,
                                   size: 22,
                                 ),
                                 const SizedBox(width: 12),
@@ -592,7 +592,7 @@ class _ConnectedHomeContentState extends State<_ConnectedHomeContent> {
           const Text(
             'Bonjour, bienvenue',
             style: TextStyle(
-              color: Color(0xFF060663),
+              color: Color(0xFF0B4F2A),
               fontSize: 28,
               fontWeight: FontWeight.w900,
             ),
@@ -626,7 +626,7 @@ class _ConnectedHomeContentState extends State<_ConnectedHomeContent> {
           const Text(
             'Tarifs',
             style: TextStyle(
-              color: Color(0xFF060663),
+              color: Color(0xFF0B4F2A),
               fontSize: 20,
               fontWeight: FontWeight.w900,
             ),
@@ -718,10 +718,10 @@ class _ConnectedHomeContentState extends State<_ConnectedHomeContent> {
             child: ElevatedButton(
               onPressed: _openTarifsPage,
               style: ElevatedButton.styleFrom(
-                backgroundColor: _ticBusRed,
+                backgroundColor: _fofanaGreen,
                 foregroundColor: Colors.white,
                 elevation: 4,
-                shadowColor: _ticBusRed.withValues(alpha: 0.4),
+                shadowColor: _fofanaGreen.withValues(alpha: 0.4),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
                 ),
@@ -878,7 +878,7 @@ class _BeninCityField extends StatelessWidget {
                         controller.text = city;
                         Navigator.pop(context);
                       },
-                      activeColor: const Color(0xFFF80C0D),
+                      activeColor: const Color(0xFF16A34A),
                       checkColor: Colors.white,
                       controlAffinity: ListTileControlAffinity.leading,
                       title: Text(
@@ -908,7 +908,7 @@ class _BeninCityField extends StatelessWidget {
         children: [
           const Icon(
             Icons.location_on_outlined,
-            color: Color(0xFFF80C0D),
+            color: Color(0xFF16A34A),
             size: 22,
           ),
           const SizedBox(width: 12),
@@ -1006,12 +1006,12 @@ class _LocationDisabledCard extends StatelessWidget {
                 height: 44,
                 child: DecoratedBox(
                   decoration: BoxDecoration(
-                    color: Color(0xFFEAF3FF),
+                    color: Color(0xFFEAF7EF),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
                     Icons.location_off_rounded,
-                    color: Color(0xFF060663),
+                    color: Color(0xFF0B4F2A),
                   ),
                 ),
               ),
@@ -1020,7 +1020,7 @@ class _LocationDisabledCard extends StatelessWidget {
                 child: Text(
                   'Localisation requise',
                   style: TextStyle(
-                    color: Color(0xFF060663),
+                    color: Color(0xFF0B4F2A),
                     fontSize: 18,
                     fontWeight: FontWeight.w900,
                   ),
@@ -1041,7 +1041,7 @@ class _LocationDisabledCard extends StatelessWidget {
                   color: const Color(0xFFF8FBFF),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: const Color(0xFF060663).withValues(alpha: 0.08),
+                    color: const Color(0xFF0B4F2A).withValues(alpha: 0.08),
                   ),
                 ),
                 child: Center(
@@ -1071,14 +1071,14 @@ class _LocationDisabledCard extends StatelessWidget {
                                 children: [
                                   Icon(
                                     Icons.my_location_rounded,
-                                    color: Color(0xFFF80C0D),
+                                    color: Color(0xFF16A34A),
                                     size: 18,
                                   ),
                                   SizedBox(width: 8),
                                   Text(
                                     'Réessayer',
                                     style: TextStyle(
-                                      color: Color(0xFFF80C0D),
+                                      color: Color(0xFF16A34A),
                                       fontSize: 13,
                                       fontWeight: FontWeight.w900,
                                     ),
@@ -1115,7 +1115,7 @@ class _AgencyMapCardState extends State<_AgencyMapCard> {
       ).timeout(const Duration(seconds: 6));
 
       final query =
-          'agence TicBus proche @${position.latitude},${position.longitude}';
+          'agence Fofana proche @${position.latitude},${position.longitude}';
       final encodedQuery = Uri.encodeComponent(query);
       final appUri = Platform.isAndroid
           ? Uri.parse(
@@ -1141,7 +1141,7 @@ class _AgencyMapCardState extends State<_AgencyMapCard> {
       }
     } catch (_) {
       final fallbackUri = Uri.parse(
-        'https://www.google.com/maps/search/?api=1&query=agence%20TicBus%20proche',
+        'https://www.google.com/maps/search/?api=1&query=agence%20Fofana%20proche',
       );
       final opened = await launchUrl(
         fallbackUri,
@@ -1185,10 +1185,10 @@ class _AgencyMapCardState extends State<_AgencyMapCard> {
                 height: 44,
                 child: DecoratedBox(
                   decoration: BoxDecoration(
-                    color: Color(0xFFEAF3FF),
+                    color: Color(0xFFEAF7EF),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(Icons.map_rounded, color: Color(0xFF060663)),
+                  child: Icon(Icons.map_rounded, color: Color(0xFF0B4F2A)),
                 ),
               ),
               const SizedBox(width: 12),
@@ -1196,7 +1196,7 @@ class _AgencyMapCardState extends State<_AgencyMapCard> {
                 child: Text(
                   'Agences proches',
                   style: const TextStyle(
-                    color: Color(0xFF060663),
+                    color: Color(0xFF0B4F2A),
                     fontSize: 18,
                     fontWeight: FontWeight.w900,
                   ),
@@ -1226,7 +1226,7 @@ class _AgencyMapCardState extends State<_AgencyMapCard> {
                   color: const Color(0xFFF8FBFF),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: const Color(0xFF060663).withValues(alpha: 0.08),
+                    color: const Color(0xFF0B4F2A).withValues(alpha: 0.08),
                   ),
                 ),
                 child: Stack(
@@ -1240,7 +1240,7 @@ class _AgencyMapCardState extends State<_AgencyMapCard> {
                         child: Container(
                           height: 18,
                           decoration: BoxDecoration(
-                            color: const Color(0xFFDCEBFF),
+                            color: const Color(0xFFDDF3E5),
                             borderRadius: BorderRadius.circular(999),
                           ),
                         ),
@@ -1255,7 +1255,7 @@ class _AgencyMapCardState extends State<_AgencyMapCard> {
                         child: Container(
                           width: 18,
                           decoration: BoxDecoration(
-                            color: const Color(0xFFE7F0FF),
+                            color: const Color(0xFFE4F6EA),
                             borderRadius: BorderRadius.circular(999),
                           ),
                         ),
@@ -1270,7 +1270,7 @@ class _AgencyMapCardState extends State<_AgencyMapCard> {
                         child: Container(
                           height: 16,
                           decoration: BoxDecoration(
-                            color: const Color(0xFFFFE6E6),
+                            color: const Color(0xFFDDF3E5),
                             borderRadius: BorderRadius.circular(999),
                           ),
                         ),
@@ -1284,7 +1284,7 @@ class _AgencyMapCardState extends State<_AgencyMapCard> {
                     const Positioned(
                       right: 42,
                       bottom: 28,
-                      child: _AgencyMapPin(label: 'TicBus'),
+                      child: _AgencyMapPin(label: 'Fofana'),
                     ),
                     Positioned(
                       right: 12,
@@ -1327,7 +1327,7 @@ class _AgencyMapCardState extends State<_AgencyMapCard> {
                             Text(
                               _isOpeningMaps ? 'Ouverture...' : 'Ouvrir Maps',
                               style: const TextStyle(
-                                color: Color(0xFF060663),
+                                color: Color(0xFF0B4F2A),
                                 fontSize: 12,
                                 fontWeight: FontWeight.w900,
                               ),
@@ -1372,7 +1372,7 @@ class _AgencyMapPin extends StatelessWidget {
           child: Text(
             label,
             style: const TextStyle(
-              color: Color(0xFF060663),
+              color: Color(0xFF0B4F2A),
               fontSize: 11,
               fontWeight: FontWeight.w900,
             ),
@@ -1380,7 +1380,7 @@ class _AgencyMapPin extends StatelessWidget {
         ),
         const Icon(
           Icons.location_on_rounded,
-          color: Color(0xFFF80C0D),
+          color: Color(0xFF16A34A),
           size: 34,
         ),
       ],
@@ -1406,18 +1406,18 @@ class _NewsArticle {
   });
 }
 
-const List<_NewsArticle> _ticBusNewsArticles = [
+const List<_NewsArticle> _fofanaNewsArticles = [
   _NewsArticle(
     category: 'Annonces',
     title: 'Nouveau départ sur Gouré',
     date: '28/03/2026',
     image: 'assets/images/welcome_image.jpg',
     excerpt:
-        'TicBus renforce son réseau avec un nouveau départ pensé pour faciliter les déplacements réguliers.',
+        'Fofana renforce son réseau avec un nouveau départ pensé pour faciliter les déplacements réguliers.',
     body: [
-      'TicBus informe son aimable clientèle de la mise en place d’un nouveau départ sur l’axe Gouré afin de rendre les voyages plus simples, plus réguliers et plus confortables.',
-      'Cette nouvelle desserte répond à la demande des voyageurs qui souhaitent mieux organiser leurs déplacements entre les grandes villes et les localités desservies par TicBus.',
-      'Les clients sont invités à se rapprocher des agences TicBus pour confirmer les horaires, les disponibilités et les conditions de réservation.',
+      'Fofana informe son aimable clientèle de la mise en place d’un nouveau départ sur l’axe Gouré afin de rendre les voyages plus simples, plus réguliers et plus confortables.',
+      'Cette nouvelle desserte répond à la demande des voyageurs qui souhaitent mieux organiser leurs déplacements entre les grandes villes et les localités desservies par Fofana.',
+      'Les clients sont invités à se rapprocher des agences Fofana pour confirmer les horaires, les disponibilités et les conditions de réservation.',
     ],
   ),
   _NewsArticle(
@@ -1428,46 +1428,46 @@ const List<_NewsArticle> _ticBusNewsArticles = [
     excerpt:
         'De nouveaux horaires sont ajoutés pour offrir plus de flexibilité aux voyageurs.',
     body: [
-      'Pour mieux accompagner les besoins de mobilité, TicBus annonce un renforcement progressif des départs sur l’axe Tchaourou.',
+      'Pour mieux accompagner les besoins de mobilité, Fofana annonce un renforcement progressif des départs sur l’axe Tchaourou.',
       'Cette organisation permet aux voyageurs de choisir des créneaux plus adaptés à leurs programmes personnels, professionnels ou familiaux.',
       'Les équipes en agence restent disponibles pour orienter les clients et les aider à choisir le départ le plus pratique.',
     ],
   ),
   _NewsArticle(
     category: 'Presse',
-    title: 'TicBus modernise l’accueil dans ses agences',
+    title: 'Fofana modernise l’accueil dans ses agences',
     date: '18/03/2026',
     image: 'assets/images/onboarding2.png',
     excerpt:
         'Un parcours client plus fluide est déployé pour améliorer l’achat de tickets et l’information voyageur.',
     body: [
-      'TicBus poursuit l’amélioration de l’expérience client dans ses agences avec des espaces plus lisibles, un accueil renforcé et une meilleure orientation des voyageurs.',
+      'Fofana poursuit l’amélioration de l’expérience client dans ses agences avec des espaces plus lisibles, un accueil renforcé et une meilleure orientation des voyageurs.',
       'L’objectif est de réduire l’attente, d’améliorer la qualité des informations et de rendre chaque étape du voyage plus agréable.',
       'Cette modernisation s’inscrit dans une démarche continue de qualité de service.',
     ],
   ),
   _NewsArticle(
     category: 'Conseils',
-    title: 'Bien préparer son voyage avec TicBus',
+    title: 'Bien préparer son voyage avec Fofana',
     date: '12/03/2026',
     image: 'assets/images/onboarding3.png',
     excerpt:
         'Quelques réflexes simples pour voyager sereinement et éviter les oublis avant le départ.',
     body: [
-      'Avant chaque départ, TicBus recommande aux voyageurs de vérifier leur ticket, leur pièce d’identité et l’heure de présentation en agence.',
+      'Avant chaque départ, Fofana recommande aux voyageurs de vérifier leur ticket, leur pièce d’identité et l’heure de présentation en agence.',
       'Il est conseillé d’arriver suffisamment tôt afin d’effectuer les formalités sans stress et d’embarquer dans de bonnes conditions.',
-      'Pour les bagages et colis, les équipes TicBus peuvent préciser les règles applicables selon le trajet choisi.',
+      'Pour les bagages et colis, les équipes Fofana peuvent préciser les règles applicables selon le trajet choisi.',
     ],
   ),
   _NewsArticle(
     category: 'Communiqués',
-    title: 'Suivi des colis disponible dans les agences TicBus',
+    title: 'Suivi des colis disponible dans les agences Fofana',
     date: '08/03/2026',
-    image: 'assets/images/logo_ticbus.jpeg',
+    image: 'assets/images/logo_fofana.png',
     excerpt:
-        'Les clients peuvent obtenir des informations sur leurs colis directement auprès des points TicBus.',
+        'Les clients peuvent obtenir des informations sur leurs colis directement auprès des points Fofana.',
     body: [
-      'TicBus rappelle à sa clientèle que le suivi des colis est disponible auprès de ses agences et points de contact.',
+      'Fofana rappelle à sa clientèle que le suivi des colis est disponible auprès de ses agences et points de contact.',
       'Les clients sont invités à conserver leurs références d’envoi afin de faciliter les vérifications et accélérer la prise en charge.',
       'Ce service accompagne les voyageurs et expéditeurs dans une logique de proximité et de fiabilité.',
     ],
@@ -1494,7 +1494,7 @@ class _NewsSectionState extends State<_NewsSection> {
     _timer = Timer.periodic(const Duration(seconds: 3), (_) {
       if (!mounted) return;
       setState(
-        () => _pageIndex = (_pageIndex + 1) % _ticBusNewsArticles.length,
+        () => _pageIndex = (_pageIndex + 1) % _fofanaNewsArticles.length,
       );
       if (!_pageController.hasClients) return;
       _pageController.animateToPage(
@@ -1514,8 +1514,8 @@ class _NewsSectionState extends State<_NewsSection> {
 
   @override
   Widget build(BuildContext context) {
-    const red = Color(0xFFF80C0D);
-    const deepBlue = Color(0xFF060663);
+    const red = Color(0xFF16A34A);
+    const deepBlue = Color(0xFF0B4F2A);
 
     void openDetail(_NewsArticle article) {
       Navigator.of(context).push(
@@ -1570,10 +1570,10 @@ class _NewsSectionState extends State<_NewsSection> {
           height: 138,
           child: PageView.builder(
             controller: _pageController,
-            itemCount: _ticBusNewsArticles.length,
+            itemCount: _fofanaNewsArticles.length,
             physics: const NeverScrollableScrollPhysics(),
             itemBuilder: (context, index) {
-              final item = _ticBusNewsArticles[index];
+              final item = _fofanaNewsArticles[index];
 
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 6),
@@ -1590,7 +1590,7 @@ class _NewsSectionState extends State<_NewsSection> {
         const SizedBox(height: 8),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(_ticBusNewsArticles.length, (i) {
+          children: List.generate(_fofanaNewsArticles.length, (i) {
             final isActive = i == _pageIndex;
             return AnimatedContainer(
               duration: const Duration(milliseconds: 250),
@@ -1631,8 +1631,8 @@ class _NewsListPageState extends State<_NewsListPage> {
   ];
 
   List<_NewsArticle> get _filteredArticles {
-    if (_category == 'Tous') return _ticBusNewsArticles;
-    return _ticBusNewsArticles
+    if (_category == 'Tous') return _fofanaNewsArticles;
+    return _fofanaNewsArticles
         .where((article) => article.category == _category)
         .toList();
   }
@@ -1643,7 +1643,7 @@ class _NewsListPageState extends State<_NewsListPage> {
     _pageController = PageController(viewportFraction: 0.86);
     _timer = Timer.periodic(const Duration(seconds: 4), (_) {
       if (!mounted) return;
-      final next = (_pageIndex + 1) % _ticBusNewsArticles.take(3).length;
+      final next = (_pageIndex + 1) % _fofanaNewsArticles.take(3).length;
       setState(() => _pageIndex = next);
       if (!_pageController.hasClients) return;
       _pageController.animateToPage(
@@ -1669,10 +1669,10 @@ class _NewsListPageState extends State<_NewsListPage> {
 
   @override
   Widget build(BuildContext context) {
-    const red = Color(0xFFF80C0D);
-    const deepBlue = Color(0xFF060663);
+    const red = Color(0xFF16A34A);
+    const deepBlue = Color(0xFF0B4F2A);
     final filtered = _filteredArticles;
-    final recent = _ticBusNewsArticles.take(3).toList();
+    final recent = _fofanaNewsArticles.take(3).toList();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF6F8FC),
@@ -1692,7 +1692,7 @@ class _NewsListPageState extends State<_NewsListPage> {
                     ),
                   ),
                   Image.asset(
-                    'assets/images/logo_ticbus_no_background.png',
+                    'assets/images/logo_fofana_no_background.png',
                     height: 58,
                     fit: BoxFit.contain,
                   ),
@@ -1734,15 +1734,13 @@ class _NewsListPageState extends State<_NewsListPage> {
                     selected: isSelected,
                     label: Text(category),
                     onSelected: (_) => setState(() => _category = category),
-                    selectedColor: const Color(0xFFFFEADC),
+                    selectedColor: red,
                     backgroundColor: Colors.white,
                     side: BorderSide(
-                      color: isSelected
-                          ? red.withValues(alpha: 0.22)
-                          : Colors.transparent,
+                      color: isSelected ? red : Colors.transparent,
                     ),
                     labelStyle: TextStyle(
-                      color: isSelected ? red : deepBlue,
+                      color: isSelected ? Colors.white : deepBlue,
                       fontWeight: FontWeight.w900,
                       fontSize: 15,
                     ),
@@ -1858,7 +1856,7 @@ class _NewsHeroTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const red = Color(0xFFF80C0D);
+    const red = Color(0xFF16A34A);
 
     return Material(
       color: Colors.transparent,
@@ -1971,7 +1969,7 @@ class _NewsRecentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const deepBlue = Color(0xFF060663);
+    const deepBlue = Color(0xFF0B4F2A);
 
     return Material(
       color: Colors.white,
@@ -2056,7 +2054,7 @@ class _NewsArticleTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const deepBlue = Color(0xFF060663);
+    const deepBlue = Color(0xFF0B4F2A);
 
     return Material(
       color: Colors.white,
@@ -2135,19 +2133,19 @@ class _NewsCategoryPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const red = Color(0xFFF80C0D);
+    const red = Color(0xFF16A34A);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
       decoration: BoxDecoration(
-        color: light ? Colors.white : Colors.white.withValues(alpha: 0.16),
+        // Pastille forte pour garder les catégories lisibles sur toutes les images.
+        color: red,
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: red.withValues(alpha: light ? 0.62 : 0.78)),
       ),
       child: Text(
         category,
         style: const TextStyle(
-          color: red,
+          color: Colors.white,
           fontSize: 12.5,
           fontWeight: FontWeight.w900,
         ),
@@ -2163,8 +2161,8 @@ class _NewsDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const red = Color(0xFFF80C0D);
-    const deepBlue = Color(0xFF060663);
+    const red = Color(0xFF16A34A);
+    const deepBlue = Color(0xFF0B4F2A);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF6F8FC),
@@ -2186,7 +2184,7 @@ class _NewsDetailPage extends StatelessWidget {
                       ),
                     ),
                     Image.asset(
-                      'assets/images/logo_ticbus_no_background.png',
+                      'assets/images/logo_fofana_no_background.png',
                       height: 58,
                       fit: BoxFit.contain,
                     ),
@@ -2304,7 +2302,7 @@ class _NewsDetailPage extends StatelessWidget {
                           const SizedBox(width: 12),
                           const Expanded(
                             child: Text(
-                              'Les horaires et disponibilités sont à confirmer auprès des agences TicBus.',
+                              'Les horaires et disponibilités sont à confirmer auprès des agences Fofana.',
                               style: TextStyle(
                                 color: deepBlue,
                                 fontSize: 13.8,
@@ -2497,8 +2495,8 @@ class _VoyageActionsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const deepBlue = Color(0xFF060663);
-    const red = Color(0xFFF80C0D);
+    const deepBlue = Color(0xFF0B4F2A);
+    const red = Color(0xFF16A34A);
 
     Widget actionTile({
       required IconData icon,
@@ -2634,8 +2632,8 @@ class _ReservationPage extends StatefulWidget {
 }
 
 class _ReservationPageState extends State<_ReservationPage> {
-  static const Color _deepBlue = Color(0xFF060663);
-  static const Color _ticBusRed = Color(0xFFF80C0D);
+  static const Color _deepBlue = Color(0xFF0B4F2A);
+  static const Color _fofanaGreen = Color(0xFF16A34A);
 
   final TextEditingController _departController = TextEditingController();
   final TextEditingController _destinationController = TextEditingController();
@@ -2673,12 +2671,12 @@ class _ReservationPageState extends State<_ReservationPage> {
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
           colorScheme: const ColorScheme.light(
-            primary: _ticBusRed,
+            primary: _fofanaGreen,
             onPrimary: Colors.white,
             onSurface: _deepBlue,
           ),
           textButtonTheme: TextButtonThemeData(
-            style: TextButton.styleFrom(foregroundColor: _ticBusRed),
+            style: TextButton.styleFrom(foregroundColor: _fofanaGreen),
           ),
         ),
         child: child!,
@@ -2880,7 +2878,7 @@ class _ReservationPageState extends State<_ReservationPage> {
                         ),
                       ),
                       Image.asset(
-                        'assets/images/logo_ticbus_no_background.png',
+                        'assets/images/logo_fofana_no_background.png',
                         height: 44,
                         width: 142,
                         fit: BoxFit.contain,
@@ -3102,7 +3100,7 @@ class _ReservationPageState extends State<_ReservationPage> {
             child: ElevatedButton(
               onPressed: _confirmReservation,
               style: ElevatedButton.styleFrom(
-                backgroundColor: _ticBusRed,
+                backgroundColor: _fofanaGreen,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
@@ -3320,8 +3318,8 @@ class _PaymentDetailsPage extends StatefulWidget {
 }
 
 class _PaymentDetailsPageState extends State<_PaymentDetailsPage> {
-  static const Color _deepBlue = Color(0xFF060663);
-  static const Color _ticBusRed = Color(0xFFF80C0D);
+  static const Color _deepBlue = Color(0xFF0B4F2A);
+  static const Color _fofanaGreen = Color(0xFF16A34A);
 
   final TextEditingController _requesterPhoneController =
       TextEditingController();
@@ -3441,7 +3439,7 @@ class _PaymentDetailsPageState extends State<_PaymentDetailsPage> {
                   ),
                   const Spacer(),
                   Image.asset(
-                    'assets/images/logo_ticbus_no_background.png',
+                    'assets/images/logo_fofana_no_background.png',
                     height: 42,
                     fit: BoxFit.contain,
                   ),
@@ -3506,7 +3504,7 @@ class _PaymentDetailsPageState extends State<_PaymentDetailsPage> {
                       child: ElevatedButton(
                         onPressed: _finishReservation,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: _ticBusRed,
+                          backgroundColor: _fofanaGreen,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
                           ),
@@ -3554,7 +3552,7 @@ class _PaymentDetailsPageState extends State<_PaymentDetailsPage> {
         color: Colors.white.withValues(alpha: 0.88),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: const Color(0xFF060663).withValues(alpha: 0.24),
+          color: const Color(0xFF0B4F2A).withValues(alpha: 0.24),
           width: 1.4,
         ),
       ),
@@ -3583,12 +3581,12 @@ class _PaymentDetailsPageState extends State<_PaymentDetailsPage> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         decoration: BoxDecoration(
           color: _isForSomeoneElse
-              ? _ticBusRed.withValues(alpha: 0.10)
+              ? _fofanaGreen.withValues(alpha: 0.10)
               : Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: _isForSomeoneElse
-                ? _ticBusRed
+                ? _fofanaGreen
                 : _deepBlue.withValues(alpha: 0.16),
           ),
           boxShadow: [
@@ -3605,7 +3603,7 @@ class _PaymentDetailsPageState extends State<_PaymentDetailsPage> {
               width: 28,
               height: 28,
               decoration: BoxDecoration(
-                color: _isForSomeoneElse ? _ticBusRed : Colors.white,
+                color: _isForSomeoneElse ? _fofanaGreen : Colors.white,
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: _deepBlue.withValues(alpha: 0.18)),
               ),
@@ -3689,7 +3687,7 @@ class _GeneratedTicketPageState extends State<_GeneratedTicketPage> {
 
   @override
   Widget build(BuildContext context) {
-    const deepBlue = Color(0xFF060663);
+    const deepBlue = Color(0xFF0B4F2A);
     final tickets = List.generate(_reservation.passengerCount, (index) {
       return index + 1;
     });
@@ -3712,7 +3710,7 @@ class _GeneratedTicketPageState extends State<_GeneratedTicketPage> {
                     ),
                   ),
                   Image.asset(
-                    'assets/images/logo_ticbus_no_background.png',
+                    'assets/images/logo_fofana_no_background.png',
                     height: 56,
                     fit: BoxFit.contain,
                   ),
@@ -3784,8 +3782,8 @@ class _PaymentMethodSheet extends StatefulWidget {
 }
 
 class _PaymentMethodSheetState extends State<_PaymentMethodSheet> {
-  static const Color _deepBlue = Color(0xFF060663);
-  static const Color _ticBusRed = Color(0xFFF80C0D);
+  static const Color _deepBlue = Color(0xFF0B4F2A);
+  static const Color _fofanaGreen = Color(0xFF16A34A);
 
   String? _selectedMethod;
 
@@ -3872,7 +3870,7 @@ class _PaymentMethodSheetState extends State<_PaymentMethodSheet> {
                         );
                       },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: _ticBusRed,
+                  backgroundColor: _fofanaGreen,
                   disabledBackgroundColor: const Color(0xFFFFBE9D),
                   foregroundColor: Colors.white,
                   elevation: 0,
@@ -3920,7 +3918,7 @@ class _PaymentOptionTile extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: isSelected
-                ? const Color(0xFFF80C0D)
+                ? const Color(0xFF16A34A)
                 : const Color(0xFFE1E4EC),
             width: isSelected ? 1.8 : 1,
           ),
@@ -3934,7 +3932,7 @@ class _PaymentOptionTile extends StatelessWidget {
                 shape: BoxShape.circle,
                 border: Border.all(
                   color: isSelected
-                      ? const Color(0xFFF80C0D)
+                      ? const Color(0xFF16A34A)
                       : const Color(0xFFD8DCE6),
                   width: 2,
                 ),
@@ -3945,7 +3943,7 @@ class _PaymentOptionTile extends StatelessWidget {
                         width: 18,
                         height: 18,
                         decoration: const BoxDecoration(
-                          color: Color(0xFFF80C0D),
+                          color: Color(0xFF16A34A),
                           shape: BoxShape.circle,
                         ),
                       ),
@@ -3976,8 +3974,8 @@ class _EditReservationSheet extends StatefulWidget {
 }
 
 class _EditReservationSheetState extends State<_EditReservationSheet> {
-  static const Color _deepBlue = Color(0xFF060663);
-  static const Color _ticBusRed = Color(0xFFF80C0D);
+  static const Color _deepBlue = Color(0xFF0B4F2A);
+  static const Color _fofanaGreen = Color(0xFF16A34A);
 
   late final TextEditingController _departureController;
   late final TextEditingController _destinationController;
@@ -4187,7 +4185,7 @@ class _EditReservationSheetState extends State<_EditReservationSheet> {
                           ? () => setState(() => _passengerCount--)
                           : null,
                       icon: const Icon(Icons.remove_circle_outline_rounded),
-                      color: _ticBusRed,
+                      color: _fofanaGreen,
                     ),
                     Text(
                       '$_passengerCount',
@@ -4202,7 +4200,7 @@ class _EditReservationSheetState extends State<_EditReservationSheet> {
                           ? () => setState(() => _passengerCount++)
                           : null,
                       icon: const Icon(Icons.add_circle_outline_rounded),
-                      color: _ticBusRed,
+                      color: _fofanaGreen,
                     ),
                   ],
                 ),
@@ -4213,7 +4211,7 @@ class _EditReservationSheetState extends State<_EditReservationSheet> {
                 child: ElevatedButton(
                   onPressed: _save,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: _ticBusRed,
+                    backgroundColor: _fofanaGreen,
                     foregroundColor: Colors.white,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
@@ -4263,7 +4261,7 @@ class _EditSheetField extends StatelessWidget {
         suffixIcon: readOnly
             ? const Icon(
                 Icons.keyboard_arrow_down_rounded,
-                color: Color(0xFF060663),
+                color: Color(0xFF0B4F2A),
               )
             : null,
         labelStyle: const TextStyle(
@@ -4276,7 +4274,7 @@ class _EditSheetField extends StatelessWidget {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: Color(0xFFF80C0D), width: 1.6),
+          borderSide: const BorderSide(color: Color(0xFF16A34A), width: 1.6),
         ),
       ),
     );
@@ -4292,19 +4290,19 @@ Future<bool?> _showCancelReservationDialog(BuildContext context) {
         width: 58,
         height: 58,
         decoration: BoxDecoration(
-          color: const Color(0xFFF80C0D).withValues(alpha: 0.10),
+          color: const Color(0xFF16A34A).withValues(alpha: 0.10),
           shape: BoxShape.circle,
         ),
         child: const Icon(
           Icons.warning_amber_rounded,
-          color: Color(0xFFF80C0D),
+          color: Color(0xFF16A34A),
           size: 34,
         ),
       ),
       title: const Text(
         'Annuler la réservation ?',
         textAlign: TextAlign.center,
-        style: TextStyle(color: Color(0xFF060663), fontWeight: FontWeight.w900),
+        style: TextStyle(color: Color(0xFF0B4F2A), fontWeight: FontWeight.w900),
       ),
       content: const Text(
         'Voulez-vous vraiment annuler cette réservation ?',
@@ -4318,7 +4316,7 @@ Future<bool?> _showCancelReservationDialog(BuildContext context) {
           child: const Text(
             'Non',
             style: TextStyle(
-              color: Color(0xFF060663),
+              color: Color(0xFF0B4F2A),
               fontWeight: FontWeight.w900,
             ),
           ),
@@ -4326,7 +4324,7 @@ Future<bool?> _showCancelReservationDialog(BuildContext context) {
         ElevatedButton(
           onPressed: () => Navigator.of(context).pop(true),
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFFF80C0D),
+            backgroundColor: const Color(0xFF16A34A),
             foregroundColor: Colors.white,
             elevation: 0,
             shape: RoundedRectangleBorder(
@@ -4355,8 +4353,8 @@ class _HistoryPage extends StatefulWidget {
 class _HistoryPageState extends State<_HistoryPage> {
   _HistoryScope _scope = _HistoryScope.reservations;
 
-  static const Color _deepBlue = Color(0xFF060663);
-  static const Color _ticBusRed = Color(0xFFF80C0D);
+  static const Color _deepBlue = Color(0xFF0B4F2A);
+  static const Color _fofanaGreen = Color(0xFF16A34A);
 
   List<_ReservationItem> get _reservations => _HistoryRepository.reservations;
   List<_TicketItem> get _tickets => _HistoryRepository.tickets;
@@ -4403,7 +4401,7 @@ class _HistoryPageState extends State<_HistoryPage> {
                         ),
                       ),
                       Image.asset(
-                        'assets/images/logo_ticbus_no_background.png',
+                        'assets/images/logo_fofana_no_background.png',
                         height: 64,
                         fit: BoxFit.contain,
                       ),
@@ -4502,7 +4500,7 @@ class _HistoryPageState extends State<_HistoryPage> {
           duration: const Duration(milliseconds: 250),
           padding: const EdgeInsets.symmetric(vertical: 16),
           decoration: BoxDecoration(
-            color: selected ? _ticBusRed : Colors.transparent,
+            color: selected ? _fofanaGreen : Colors.transparent,
             borderRadius: BorderRadius.circular(20),
           ),
           child: Text(
@@ -4716,7 +4714,7 @@ class _ReservationCard extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(
-          color: const Color(0xFF060663).withValues(alpha: 0.08),
+          color: const Color(0xFF0B4F2A).withValues(alpha: 0.08),
         ),
         boxShadow: [
           BoxShadow(
@@ -4735,12 +4733,12 @@ class _ReservationCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF80C0D).withValues(alpha: 0.12),
+                  color: const Color(0xFF16A34A).withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: const Icon(
                   Icons.event_available_rounded,
-                  color: Color(0xFFF80C0D),
+                  color: Color(0xFF16A34A),
                   size: 22,
                 ),
               ),
@@ -4749,7 +4747,7 @@ class _ReservationCard extends StatelessWidget {
                 child: Text(
                   item.route,
                   style: const TextStyle(
-                    color: Color(0xFF060663),
+                    color: Color(0xFF0B4F2A),
                     fontSize: 15.5,
                     fontWeight: FontWeight.w900,
                   ),
@@ -4761,13 +4759,13 @@ class _ReservationCard extends StatelessWidget {
                   vertical: 8,
                 ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF80C0D).withValues(alpha: 0.14),
+                  color: const Color(0xFF16A34A).withValues(alpha: 0.14),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Text(
                   item.status,
                   style: const TextStyle(
-                    color: Color(0xFFF80C0D),
+                    color: Color(0xFF16A34A),
                     fontWeight: FontWeight.w900,
                     fontSize: 12.5,
                   ),
@@ -4815,7 +4813,7 @@ class _ReservationCard extends StatelessWidget {
               Text(
                 item.price,
                 style: const TextStyle(
-                  color: Color(0xFF060663),
+                  color: Color(0xFF0B4F2A),
                   fontSize: 16,
                   fontWeight: FontWeight.w900,
                 ),
@@ -4837,7 +4835,7 @@ class _ReservationCard extends StatelessWidget {
               child: ElevatedButton(
                 onPressed: onTicketNow,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFF80C0D),
+                  backgroundColor: const Color(0xFF16A34A),
                   foregroundColor: Colors.white,
                   elevation: 0,
                   shape: RoundedRectangleBorder(
@@ -4921,7 +4919,7 @@ class _ReservationTicketPageState extends State<_ReservationTicketPage> {
 
   @override
   Widget build(BuildContext context) {
-    const deepBlue = Color(0xFF060663);
+    const deepBlue = Color(0xFF0B4F2A);
     final tickets = List.generate(_reservation.passengerCount, (index) {
       return index + 1;
     });
@@ -4944,7 +4942,7 @@ class _ReservationTicketPageState extends State<_ReservationTicketPage> {
                     ),
                   ),
                   Image.asset(
-                    'assets/images/logo_ticbus_no_background.png',
+                    'assets/images/logo_fofana_no_background.png',
                     height: 56,
                     fit: BoxFit.contain,
                   ),
@@ -5005,8 +5003,8 @@ class _ReprogramPage extends StatefulWidget {
 }
 
 class _ReprogramPageState extends State<_ReprogramPage> {
-  static const Color _deepBlue = Color(0xFF060663);
-  static const Color _ticBusRed = Color(0xFFF80C0D);
+  static const Color _deepBlue = Color(0xFF0B4F2A);
+  static const Color _fofanaGreen = Color(0xFF16A34A);
 
   final TextEditingController _ticketNumberController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
@@ -5119,7 +5117,7 @@ class _ReprogramPageState extends State<_ReprogramPage> {
                     ),
                   ),
                   Image.asset(
-                    'assets/images/logo_ticbus_no_background.png',
+                    'assets/images/logo_fofana_no_background.png',
                     height: 56,
                     fit: BoxFit.contain,
                   ),
@@ -5188,7 +5186,7 @@ class _ReprogramPageState extends State<_ReprogramPage> {
                                 children: [
                                   Checkbox(
                                     value: _isForSomeoneElse,
-                                    activeColor: _ticBusRed,
+                                    activeColor: _fofanaGreen,
                                     onChanged: (value) => setState(
                                       () => _isForSomeoneElse = value ?? false,
                                     ),
@@ -5217,7 +5215,7 @@ class _ReprogramPageState extends State<_ReprogramPage> {
                             child: ElevatedButton(
                               onPressed: _searchTicket,
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: _ticBusRed,
+                                backgroundColor: _fofanaGreen,
                                 foregroundColor: Colors.white,
                                 elevation: 0,
                                 shape: RoundedRectangleBorder(
@@ -5241,7 +5239,7 @@ class _ReprogramPageState extends State<_ReprogramPage> {
                       Text(
                         _searchMessage!,
                         style: const TextStyle(
-                          color: _ticBusRed,
+                          color: _fofanaGreen,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
@@ -5292,7 +5290,7 @@ class _ReprogramTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const deepBlue = Color(0xFF060663);
+    const deepBlue = Color(0xFF0B4F2A);
 
     return TextField(
       controller: controller,
@@ -5314,7 +5312,7 @@ class _ReprogramTextField extends StatelessWidget {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(18),
-          borderSide: const BorderSide(color: Color(0xFFF80C0D), width: 1.5),
+          borderSide: const BorderSide(color: Color(0xFF16A34A), width: 1.5),
         ),
       ),
     );
@@ -5411,8 +5409,8 @@ class _TicketVisual extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const deepBlue = Color(0xFF060663);
-    const red = Color(0xFFF80C0D);
+    const deepBlue = Color(0xFF0B4F2A);
+    const red = Color(0xFF16A34A);
     const muted = Color(0xFF9AA3B8);
 
     return Container(
@@ -5701,7 +5699,7 @@ class _TicketRouteCity extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
-            color: Color(0xFF060663),
+            color: Color(0xFF0B4F2A),
             fontSize: 18,
             fontWeight: FontWeight.w900,
           ),
@@ -5722,7 +5720,7 @@ class _TicketInfoBlock extends StatelessWidget {
     required this.label,
     required this.value,
     this.icon,
-    this.valueColor = const Color(0xFF060663),
+    this.valueColor = const Color(0xFF0B4F2A),
     this.valueSize = 17,
   });
 
@@ -5773,7 +5771,7 @@ class _TicketQrCode extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const dark = Color(0xFF060663);
+    const dark = Color(0xFF0B4F2A);
 
     return Center(
       child: Container(
@@ -5872,7 +5870,7 @@ class _HeaderIconButton extends StatelessWidget {
             ),
           ],
         ),
-        child: Icon(icon, color: const Color(0xFF060663)),
+        child: Icon(icon, color: const Color(0xFF0B4F2A)),
       ),
     );
   }
@@ -5880,6 +5878,94 @@ class _HeaderIconButton extends StatelessWidget {
 
 class _ParcelNotificationIconButton extends StatelessWidget {
   const _ParcelNotificationIconButton();
+
+  void _showClientNotifications(BuildContext context) {
+    final notifications = List<ParcelRecord>.from(ParcelStore.notifications);
+    ParcelStore.clearNotifications();
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Container(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(sheetContext).size.height * 0.72,
+            ),
+            padding: const EdgeInsets.fromLTRB(18, 10, 18, 20),
+            decoration: const BoxDecoration(
+              color: Color(0xFFF8FBFF),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 44,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0B4F2A).withValues(alpha: 0.16),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Notifications',
+                        style: TextStyle(
+                          color: Color(0xFF0B4F2A),
+                          fontSize: 22,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(sheetContext),
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                if (notifications.isEmpty)
+                  const _ClientNotificationEmptyState()
+                else
+                  Flexible(
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      physics: const BouncingScrollPhysics(),
+                      itemCount: notifications.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 10),
+                      itemBuilder: (context, index) {
+                        final parcel = notifications[index];
+                        return _ClientNotificationTile(
+                          parcel: parcel,
+                          onTap: () {
+                            Navigator.pop(sheetContext);
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => _ClientNotificationDetailPage(
+                                  parcel: parcel,
+                                ),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -5891,19 +5977,7 @@ class _ParcelNotificationIconButton extends StatelessWidget {
           children: [
             _HeaderIconButton(
               icon: Icons.notifications_none_rounded,
-              onTap: () {
-                ParcelStore.clearNotifications();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      count == 0
-                          ? 'Aucune notification'
-                          : '$count notification(s) colis consultée(s)',
-                    ),
-                    duration: const Duration(seconds: 2),
-                  ),
-                );
-              },
+              onTap: () => _showClientNotifications(context),
             ),
             if (count > 0)
               Positioned(
@@ -5913,7 +5987,7 @@ class _ParcelNotificationIconButton extends StatelessWidget {
                   width: 19,
                   height: 19,
                   decoration: const BoxDecoration(
-                    color: Color(0xFFF80C0D),
+                    color: Color(0xFF16A34A),
                     shape: BoxShape.circle,
                   ),
                   child: Center(
@@ -5931,6 +6005,348 @@ class _ParcelNotificationIconButton extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+class _ClientNotificationTile extends StatelessWidget {
+  final ParcelRecord parcel;
+  final VoidCallback onTap;
+
+  const _ClientNotificationTile({required this.parcel, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: const Color(0xFF0B4F2A).withValues(alpha: 0.08),
+            ),
+          ),
+          child: Row(
+            children: [
+              _ClientParcelThumbnail(parcel: parcel, size: 46),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      parcel.status,
+                      style: const TextStyle(
+                        color: Color(0xFF0B4F2A),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${parcel.parcelNature} vers ${parcel.destinationCity}',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Color(0xFF5F6B86),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded, color: Color(0xFF16A34A)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ClientNotificationDetailPage extends StatelessWidget {
+  final ParcelRecord parcel;
+
+  const _ClientNotificationDetailPage({required this.parcel});
+
+  @override
+  Widget build(BuildContext context) {
+    const deepBlue = Color(0xFF0B4F2A);
+    const green = Color(0xFF16A34A);
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FBFF),
+      appBar: AppBar(
+        backgroundColor: deepBlue,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        title: const Text(
+          'Détail notification',
+          style: TextStyle(fontWeight: FontWeight.w900),
+        ),
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
+          children: [
+            _ClientParcelImage(parcel: parcel),
+            const SizedBox(height: 18),
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: deepBlue.withValues(alpha: 0.08)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    parcel.status,
+                    style: const TextStyle(
+                      color: deepBlue,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Votre colis ${parcel.parcelNature} est enregistré pour ${parcel.destinationCity}.',
+                    style: const TextStyle(
+                      color: Color(0xFF5F6B86),
+                      fontSize: 15,
+                      height: 1.45,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  _ClientNotificationInfo(
+                    icon: Icons.qr_code_2_rounded,
+                    label: 'Code colis',
+                    value: parcel.code,
+                  ),
+                  _ClientNotificationInfo(
+                    icon: Icons.route_rounded,
+                    label: 'Trajet',
+                    value:
+                        '${parcel.departureCity} - ${parcel.destinationCity}',
+                  ),
+                  _ClientNotificationInfo(
+                    icon: Icons.person_rounded,
+                    label: 'Bénéficiaire',
+                    value: parcel.recipientFullName,
+                  ),
+                  _ClientNotificationInfo(
+                    icon: Icons.phone_rounded,
+                    label: 'Téléphone',
+                    value: parcel.recipientPhone,
+                  ),
+                  _ClientNotificationInfo(
+                    icon: Icons.inventory_2_rounded,
+                    label: 'Quantité',
+                    value: '${parcel.parcelCount} colis',
+                  ),
+                  if (parcel.attachmentName != null)
+                    _ClientNotificationInfo(
+                      icon: Icons.attach_file_rounded,
+                      label: 'Pièce jointe',
+                      value: parcel.attachmentName!,
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 18),
+            SizedBox(
+              height: 52,
+              child: ElevatedButton.icon(
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.check_rounded),
+                label: const Text('J’ai compris'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: green,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  textStyle: const TextStyle(fontWeight: FontWeight.w900),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ClientNotificationInfo extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+
+  const _ClientNotificationInfo({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: const Color(0xFF16A34A), size: 21),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: Color(0xFF8B93A6),
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    color: Color(0xFF0B4F2A),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ClientParcelImage extends StatelessWidget {
+  final ParcelRecord parcel;
+
+  const _ClientParcelImage({required this.parcel});
+
+  @override
+  Widget build(BuildContext context) {
+    final path = parcel.attachmentPath;
+
+    if (path == null || path.trim().isEmpty) {
+      return _ClientImageFallback(height: 190, iconSize: 48);
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(18),
+      child: Image.file(
+        File(path),
+        width: double.infinity,
+        height: 210,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) =>
+            _ClientImageFallback(height: 190, iconSize: 48),
+      ),
+    );
+  }
+}
+
+class _ClientParcelThumbnail extends StatelessWidget {
+  final ParcelRecord parcel;
+  final double size;
+
+  const _ClientParcelThumbnail({required this.parcel, required this.size});
+
+  @override
+  Widget build(BuildContext context) {
+    final path = parcel.attachmentPath;
+
+    if (path == null || path.trim().isEmpty) {
+      return _ClientImageFallback(height: size, width: size, iconSize: 22);
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: Image.file(
+        File(path),
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) =>
+            _ClientImageFallback(height: size, width: size, iconSize: 22),
+      ),
+    );
+  }
+}
+
+class _ClientImageFallback extends StatelessWidget {
+  final double height;
+  final double? width;
+  final double iconSize;
+
+  const _ClientImageFallback({
+    required this.height,
+    this.width,
+    required this.iconSize,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: width ?? double.infinity,
+      height: height,
+      decoration: BoxDecoration(
+        color: const Color(0xFF16A34A).withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: const Color(0xFF16A34A).withValues(alpha: 0.22),
+        ),
+      ),
+      child: Icon(
+        Icons.inventory_2_rounded,
+        color: const Color(0xFF16A34A),
+        size: iconSize,
+      ),
+    );
+  }
+}
+
+class _ClientNotificationEmptyState extends StatelessWidget {
+  const _ClientNotificationEmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 26, horizontal: 18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: const Color(0xFF0B4F2A).withValues(alpha: 0.08),
+        ),
+      ),
+      child: const Text(
+        'Aucune notification pour le moment',
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          color: Color(0xFF5F6B86),
+          fontSize: 15,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
     );
   }
 }
@@ -6022,7 +6438,7 @@ class _MainMenuView extends StatelessWidget {
               width: 44,
               height: 5,
               decoration: BoxDecoration(
-                color: const Color(0xFF060663).withValues(alpha: 0.16),
+                color: const Color(0xFF0B4F2A).withValues(alpha: 0.16),
                 borderRadius: BorderRadius.circular(20),
               ),
             ),
@@ -6033,14 +6449,14 @@ class _MainMenuView extends StatelessWidget {
             child: Text(
               'v1.0.2',
               style: TextStyle(
-                color: const Color(0xFF060663).withValues(alpha: 0.9),
+                color: const Color(0xFF0B4F2A).withValues(alpha: 0.9),
                 fontSize: 14,
                 fontWeight: FontWeight.w900,
               ),
             ),
           ),
           Image.asset(
-            'assets/images/logo_ticbus_no_background.png',
+            'assets/images/logo_fofana_no_background.png',
             height: 62,
           ),
           const SizedBox(height: 10),
@@ -6051,9 +6467,9 @@ class _MainMenuView extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           const Text(
-            'Client TicBus',
+            'Client Fofana',
             style: TextStyle(
-              color: Color(0xFF060663),
+              color: Color(0xFF0B4F2A),
               fontSize: 27,
               fontWeight: FontWeight.w900,
             ),
@@ -6086,7 +6502,7 @@ class _MainMenuView extends StatelessWidget {
             icon: const Icon(Icons.close_rounded),
             label: const Text('Fermer le menu'),
             style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFF060663),
+              foregroundColor: const Color(0xFF0B4F2A),
               textStyle: const TextStyle(fontWeight: FontWeight.w900),
             ),
           ),
@@ -6109,7 +6525,7 @@ class _MenuSectionTitle extends StatelessWidget {
         Expanded(
           child: Container(
             height: 1,
-            color: const Color(0xFF060663).withValues(alpha: 0.08),
+            color: const Color(0xFF0B4F2A).withValues(alpha: 0.08),
           ),
         ),
         const SizedBox(width: 12),
@@ -6127,7 +6543,7 @@ class _MenuSectionTitle extends StatelessWidget {
         Expanded(
           child: Container(
             height: 1,
-            color: const Color(0xFF060663).withValues(alpha: 0.08),
+            color: const Color(0xFF0B4F2A).withValues(alpha: 0.08),
           ),
         ),
       ],
@@ -6173,7 +6589,7 @@ class _MenuOptionTile extends StatelessWidget {
               child: Text(
                 title,
                 style: const TextStyle(
-                  color: Color(0xFF060663),
+                  color: Color(0xFF0B4F2A),
                   fontSize: 16,
                   fontWeight: FontWeight.w900,
                 ),
@@ -6209,22 +6625,24 @@ class _AccountMenuView extends StatefulWidget {
 
 class _AccountMenuViewState extends State<_AccountMenuView> {
   final ImagePicker _picker = ImagePicker();
-  XFile? _pickedImage;
+  XFile? _pickedAvatar;
 
   Future<void> _pickAvatar() async {
-    final XFile? file = await _picker.pickImage(source: ImageSource.gallery);
-    if (file == null) return;
-    setState(() => _pickedImage = file);
+    final file = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 85,
+      maxWidth: 900,
+    );
+    if (file == null || !mounted) return;
+    setState(() => _pickedAvatar = file);
   }
 
   @override
   Widget build(BuildContext context) {
-    // ✅ Fix bottom overflow when keyboard opens:
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
     return SingleChildScrollView(
       controller: widget.scrollController,
-      // Profil plus aéré : marges agrandies pour améliorer la lisibilité.
       padding: EdgeInsets.fromLTRB(20, 12, 20, 42 + bottomInset),
       child: Column(
         children: [
@@ -6233,7 +6651,7 @@ class _AccountMenuViewState extends State<_AccountMenuView> {
               width: 52,
               height: 6,
               decoration: BoxDecoration(
-                color: const Color(0xFF060663).withValues(alpha: 0.16),
+                color: const Color(0xFF0B4F2A).withValues(alpha: 0.16),
                 borderRadius: BorderRadius.circular(20),
               ),
             ),
@@ -6245,40 +6663,33 @@ class _AccountMenuViewState extends State<_AccountMenuView> {
                 icon: Icons.arrow_back_rounded,
                 onTap: widget.onBack,
               ),
-              Expanded(
-                child: Image.asset(
-                  'assets/images/logo_ticbus_no_background.png',
-                  height: 70,
+              const Expanded(
+                child: Text(
+                  'Mon compte',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Color(0xFF0B4F2A),
+                    fontSize: 28,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
               ),
               const SizedBox(width: 52),
             ],
           ),
-          const SizedBox(height: 14),
-          const Text(
-            'Mon compte',
-            style: TextStyle(
-              color: Color(0xFF060663),
-              fontSize: 29,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
           const SizedBox(height: 20),
-
-          // ✅ Photo/icon modifiable
           GestureDetector(
             onTap: _pickAvatar,
             child: Stack(
               alignment: Alignment.bottomRight,
               children: [
                 CircleAvatar(
-                  // Avatar agrandi pour rendre la page profil plus claire.
                   radius: 68,
                   backgroundColor: const Color(0xFF58648D),
-                  backgroundImage: _pickedImage == null
+                  backgroundImage: _pickedAvatar == null
                       ? null
-                      : FileImage(File(_pickedImage!.path)),
-                  child: _pickedImage == null
+                      : FileImage(File(_pickedAvatar!.path)),
+                  child: _pickedAvatar == null
                       ? const Icon(
                           Icons.person_rounded,
                           color: Colors.white,
@@ -6290,7 +6701,7 @@ class _AccountMenuViewState extends State<_AccountMenuView> {
                   width: 42,
                   height: 42,
                   decoration: const BoxDecoration(
-                    color: Color(0xFFF80C0D),
+                    color: Color(0xFF16A34A),
                     shape: BoxShape.circle,
                     border: Border.fromBorderSide(
                       BorderSide(color: Colors.white, width: 3),
@@ -6305,7 +6716,6 @@ class _AccountMenuViewState extends State<_AccountMenuView> {
               ],
             ),
           ),
-
           const SizedBox(height: 24),
           const _AccountPanel(),
         ],
@@ -6338,7 +6748,7 @@ class _RoundIconButton extends StatelessWidget {
             ),
           ],
         ),
-        child: Icon(icon, color: const Color(0xFF060663), size: 25),
+        child: Icon(icon, color: const Color(0xFF0B4F2A), size: 25),
       ),
     );
   }
@@ -6369,14 +6779,14 @@ class _TermsSheet extends StatelessWidget {
           Text(
             "Conditions d'utilisation",
             style: TextStyle(
-              color: Color(0xFF060663),
+              color: Color(0xFF0B4F2A),
               fontSize: 18,
               fontWeight: FontWeight.w900,
             ),
           ),
           SizedBox(height: 8),
           Text(
-            "L'utilisation de l'application TicBus implique le respect des règles de réservation, de paiement et de transport. Les informations saisies doivent être exactes afin de faciliter les voyages, les colis et l'assistance client.",
+            "L'utilisation de l'application Fofana implique le respect des règles de réservation, de paiement et de transport. Les informations saisies doivent être exactes afin de faciliter les voyages, les colis et l'assistance client.",
             style: TextStyle(
               color: Color(0xFF5F6B86),
               fontSize: 13,
@@ -6408,7 +6818,7 @@ class _AccountPanelState extends State<_AccountPanel> {
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController(text: 'Client TicBus');
+    _nameController = TextEditingController(text: 'Client Fofana');
     _emailController = TextEditingController(text: 'client@example.com');
     _cityController = TextEditingController(text: 'Cotonou');
     _phoneController = TextEditingController(text: '+229 01 00 00 00 00');
@@ -6431,7 +6841,7 @@ class _AccountPanelState extends State<_AccountPanel> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Informations du compte enregistrées'),
-        backgroundColor: Color(0xFF060663),
+        backgroundColor: Color(0xFF0B4F2A),
       ),
     );
   }
@@ -6461,20 +6871,6 @@ class _AccountPanelState extends State<_AccountPanel> {
             children: [
               Row(
                 children: [
-                  Container(
-                    width: 62,
-                    height: 62,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFF80C0D),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.person_rounded,
-                      color: Colors.white,
-                      size: 36,
-                    ),
-                  ),
-                  const SizedBox(width: 14),
                   const Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -6484,7 +6880,7 @@ class _AccountPanelState extends State<_AccountPanel> {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            color: Color(0xFF060663),
+                            color: Color(0xFF0B4F2A),
                             fontSize: 18,
                             fontWeight: FontWeight.w900,
                             height: 1.18,
@@ -6505,12 +6901,8 @@ class _AccountPanelState extends State<_AccountPanel> {
                       ],
                     ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton.icon(
+                  const SizedBox(width: 10),
+                  TextButton.icon(
                   onPressed: _toggleEdit,
                   icon: Icon(
                     _isEditing ? Icons.check_rounded : Icons.edit_rounded,
@@ -6518,7 +6910,7 @@ class _AccountPanelState extends State<_AccountPanel> {
                   ),
                   label: Text(_isEditing ? 'Enregistrer' : 'Modifier'),
                   style: TextButton.styleFrom(
-                    foregroundColor: const Color(0xFFF80C0D),
+                    foregroundColor: const Color(0xFF16A34A),
                     textStyle: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w900,
@@ -6529,6 +6921,7 @@ class _AccountPanelState extends State<_AccountPanel> {
                     ),
                   ),
                 ),
+                ],
               ),
             ],
           ),
@@ -6584,7 +6977,7 @@ class _AccountInfoCard extends StatelessWidget {
           Text(
             'Informations de compte',
             style: TextStyle(
-              color: Color(0xFF060663),
+              color: Color(0xFF0B4F2A),
               fontSize: 18,
               fontWeight: FontWeight.w900,
             ),
@@ -6671,10 +7064,10 @@ class _AccountStat extends StatelessWidget {
               width: 42,
               height: 42,
               decoration: BoxDecoration(
-                color: const Color(0xFFF80C0D).withValues(alpha: 0.10),
+                color: const Color(0xFF16A34A).withValues(alpha: 0.10),
                 borderRadius: BorderRadius.circular(14),
               ),
-              child: Icon(icon, color: const Color(0xFFF80C0D), size: 22),
+              child: Icon(icon, color: const Color(0xFF16A34A), size: 22),
             ),
             const SizedBox(width: 12),
             const Expanded(
@@ -6687,7 +7080,7 @@ class _AccountStat extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: Color(0xFF060663),
+                      color: Color(0xFF0B4F2A),
                       fontSize: 16,
                       fontWeight: FontWeight.w900,
                     ),
@@ -6728,10 +7121,10 @@ class _AccountStat extends StatelessWidget {
                 width: 30,
                 height: 30,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF80C0D).withValues(alpha: 0.10),
+                  color: const Color(0xFF16A34A).withValues(alpha: 0.10),
                   borderRadius: BorderRadius.circular(11),
                 ),
-                child: Icon(icon, color: const Color(0xFFF80C0D), size: 18),
+                child: Icon(icon, color: const Color(0xFF16A34A), size: 18),
               ),
               const SizedBox(width: 7),
               Expanded(
@@ -6740,7 +7133,7 @@ class _AccountStat extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: Color(0xFF060663),
+                    color: Color(0xFF0B4F2A),
                     fontSize: 15,
                     fontWeight: FontWeight.w900,
                   ),
@@ -6791,7 +7184,7 @@ class _EditableInfoField extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: enabled
-              ? const Color(0xFFF80C0D).withValues(alpha: 0.18)
+              ? const Color(0xFF16A34A).withValues(alpha: 0.18)
               : Colors.transparent,
         ),
       ),
@@ -6805,7 +7198,7 @@ class _EditableInfoField extends StatelessWidget {
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(icon, color: const Color(0xFF060663), size: 22),
+            child: Icon(icon, color: const Color(0xFF0B4F2A), size: 22),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -6827,7 +7220,7 @@ class _EditableInfoField extends StatelessWidget {
                   minLines: 1,
                   maxLines: 2,
                   style: const TextStyle(
-                    color: Color(0xFF060663),
+                    color: Color(0xFF0B4F2A),
                     fontSize: 16,
                     fontWeight: FontWeight.w900,
                     height: 1.25,

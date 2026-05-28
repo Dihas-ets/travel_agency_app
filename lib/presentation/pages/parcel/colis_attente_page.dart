@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:code_initial/presentation/pages/parcel/billet_page.dart';
 import 'package:code_initial/presentation/pages/parcel/parcel_store.dart';
 
-const Color _deepBlue = Color(0xFF060663);
-const Color _logoRed = Color(0xFFF80C0D);
+const Color _deepBlue = Color(0xFF0B4F2A);
+const Color _logoRed = Color(0xFF16A34A);
 const Color _pageBackground = Color(0xFFF6F8FF);
 const Color _mutedText = Color(0xFF6F7890);
 
@@ -89,7 +89,7 @@ class _ColisAttentePageState extends State<ColisAttentePage> {
                       ),
                       const Spacer(),
                       Image.asset(
-                        'assets/images/logo_ticbus_no_background.png',
+                        'assets/images/logo_fofana_no_background.png',
                         height: 44,
                         fit: BoxFit.contain,
                       ),

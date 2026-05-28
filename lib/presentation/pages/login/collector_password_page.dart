@@ -26,7 +26,7 @@ class _CollectorPasswordPageState extends State<CollectorPasswordPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Mot de passe percepteur incorrect.'),
-          backgroundColor: Color(0xFFF80C0D),
+          backgroundColor: Color(0xFF16A34A),
         ),
       );
       return;
@@ -45,7 +45,7 @@ class _CollectorPasswordPageState extends State<CollectorPasswordPage> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFFF8FBFF), Color(0xFFEFF4FF), Color(0xFFFFF5F5)],
+            colors: [Color(0xFFF8FBFF), Color(0xFFF1FAF4), Color(0xFFEAF7EF)],
             stops: [0.0, 0.58, 1.0],
           ),
         ),
@@ -66,7 +66,7 @@ class _CollectorPasswordPageState extends State<CollectorPasswordPage> {
                         style: TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.w900,
-                          color: Color(0xFF060663),
+                          color: Color(0xFF0B4F2A),
                         ),
                       ),
                       SizedBox(height: 8),
@@ -117,7 +117,7 @@ class _CollectorPasswordPageState extends State<CollectorPasswordPage> {
                         Text(
                           phone,
                           style: const TextStyle(
-                            color: Color(0xFF060663),
+                            color: Color(0xFF0B4F2A),
                             fontSize: 16,
                             fontWeight: FontWeight.w900,
                           ),
@@ -129,7 +129,7 @@ class _CollectorPasswordPageState extends State<CollectorPasswordPage> {
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
-                          color: Color(0xFF060663),
+                          color: Color(0xFF0B4F2A),
                         ),
                       ),
                       const SizedBox(height: 10),

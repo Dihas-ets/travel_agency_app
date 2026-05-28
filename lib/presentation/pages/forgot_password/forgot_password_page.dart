@@ -25,7 +25,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Veuillez entrer votre numéro de téléphone.'),
-          backgroundColor: Color(0xFFF80C0D),
+          backgroundColor: Color(0xFF16A34A),
         ),
       );
       return;
@@ -34,7 +34,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Code de réinitialisation envoyé au $telephone'),
-        backgroundColor: const Color(0xFF060663),
+        backgroundColor: const Color(0xFF0B4F2A),
       ),
     );
   }
@@ -47,7 +47,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFFF8FBFF), Color(0xFFEFF4FF), Color(0xFFFFF5F5)],
+            colors: [Color(0xFFF8FBFF), Color(0xFFF1FAF4), Color(0xFFEAF7EF)],
             stops: [0.0, 0.58, 1.0],
           ),
         ),
@@ -66,7 +66,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                     children: [
                       Icon(
                         Icons.lock_reset_rounded,
-                        color: Color(0xFFF80C0D),
+                        color: Color(0xFF16A34A),
                         size: 54,
                       ),
                       SizedBox(height: 14),
@@ -74,7 +74,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                         'Mot de passe oublié',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          color: Color(0xFF060663),
+                          color: Color(0xFF0B4F2A),
                           fontSize: 28,
                           fontWeight: FontWeight.w900,
                         ),
@@ -118,7 +118,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                       const Text(
                         'Numéro de téléphone',
                         style: TextStyle(
-                          color: Color(0xFF060663),
+                          color: Color(0xFF0B4F2A),
                           fontSize: 16,
                           fontWeight: FontWeight.w800,
                         ),
@@ -145,7 +145,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                             ),
                           ),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFF80C0D),
+                            backgroundColor: const Color(0xFF16A34A),
                             elevation: 0,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(16),

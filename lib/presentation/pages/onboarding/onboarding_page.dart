@@ -13,7 +13,7 @@ import 'onboarding_slide.dart';
 
 /// Parcours d'introduction affiché avant l'accueil.
 ///
-/// Les trois slides présentent les avantages du service TicBus puis redirigent
+/// Les trois slides présentent les avantages du service Fofana puis redirigent
 /// vers la page d'accueil.
 class OnboardingPage extends StatefulWidget {
   const OnboardingPage({super.key});
@@ -35,21 +35,21 @@ class _OnboardingPageState extends State<OnboardingPage> {
     OnboardingData(
       title: 'Plus efficace',
       description:
-          'Voyagez en toute tranquillité avec TicBus : ponctuel, fiable et accessible. '
+          'Voyagez en toute tranquillité avec Fofana : ponctuel, fiable et accessible. '
           'Que ce soit pour vous ou vos colis, nous facilitons votre quotidien !',
       illustrationAsset: 'assets/images/onboarding2.png',
     ),
     OnboardingData(
       title: 'Plus assuré',
       description:
-          'Plus sûr, plus serein avec TicBus. Sécurité, fiabilité et professionnalisme '
+          'Plus sûr, plus serein avec Fofana. Sécurité, fiabilité et professionnalisme '
           'sont nos priorités pour vous offrir un transport en toute confiance.',
       illustrationAsset: 'assets/images/onboarding3.png',
     ),
     OnboardingData(
       title: 'Plus simple',
       description:
-          'Avec TicBus, voyagez et expédiez vos colis en toute simplicité. '
+          'Avec Fofana, voyagez et expédiez vos colis en toute simplicité. '
           'Ponctualité, rapidité et service optimisé pour mieux vous satisfaire !',
       illustrationAsset: 'assets/images/onboarding1.png',
     ),
@@ -110,7 +110,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFFF8FBFF), Color(0xFFEFF4FF), Color(0xFFFFF5F5)],
+            colors: [Color(0xFFF8FBFF), Color(0xFFF1FAF4), Color(0xFFEAF7EF)],
             stops: [0.0, 0.56, 1.0],
           ),
         ),
@@ -121,7 +121,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
               right: -70,
               child: _SoftAccentCircle(
                 size: 190,
-                color: const Color(0xFFF80C0D).withValues(alpha: 0.12),
+                color: const Color(0xFF16A34A).withValues(alpha: 0.12),
               ),
             ),
             Positioned(
@@ -129,7 +129,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
               left: -85,
               child: _SoftAccentCircle(
                 size: 220,
-                color: const Color(0xFF060663).withValues(alpha: 0.1),
+                color: const Color(0xFF0B4F2A).withValues(alpha: 0.1),
               ),
             ),
             SafeArea(
@@ -144,14 +144,14 @@ class _OnboardingPageState extends State<OnboardingPage> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Image.asset(
-                          'assets/images/logo_ticbus_no_background.png',
+                          'assets/images/logo_fofana_no_background.png',
                           height: 64,
                           fit: BoxFit.contain,
                         ),
                         TextButton(
                           onPressed: () => Get.offNamed(Routes.WELCOME),
                           style: TextButton.styleFrom(
-                            foregroundColor: const Color(0xFF060663),
+                            foregroundColor: const Color(0xFF0B4F2A),
                             textStyle: const TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w700,
@@ -194,7 +194,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                   DotIndicator(
                     count: _pages.length, // Nombre total de points
                     currentIndex: _currentPage, // Point actif (bleu foncé)
-                    activeColor: const Color(0xFFF80C0D),
+                    activeColor: const Color(0xFF16A34A),
                     inactiveColor: const Color(0xFFE1E6F3),
                   ),
 
@@ -208,12 +208,12 @@ class _OnboardingPageState extends State<OnboardingPage> {
                       width: _currentPage == _pages.length - 1 ? 168 : 72,
                       height: 58,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF060663),
+                        color: const Color(0xFF0B4F2A),
                         borderRadius: BorderRadius.circular(32),
                         boxShadow: [
                           BoxShadow(
                             color: const Color(
-                              0xFF060663,
+                              0xFF0B4F2A,
                             ).withValues(alpha: 0.28),
                             blurRadius: 18,
                             offset: const Offset(

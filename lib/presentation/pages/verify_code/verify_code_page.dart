@@ -54,7 +54,7 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Veuillez entrer le code à 6 chiffres.'),
-          backgroundColor: Color(0xFFF80C0D),
+          backgroundColor: Color(0xFF16A34A),
         ),
       );
       return;
@@ -71,7 +71,7 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFFF8FBFF), Color(0xFFEFF4FF), Color(0xFFFFF5F5)],
+            colors: [Color(0xFFF8FBFF), Color(0xFFF1FAF4), Color(0xFFEAF7EF)],
             stops: [0.0, 0.58, 1.0],
           ),
         ),
@@ -101,13 +101,13 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
                       child: IconButton(
                         icon: const Icon(
                           Icons.arrow_back,
-                          color: Color(0xFF060663),
+                          color: Color(0xFF0B4F2A),
                         ),
                         onPressed: () => Navigator.pop(context),
                       ),
                     ),
                     Image.asset(
-                      'assets/images/logo_ticbus_no_background.png',
+                      'assets/images/logo_fofana_no_background.png',
                       height: 68,
                       fit: BoxFit.contain,
                     ),
@@ -129,7 +129,7 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF060663).withValues(alpha: 0.12),
+                        color: const Color(0xFF0B4F2A).withValues(alpha: 0.12),
                         blurRadius: 24,
                         offset: const Offset(0, 12),
                       ),
@@ -137,7 +137,7 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
                   ),
                   child: const Icon(
                     Icons.verified_user_rounded,
-                    color: Color(0xFFF80C0D),
+                    color: Color(0xFF16A34A),
                     size: 38,
                   ),
                 ),
@@ -150,7 +150,7 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
                   style: TextStyle(
                     fontSize: 26,
                     fontWeight: FontWeight.w900,
-                    color: Color(0xFF060663),
+                    color: Color(0xFF0B4F2A),
                   ),
                 ),
 
@@ -192,7 +192,7 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
                       const Text(
                         'Code de confirmation',
                         style: TextStyle(
-                          color: Color(0xFF060663),
+                          color: Color(0xFF0B4F2A),
                           fontSize: 15,
                           fontWeight: FontWeight.w800,
                         ),
@@ -213,7 +213,7 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
                                   style: TextStyle(
                                     fontSize: 30,
                                     fontWeight: FontWeight.bold,
-                                    color: Color(0xFF060663),
+                                    color: Color(0xFF0B4F2A),
                                   ),
                                 ),
                               );
@@ -243,7 +243,7 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
                                   style: const TextStyle(
                                     fontSize: 26,
                                     fontWeight: FontWeight.w900,
-                                    color: Color(0xFF060663),
+                                    color: Color(0xFF0B4F2A),
                                   ),
                                   decoration: InputDecoration(
                                     filled: true,
@@ -257,7 +257,7 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
                                       borderRadius: BorderRadius.circular(16),
                                       borderSide: BorderSide(
                                         color: const Color(
-                                          0xFF060663,
+                                          0xFF0B4F2A,
                                         ).withValues(alpha: 0.24),
                                         width: 1.4,
                                       ),
@@ -265,7 +265,7 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
                                     focusedBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(16),
                                       borderSide: const BorderSide(
-                                        color: Color(0xFFF80C0D),
+                                        color: Color(0xFF16A34A),
                                         width: 1.8,
                                       ),
                                     ),
@@ -302,7 +302,7 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
                   child: ElevatedButton(
                     onPressed: _validerCode,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFF80C0D),
+                      backgroundColor: const Color(0xFF16A34A),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),

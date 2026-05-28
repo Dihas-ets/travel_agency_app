@@ -32,7 +32,7 @@ class _LoginPageState extends State<LoginPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text("Veuillez entrer votre numéro de téléphone."),
-          backgroundColor: Color(0xFFF80C0D),
+          backgroundColor: Color(0xFF16A34A),
         ),
       );
       return;
@@ -58,7 +58,7 @@ class _LoginPageState extends State<LoginPage> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFFF8FBFF), Color(0xFFEFF4FF), Color(0xFFFFF5F5)],
+            colors: [Color(0xFFF8FBFF), Color(0xFFF1FAF4), Color(0xFFEAF7EF)],
             stops: [0.0, 0.58, 1.0],
           ),
         ),
@@ -71,7 +71,7 @@ class _LoginPageState extends State<LoginPage> {
               children: [
                 const SizedBox(height: 10),
 
-                // Bouton retour + Logo TicBus
+                // Bouton retour + Logo Fofana
                 const LoginHeader(),
 
                 const SizedBox(height: 36),
@@ -84,12 +84,12 @@ class _LoginPageState extends State<LoginPage> {
                         style: TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.w900,
-                          color: Color(0xFF060663),
+                          color: Color(0xFF0B4F2A),
                         ),
                       ),
                       SizedBox(height: 8),
                       Text(
-                        "Retrouvez vos trajets et vos services TicBus.",
+                        "Retrouvez vos trajets et vos services Fofana.",
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 14,
@@ -130,7 +130,7 @@ class _LoginPageState extends State<LoginPage> {
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
-                          color: Color(0xFF060663),
+                          color: Color(0xFF0B4F2A),
                         ),
                       ),
 

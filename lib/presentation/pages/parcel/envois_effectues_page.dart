@@ -46,14 +46,14 @@ class _EnvoisEffectuesPageState extends State<EnvoisEffectuesPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Le suivi de colis sera bientôt disponible'),
-        backgroundColor: Color(0xFF060663),
+        backgroundColor: Color(0xFF0B4F2A),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    const Color logoBlue = Color(0xFF060663);
+    const Color logoBlue = Color(0xFF0B4F2A);
     const Color cardBg = Color(0xFFF8F9FE);
     const Color borderLine = Color(0xFFE6EAF2);
     const Color mutedText = Color(0xFF95A0B6);
@@ -122,7 +122,7 @@ class _EnvoisEffectuesPageState extends State<EnvoisEffectuesPage> {
               bottom: 28,
               child: _ExpandableFabMenu(
                 blue: logoBlue,
-                red: const Color(0xFFF80C0D),
+                red: const Color(0xFF16A34A),
                 isOpen: _isFabMenuOpen,
                 onToggle: _toggleFabMenu,
                 onSendParcel: _openSendParcelPage,
@@ -158,7 +158,7 @@ class _Header extends StatelessWidget {
                 color: logoBlue,
               ),
             ),
-            // Logo centre pour garder l'identite TicBus visible sur la page.
+            // Logo centre pour garder l'identite Fofana visible sur la page.
             Container(
               height: 40,
               padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -168,7 +168,7 @@ class _Header extends StatelessWidget {
                 border: Border.all(color: logoBlue.withValues(alpha: 0.12)),
               ),
               child: Image.asset(
-                'assets/images/logo_ticbus_no_background.png',
+                'assets/images/logo_fofana_no_background.png',
                 height: 32,
                 fit: BoxFit.contain,
               ),
@@ -328,7 +328,7 @@ class _FabActionChip extends StatelessWidget {
               Text(
                 label,
                 style: const TextStyle(
-                  color: Color(0xFF060663),
+                  color: Color(0xFF0B4F2A),
                   fontSize: 14.5,
                   fontWeight: FontWeight.w900,
                 ),
@@ -415,7 +415,7 @@ class _ParcelCard extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: Color(0xFF060663),
+                        color: Color(0xFF0B4F2A),
                         fontWeight: FontWeight.w900,
                         fontSize: 19,
                       ),
@@ -473,7 +473,7 @@ class _ParcelCard extends StatelessWidget {
           Text(
             dateEnvoi,
             style: const TextStyle(
-              color: Color(0xFF060663),
+              color: Color(0xFF0B4F2A),
               fontWeight: FontWeight.w800,
               fontSize: 16,
             ),
@@ -515,7 +515,7 @@ class _ParcelCard extends StatelessWidget {
           Text(
             trajet,
             style: const TextStyle(
-              color: Color(0xFF060663),
+              color: Color(0xFF0B4F2A),
               fontWeight: FontWeight.w900,
               fontSize: 16,
             ),
@@ -526,7 +526,7 @@ class _ParcelCard extends StatelessWidget {
             height: 54,
             width: double.infinity,
             decoration: BoxDecoration(
-              color: const Color(0xFF060663),
+              color: const Color(0xFF0B4F2A),
               borderRadius: BorderRadius.circular(14),
             ),
             child: const Center(
@@ -609,7 +609,7 @@ class _InfoBlock extends StatelessWidget {
           Text(
             line,
             style: const TextStyle(
-              color: Color(0xFF060663),
+              color: Color(0xFF0B4F2A),
               fontWeight: FontWeight.w800,
               fontSize: 16,
             ),
@@ -649,7 +649,7 @@ class _BottomRowBlock extends StatelessWidget {
         Text(
           value,
           style: const TextStyle(
-            color: Color(0xFF060663),
+            color: Color(0xFF0B4F2A),
             fontWeight: FontWeight.w900,
             fontSize: 16,
           ),

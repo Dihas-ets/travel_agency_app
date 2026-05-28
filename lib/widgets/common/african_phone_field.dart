@@ -107,7 +107,7 @@ class _AfricanPhoneFieldState extends State<AfricanPhoneField> {
                 const Text(
                   'Choisir un pays',
                   style: TextStyle(
-                    color: Color(0xFF060663),
+                    color: Color(0xFF0B4F2A),
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
                   ),
@@ -119,7 +119,7 @@ class _AfricanPhoneFieldState extends State<AfricanPhoneField> {
                     itemCount: africanCountries.length,
                     separatorBuilder: (_, __) => Divider(
                       height: 1,
-                      color: const Color(0xFF060663).withValues(alpha: 0.08),
+                      color: const Color(0xFF0B4F2A).withValues(alpha: 0.08),
                     ),
                     itemBuilder: (context, index) {
                       final country = africanCountries[index];
@@ -155,7 +155,7 @@ class _AfricanPhoneFieldState extends State<AfricanPhoneField> {
                               const SizedBox(width: 10),
                               const Icon(
                                 Icons.check_circle_rounded,
-                                color: Color(0xFFF80C0D),
+                                color: Color(0xFF16A34A),
                                 size: 20,
                               ),
                             ],
@@ -191,7 +191,7 @@ class _AfricanPhoneFieldState extends State<AfricanPhoneField> {
           color: Colors.white.withValues(alpha: 0.88),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: const Color(0xFF060663).withValues(alpha: 0.24),
+            color: const Color(0xFF0B4F2A).withValues(alpha: 0.24),
             width: 1.4,
           ),
         ),
@@ -208,18 +208,18 @@ class _AfricanPhoneFieldState extends State<AfricanPhoneField> {
                 Text(
                   selectedCountry.code,
                   style: const TextStyle(
-                    color: Color(0xFF060663),
+                    color: Color(0xFF0B4F2A),
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const Icon(Icons.arrow_drop_down, color: Color(0xFF060663)),
+                const Icon(Icons.arrow_drop_down, color: Color(0xFF0B4F2A)),
               ],
             ),
             const SizedBox(width: 10),
             Container(
               height: 30,
               width: 1,
-              color: const Color(0xFF060663).withValues(alpha: 0.24),
+              color: const Color(0xFF0B4F2A).withValues(alpha: 0.24),
             ),
             const SizedBox(width: 15),
             Expanded(

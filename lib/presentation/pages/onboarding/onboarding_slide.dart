@@ -44,7 +44,7 @@ class OnboardingSlide extends StatelessWidget {
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF060663).withOpacity(0.08),
+                        color: const Color(0xFF0B4F2A).withOpacity(0.08),
                         blurRadius: 22,
                         offset: const Offset(0, 10),
                       ),
@@ -79,7 +79,7 @@ class OnboardingSlide extends StatelessWidget {
                         width: 38,
                         height: 4,
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF80C0D),
+                          color: const Color(0xFF16A34A),
                           borderRadius: BorderRadius.circular(4),
                         ),
                       ),
@@ -93,7 +93,7 @@ class OnboardingSlide extends StatelessWidget {
                         style: const TextStyle(
                           fontSize: 29,
                           fontWeight: FontWeight.w900,
-                          color: Color(0xFF060663),
+                          color: Color(0xFF0B4F2A),
                         ),
                       ),
 

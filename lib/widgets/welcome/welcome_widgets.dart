@@ -8,10 +8,10 @@ import 'package:flutter/material.dart';
 ///
 /// On y place les petits composants visuels pour garder WelcomePage lisible.
 
-/// Grand logo TicBus utilisé sur la page d'accueil
-/// Affiche "TicBus" en blanc dans un cadre ovale orange
-class TicBusLogo extends StatelessWidget {
-  const TicBusLogo({super.key});
+/// Grand logo Fofana utilisé sur la page d'accueil
+/// Affiche "Fofana" en blanc dans un cadre ovale vert.
+class FofanaLogo extends StatelessWidget {
+  const FofanaLogo({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -26,15 +26,15 @@ class TicBusLogo extends StatelessWidget {
             shape: BoxShape.rectangle,
             borderRadius: BorderRadius.circular(50),
             border: Border.all(
-              color: const Color(0xFFFF8C00), // Orange TicBus
+              color: const Color(0xFF16A34A),
               width: 3.5,
             ),
           ),
         ),
 
-        // Texte "TicBus" centré dans le cadre
+        // Texte "Fofana" centré dans le cadre
         const Text(
-          'TicBus',
+          'Fofana',
           style: TextStyle(
             color: Colors.white,
             fontSize: 46,
@@ -52,7 +52,7 @@ class TicBusLogo extends StatelessWidget {
             width: 18,
             height: 14,
             decoration: const BoxDecoration(
-              color: Color(0xFFFF8C00),
+              color: Color(0xFF16A34A),
               borderRadius: BorderRadius.only(
                 topRight: Radius.circular(8),
                 bottomRight: Radius.circular(8),
@@ -112,12 +112,12 @@ class NavButton extends StatelessWidget {
                   MainAxisSize.min, // Ne prend que l'espace nécessaire
               children: [
                 // Icône rouge pour rappeler la couleur principale du logo.
-                Icon(icon, color: const Color(0xFFF80C0D), size: 18),
+                Icon(icon, color: const Color(0xFF16A34A), size: 18),
                 const SizedBox(width: 8),
                 Text(
                   label,
                   style: const TextStyle(
-                    color: Color(0xFF060663),
+                    color: Color(0xFF0B4F2A),
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                   ),

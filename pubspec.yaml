@@ -85,8 +85,8 @@ flutter:
     - assets/images/logo_mtn.png
     - assets/images/logo_moov.png
     - assets/images/logo_celtiis.png
-    - assets/images/logo_ticbus.jpeg
-    - assets/images/logo_ticbus_no_background.png
+    - assets/images/logo_fofana.png
+    - assets/images/logo_fofana_no_background.png
     - assets/images/welcome_image.jpg
 
   # An image asset can refer to one or more resolution-specific "variants", see
@@ -116,15 +116,16 @@ flutter:
   # see https://flutter.dev/to/font-from-package
 
 
-flutter_icons:
+flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/images/logo_ticbus.jpeg"
+  image_path: "assets/images/logo_fofana_no_background.png"
+  remove_alpha_ios: true
 
 
 flutter_native_splash:
   color: "#ffffff"
-  image: assets/images/logo_ticbus.jpeg
+  image: assets/images/logo_fofana_no_background.png
 
   android: true
   ios: true

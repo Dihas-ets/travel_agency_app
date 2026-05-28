@@ -12,8 +12,8 @@ class WelcomePage extends StatefulWidget {
 }
 
 class _WelcomePageState extends State<WelcomePage> {
-  static const Color _ticBusRed = Color(0xFFF80C0D);
-  static const Color _deepBlue = Color(0xFF060663);
+  static const Color _fofanaGreen = Color(0xFF16A34A);
+  static const Color _deepBlue = Color(0xFF0B4F2A);
 
   @override
   void initState() {
@@ -23,7 +23,7 @@ class _WelcomePageState extends State<WelcomePage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text(
-            'Activez votre localisation pour voir les agences TicBus proches.',
+            'Activez votre localisation pour voir les agences Fofana proches.',
           ),
           action: SnackBarAction(
             label: 'Activer',
@@ -36,7 +36,7 @@ class _WelcomePageState extends State<WelcomePage> {
               );
             },
           ),
-          backgroundColor: const Color(0xFF060663),
+          backgroundColor: const Color(0xFF0B4F2A),
           behavior: SnackBarBehavior.floating,
           duration: const Duration(seconds: 5),
         ),
@@ -59,7 +59,7 @@ class _WelcomePageState extends State<WelcomePage> {
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: [Color(0xFF111827), Color(0xFF060663)],
+                    colors: [Color(0xFF111827), Color(0xFF0B4F2A)],
                   ),
                 ),
               ),
@@ -108,7 +108,7 @@ class _WelcomePageState extends State<WelcomePage> {
                                 ],
                               ),
                               child: Image.asset(
-                                'assets/images/logo_ticbus_no_background.png',
+                                'assets/images/logo_fofana_no_background.png',
                                 height: compact ? 68 : 82,
                                 fit: BoxFit.contain,
                               ),
@@ -116,7 +116,7 @@ class _WelcomePageState extends State<WelcomePage> {
                           ),
                           SizedBox(height: compact ? 18 : 28),
                           const Text(
-                            'Voyagez simplement avec TicBus',
+                            'Voyagez simplement avec Fofana',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               color: Colors.white,
@@ -134,7 +134,7 @@ class _WelcomePageState extends State<WelcomePage> {
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            'Réservez vos voyages, suivez vos colis et retrouvez vos agences TicBus proches de vous.',
+                            'Réservez vos voyages, suivez vos colis et retrouvez vos agences Fofana proches de vous.',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               color: Colors.white.withValues(alpha: 0.94),
@@ -209,7 +209,7 @@ class _WelcomePageState extends State<WelcomePage> {
                                     ),
                                     label: const Text('Créer votre compte'),
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: _ticBusRed,
+                                      backgroundColor: _fofanaGreen,
                                       foregroundColor: Colors.white,
                                       elevation: 0,
                                       shadowColor: Colors.transparent,
@@ -332,7 +332,7 @@ class _WelcomePageState extends State<WelcomePage> {
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.9),
         shape: BoxShape.circle,
-        border: Border.all(color: _ticBusRed.withValues(alpha: 0.18)),
+        border: Border.all(color: _fofanaGreen.withValues(alpha: 0.18)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.12),
@@ -346,7 +346,7 @@ class _WelcomePageState extends State<WelcomePage> {
           path,
           fit: BoxFit.contain,
           errorBuilder: (_, __, ___) =>
-              const Icon(Icons.credit_card_rounded, color: Color(0xFF060663)),
+              const Icon(Icons.credit_card_rounded, color: Color(0xFF0B4F2A)),
         ),
       ),
     );
@@ -363,8 +363,8 @@ class _WelcomeOverlay extends StatelessWidget {
           end: Alignment.bottomCenter,
           colors: [
             Colors.white.withValues(alpha: 0.08),
-            const Color(0xFF060663).withValues(alpha: 0.16),
-            const Color(0xFFF80C0D).withValues(alpha: 0.08),
+            const Color(0xFF0B4F2A).withValues(alpha: 0.16),
+            const Color(0xFF16A34A).withValues(alpha: 0.08),
             Colors.black.withValues(alpha: 0.68),
           ],
           stops: const [0.0, 0.32, 0.64, 1.0],
