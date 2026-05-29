@@ -582,10 +582,7 @@ class _CollectorNotificationTile extends StatelessWidget {
                   ],
                 ),
               ),
-              const Icon(
-                Icons.chevron_right_rounded,
-                color: Color(0xFF16A34A),
-              ),
+              const Icon(Icons.chevron_right_rounded, color: Color(0xFF16A34A)),
             ],
           ),
         ),
@@ -723,6 +720,14 @@ class _CollectorMainMenuSheet extends StatefulWidget {
 class _CollectorMainMenuSheetState extends State<_CollectorMainMenuSheet> {
   bool _showProfile = false;
 
+  void _openAssignments() {
+    final navigator = Navigator.of(context);
+    navigator.pop();
+    navigator.push(
+      MaterialPageRoute(builder: (_) => const _CollectorAssignmentsPage()),
+    );
+  }
+
   void _showTerms() {
     showModalBottomSheet(
       context: context,
@@ -760,6 +765,7 @@ class _CollectorMainMenuSheetState extends State<_CollectorMainMenuSheet> {
                     scrollController: scrollController,
                     onClose: () => Navigator.pop(context),
                     onProfileTap: () => setState(() => _showProfile = true),
+                    onAssignmentsTap: _openAssignments,
                     onTermsTap: _showTerms,
                     onLogoutTap: _logout,
                   ),
@@ -774,6 +780,7 @@ class _CollectorMainMenuView extends StatelessWidget {
   final ScrollController scrollController;
   final VoidCallback onClose;
   final VoidCallback onProfileTap;
+  final VoidCallback onAssignmentsTap;
   final VoidCallback onTermsTap;
   final VoidCallback onLogoutTap;
 
@@ -782,6 +789,7 @@ class _CollectorMainMenuView extends StatelessWidget {
     required this.scrollController,
     required this.onClose,
     required this.onProfileTap,
+    required this.onAssignmentsTap,
     required this.onTermsTap,
     required this.onLogoutTap,
   });
@@ -845,6 +853,11 @@ class _CollectorMainMenuView extends StatelessWidget {
             title: 'Profil',
             isSelected: true,
             onTap: onProfileTap,
+          ),
+          _CollectorMenuOptionTile(
+            icon: Icons.assignment_turned_in_rounded,
+            title: 'Mes affectations',
+            onTap: onAssignmentsTap,
           ),
           _CollectorMenuOptionTile(
             icon: Icons.description_outlined,
@@ -1433,6 +1446,15 @@ class _CollectorVoyageMenu extends StatelessWidget {
                 ),
               ),
             ),
+            _CollectorMenuButton(
+              icon: Icons.assignment_turned_in_rounded,
+              label: 'Affectations',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const _CollectorAssignmentsPage(),
+                ),
+              ),
+            ),
           ],
         ),
       ],
@@ -1500,6 +1522,655 @@ class _CollectorMenuButton extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+enum _CollectorAssignmentFilter { current, scheduled, past }
+
+class _CollectorAssignmentRecord {
+  final String date;
+  final String time;
+  final String busMatricule;
+  final String driverName;
+  final String driverPhone;
+  final String route;
+  final String sessionCloseTime;
+  final List<String> collectors;
+  final String status;
+
+  const _CollectorAssignmentRecord({
+    required this.date,
+    required this.time,
+    required this.busMatricule,
+    required this.driverName,
+    required this.driverPhone,
+    required this.route,
+    required this.sessionCloseTime,
+    required this.collectors,
+    required this.status,
+  });
+}
+
+class _CollectorAssignmentsPage extends StatefulWidget {
+  const _CollectorAssignmentsPage();
+
+  @override
+  State<_CollectorAssignmentsPage> createState() =>
+      _CollectorAssignmentsPageState();
+}
+
+class _CollectorAssignmentsPageState extends State<_CollectorAssignmentsPage> {
+  static const Color _deepBlue = Color(0xFF0B4F2A);
+  static const Color _fofanaGreen = Color(0xFF16A34A);
+
+  _CollectorAssignmentFilter _filter = _CollectorAssignmentFilter.current;
+
+  // Jeu de données local en attendant la connexion à l'API des affectations.
+  final List<_CollectorAssignmentRecord> _currentAssignments = const [
+    _CollectorAssignmentRecord(
+      date: '29 mai 2026',
+      time: '08:30',
+      busMatricule: 'BJ-6248-RB',
+      driverName: 'Karim Soglo',
+      driverPhone: '+229 01 66 42 18 09',
+      route: 'Cotonou -> Parakou',
+      sessionCloseTime: '18:45',
+      collectors: ['Awa Mensah', 'Joel Kpadonou'],
+      status: 'Session ouverte',
+    ),
+  ];
+
+  final List<_CollectorAssignmentRecord> _scheduledAssignments = const [
+    _CollectorAssignmentRecord(
+      date: '31 mai 2026',
+      time: '06:00',
+      busMatricule: 'BJ-7812-AG',
+      driverName: 'Moussa Adjou',
+      driverPhone: '+229 01 97 12 44 30',
+      route: 'Porto-Novo -> Natitingou',
+      sessionCloseTime: '17:30',
+      collectors: ['Chancelle Toko', 'Eric Houngbo'],
+      status: 'Programmé',
+    ),
+    _CollectorAssignmentRecord(
+      date: '02 juin 2026',
+      time: '14:15',
+      busMatricule: 'BJ-4589-CD',
+      driverName: 'Jean Dossou',
+      driverPhone: '+229 01 62 55 70 21',
+      route: 'Cotonou -> Djougou',
+      sessionCloseTime: '23:00',
+      collectors: ['Mariette Hounkanrin', 'Serge Loko'],
+      status: 'Programmé',
+    ),
+  ];
+
+  final List<_CollectorAssignmentRecord> _pastAssignments = const [
+    _CollectorAssignmentRecord(
+      date: '27 mai 2026',
+      time: '07:45',
+      busMatricule: 'BJ-3220-TR',
+      driverName: 'Rachid Bio',
+      driverPhone: '+229 01 61 18 40 33',
+      route: 'Cotonou -> Bohicon',
+      sessionCloseTime: '16:20',
+      collectors: ['Mireille Zinsou', 'Patrick Tossa'],
+      status: 'Effectué',
+    ),
+    _CollectorAssignmentRecord(
+      date: '25 mai 2026',
+      time: '09:00',
+      busMatricule: 'BJ-9301-PL',
+      driverName: 'Armand Hounsinou',
+      driverPhone: '+229 01 95 72 10 67',
+      route: 'Porto-Novo -> Kandi',
+      sessionCloseTime: '20:10',
+      collectors: ['Nadine Sossa', 'Abel Gandonou'],
+      status: 'Réaffectué',
+    ),
+    _CollectorAssignmentRecord(
+      date: '22 mai 2026',
+      time: '12:30',
+      busMatricule: 'BJ-1077-MK',
+      driverName: 'Saturnin Kiki',
+      driverPhone: '+229 01 60 30 41 82',
+      route: 'Cotonou -> Lokossa',
+      sessionCloseTime: '19:00',
+      collectors: ['Judith Ahouanvoebla', 'David Nonvignon'],
+      status: 'Absent',
+    ),
+  ];
+
+  List<_CollectorAssignmentRecord> get _records {
+    switch (_filter) {
+      case _CollectorAssignmentFilter.current:
+        return _currentAssignments;
+      case _CollectorAssignmentFilter.scheduled:
+        return _scheduledAssignments;
+      case _CollectorAssignmentFilter.past:
+        return _pastAssignments;
+    }
+  }
+
+  String get _title {
+    switch (_filter) {
+      case _CollectorAssignmentFilter.current:
+        return 'Affectation en cours';
+      case _CollectorAssignmentFilter.scheduled:
+        return 'Affectations programmées';
+      case _CollectorAssignmentFilter.past:
+        return 'Affectations passées';
+    }
+  }
+
+  void _reopenSession(_CollectorAssignmentRecord assignment) {
+    _CollectorNotificationStore.add(
+      title: 'Réouverture demandée',
+      message:
+          'Demande envoyée pour ${assignment.busMatricule} sur ${assignment.route}.',
+    );
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Demande de réouverture de session envoyée.'),
+        backgroundColor: _deepBlue,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF6F8FF),
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(18, 16, 18, 22),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [_deepBlue, Color(0xFF0E6B39), _fofanaGreen],
+                ),
+                borderRadius: BorderRadius.vertical(
+                  bottom: Radius.circular(30),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      _CollectorHeaderIconButton(
+                        icon: Icons.arrow_back_rounded,
+                        onTap: () => Navigator.of(context).maybePop(),
+                      ),
+                      const Spacer(),
+                      Image.asset(
+                        'assets/images/logo_fofana_no_background.png',
+                        height: 48,
+                        fit: BoxFit.contain,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Mes affectations',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 28,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Suivez vos sessions, vos bus et votre équipe de trajet.',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.86),
+                      fontSize: 14.5,
+                      height: 1.35,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ListView(
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(18, 18, 18, 26),
+                children: [
+                  _CollectorAssignmentSegmentedControl(
+                    selected: _filter,
+                    onChanged: (value) => setState(() => _filter = value),
+                  ),
+                  const SizedBox(height: 18),
+                  Text(
+                    _title,
+                    style: const TextStyle(
+                      color: _deepBlue,
+                      fontSize: 19,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ..._records.map(
+                    (item) => _CollectorAssignmentCard(
+                      assignment: item,
+                      mode: _filter,
+                      onReopen: _filter == _CollectorAssignmentFilter.current
+                          ? () => _reopenSession(item)
+                          : null,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CollectorAssignmentSegmentedControl extends StatelessWidget {
+  final _CollectorAssignmentFilter selected;
+  final ValueChanged<_CollectorAssignmentFilter> onChanged;
+
+  const _CollectorAssignmentSegmentedControl({
+    required this.selected,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(5),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: const Color(0xFF0B4F2A).withValues(alpha: 0.08),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0B4F2A).withValues(alpha: 0.07),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          _CollectorAssignmentTabButton(
+            label: 'En cours',
+            icon: Icons.play_circle_fill_rounded,
+            selected: selected == _CollectorAssignmentFilter.current,
+            onTap: () => onChanged(_CollectorAssignmentFilter.current),
+          ),
+          _CollectorAssignmentTabButton(
+            label: 'Programmer',
+            icon: Icons.event_available_rounded,
+            selected: selected == _CollectorAssignmentFilter.scheduled,
+            onTap: () => onChanged(_CollectorAssignmentFilter.scheduled),
+          ),
+          _CollectorAssignmentTabButton(
+            label: 'Passer',
+            icon: Icons.history_rounded,
+            selected: selected == _CollectorAssignmentFilter.past,
+            onTap: () => onChanged(_CollectorAssignmentFilter.past),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CollectorAssignmentTabButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _CollectorAssignmentTabButton({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          height: 46,
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          decoration: BoxDecoration(
+            color: selected ? const Color(0xFF16A34A) : Colors.transparent,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  icon,
+                  size: 18,
+                  color: selected ? Colors.white : const Color(0xFF0B4F2A),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  maxLines: 1,
+                  style: TextStyle(
+                    color: selected ? Colors.white : const Color(0xFF0B4F2A),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CollectorAssignmentCard extends StatelessWidget {
+  final _CollectorAssignmentRecord assignment;
+  final _CollectorAssignmentFilter mode;
+  final VoidCallback? onReopen;
+
+  const _CollectorAssignmentCard({
+    required this.assignment,
+    required this.mode,
+    this.onReopen,
+  });
+
+  Color get _statusColor {
+    switch (assignment.status) {
+      case 'Absent':
+        return const Color(0xFFE11D48);
+      case 'Réaffectué':
+        return const Color(0xFFF97316);
+      case 'Effectué':
+        return const Color(0xFF16A34A);
+      default:
+        return const Color(0xFF0B4F2A);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const deepBlue = Color(0xFF0B4F2A);
+    const green = Color(0xFF16A34A);
+    final showDate = mode != _CollectorAssignmentFilter.current;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: deepBlue.withValues(alpha: 0.08)),
+        boxShadow: [
+          BoxShadow(
+            color: deepBlue.withValues(alpha: 0.07),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: green.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(
+                  Icons.directions_bus_filled_rounded,
+                  color: green,
+                  size: 27,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      assignment.route,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: deepBlue,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${showDate ? '${assignment.date} · ' : ''}${assignment.time}',
+                      style: const TextStyle(
+                        color: Color(0xFF5F6B86),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 7,
+                ),
+                decoration: BoxDecoration(
+                  color: _statusColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  assignment.status,
+                  style: TextStyle(
+                    color: _statusColor,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _CollectorAssignmentInfoGrid(
+            children: [
+              _CollectorAssignmentInfo(
+                icon: Icons.confirmation_number_rounded,
+                label: 'Matricule bus',
+                value: assignment.busMatricule,
+              ),
+              _CollectorAssignmentInfo(
+                icon: Icons.person_rounded,
+                label: 'Chauffeur',
+                value: assignment.driverName,
+              ),
+              _CollectorAssignmentInfo(
+                icon: Icons.phone_rounded,
+                label: 'Téléphone',
+                value: assignment.driverPhone,
+              ),
+              _CollectorAssignmentInfo(
+                icon: Icons.lock_clock_rounded,
+                label: 'Fermeture session',
+                value: assignment.sessionCloseTime,
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          const Text(
+            'Autres percepteurs affectés',
+            style: TextStyle(
+              color: Color(0xFF5F6B86),
+              fontSize: 12.5,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: assignment.collectors
+                .map((name) => _CollectorAssignmentChip(label: name))
+                .toList(),
+          ),
+          if (onReopen != null) ...[
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton.icon(
+                onPressed: onReopen,
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Réouverture de session'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: green,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  textStyle: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _CollectorAssignmentInfoGrid extends StatelessWidget {
+  final List<_CollectorAssignmentInfo> children;
+
+  const _CollectorAssignmentInfoGrid({required this.children});
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final itemWidth = (constraints.maxWidth - 10) / 2;
+
+        return Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: children
+              .map((child) => SizedBox(width: itemWidth, child: child))
+              .toList(),
+        );
+      },
+    );
+  }
+}
+
+class _CollectorAssignmentInfo extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+
+  const _CollectorAssignmentInfo({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(minHeight: 92),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FBFF),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: const Color(0xFF0B4F2A).withValues(alpha: 0.08),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: const Color(0xFF16A34A), size: 20),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Color(0xFF7B849B),
+              fontSize: 11.5,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Color(0xFF0B4F2A),
+              fontSize: 13.5,
+              height: 1.2,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CollectorAssignmentChip extends StatelessWidget {
+  final String label;
+
+  const _CollectorAssignmentChip({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEAF7EF),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: const Color(0xFF16A34A).withValues(alpha: 0.2),
+        ),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Color(0xFF0B4F2A),
+          fontSize: 12.5,
+          fontWeight: FontWeight.w900,
         ),
       ),
     );
