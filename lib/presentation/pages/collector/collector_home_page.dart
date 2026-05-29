@@ -1530,6 +1530,16 @@ class _CollectorMenuButton extends StatelessWidget {
 
 enum _CollectorAssignmentFilter { current, scheduled, past }
 
+class _CollectorAssignmentCollector {
+  final String name;
+  final String phone;
+
+  const _CollectorAssignmentCollector({
+    required this.name,
+    required this.phone,
+  });
+}
+
 class _CollectorAssignmentRecord {
   final String date;
   final String time;
@@ -1538,7 +1548,7 @@ class _CollectorAssignmentRecord {
   final String driverPhone;
   final String route;
   final String sessionCloseTime;
-  final List<String> collectors;
+  final List<_CollectorAssignmentCollector> collectors;
   final String status;
 
   const _CollectorAssignmentRecord({
@@ -1578,7 +1588,16 @@ class _CollectorAssignmentsPageState extends State<_CollectorAssignmentsPage> {
       driverPhone: '+229 01 66 42 18 09',
       route: 'Cotonou -> Parakou',
       sessionCloseTime: '18:45',
-      collectors: ['Awa Mensah', 'Joel Kpadonou'],
+      collectors: [
+        _CollectorAssignmentCollector(
+          name: 'Awa Mensah',
+          phone: '+229 01 64 20 11 90',
+        ),
+        _CollectorAssignmentCollector(
+          name: 'Joel Kpadonou',
+          phone: '+229 01 97 44 08 26',
+        ),
+      ],
       status: 'Session ouverte',
     ),
   ];
@@ -1592,7 +1611,16 @@ class _CollectorAssignmentsPageState extends State<_CollectorAssignmentsPage> {
       driverPhone: '+229 01 97 12 44 30',
       route: 'Porto-Novo -> Natitingou',
       sessionCloseTime: '17:30',
-      collectors: ['Chancelle Toko', 'Eric Houngbo'],
+      collectors: [
+        _CollectorAssignmentCollector(
+          name: 'Chancelle Toko',
+          phone: '+229 01 62 19 31 45',
+        ),
+        _CollectorAssignmentCollector(
+          name: 'Eric Houngbo',
+          phone: '+229 01 69 88 14 77',
+        ),
+      ],
       status: 'Programmé',
     ),
     _CollectorAssignmentRecord(
@@ -1603,7 +1631,16 @@ class _CollectorAssignmentsPageState extends State<_CollectorAssignmentsPage> {
       driverPhone: '+229 01 62 55 70 21',
       route: 'Cotonou -> Djougou',
       sessionCloseTime: '23:00',
-      collectors: ['Mariette Hounkanrin', 'Serge Loko'],
+      collectors: [
+        _CollectorAssignmentCollector(
+          name: 'Mariette Hounkanrin',
+          phone: '+229 01 60 75 29 10',
+        ),
+        _CollectorAssignmentCollector(
+          name: 'Serge Loko',
+          phone: '+229 01 66 13 57 84',
+        ),
+      ],
       status: 'Programmé',
     ),
   ];
@@ -1617,7 +1654,16 @@ class _CollectorAssignmentsPageState extends State<_CollectorAssignmentsPage> {
       driverPhone: '+229 01 61 18 40 33',
       route: 'Cotonou -> Bohicon',
       sessionCloseTime: '16:20',
-      collectors: ['Mireille Zinsou', 'Patrick Tossa'],
+      collectors: [
+        _CollectorAssignmentCollector(
+          name: 'Mireille Zinsou',
+          phone: '+229 01 65 42 71 88',
+        ),
+        _CollectorAssignmentCollector(
+          name: 'Patrick Tossa',
+          phone: '+229 01 91 06 24 35',
+        ),
+      ],
       status: 'Effectué',
     ),
     _CollectorAssignmentRecord(
@@ -1628,8 +1674,17 @@ class _CollectorAssignmentsPageState extends State<_CollectorAssignmentsPage> {
       driverPhone: '+229 01 95 72 10 67',
       route: 'Porto-Novo -> Kandi',
       sessionCloseTime: '20:10',
-      collectors: ['Nadine Sossa', 'Abel Gandonou'],
-      status: 'Réaffectué',
+      collectors: [
+        _CollectorAssignmentCollector(
+          name: 'Nadine Sossa',
+          phone: '+229 01 68 77 31 04',
+        ),
+        _CollectorAssignmentCollector(
+          name: 'Abel Gandonou',
+          phone: '+229 01 94 50 63 19',
+        ),
+      ],
+      status: 'Réaffecter',
     ),
     _CollectorAssignmentRecord(
       date: '22 mai 2026',
@@ -1639,7 +1694,16 @@ class _CollectorAssignmentsPageState extends State<_CollectorAssignmentsPage> {
       driverPhone: '+229 01 60 30 41 82',
       route: 'Cotonou -> Lokossa',
       sessionCloseTime: '19:00',
-      collectors: ['Judith Ahouanvoebla', 'David Nonvignon'],
+      collectors: [
+        _CollectorAssignmentCollector(
+          name: 'Judith Ahouanvoebla',
+          phone: '+229 01 61 33 42 50',
+        ),
+        _CollectorAssignmentCollector(
+          name: 'David Nonvignon',
+          phone: '+229 01 96 82 18 73',
+        ),
+      ],
       status: 'Absent',
     ),
   ];
@@ -1903,7 +1967,7 @@ class _CollectorAssignmentCard extends StatelessWidget {
     switch (assignment.status) {
       case 'Absent':
         return const Color(0xFFE11D48);
-      case 'Réaffectué':
+      case 'Réaffecter':
         return const Color(0xFFF97316);
       case 'Effectué':
         return const Color(0xFF16A34A);
@@ -1957,7 +2021,7 @@ class _CollectorAssignmentCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      assignment.route,
+                      assignment.busMatricule,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -1999,6 +2063,8 @@ class _CollectorAssignmentCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
+          _CollectorAssignmentRoutePanel(route: assignment.route),
+          const SizedBox(height: 12),
           _CollectorAssignmentInfoGrid(
             children: [
               _CollectorAssignmentInfo(
@@ -2013,7 +2079,7 @@ class _CollectorAssignmentCard extends StatelessWidget {
               ),
               _CollectorAssignmentInfo(
                 icon: Icons.phone_rounded,
-                label: 'Téléphone',
+                label: 'Téléphone du chauffeur',
                 value: assignment.driverPhone,
               ),
               _CollectorAssignmentInfo(
@@ -2037,7 +2103,12 @@ class _CollectorAssignmentCard extends StatelessWidget {
             spacing: 8,
             runSpacing: 8,
             children: assignment.collectors
-                .map((name) => _CollectorAssignmentChip(label: name))
+                .map(
+                  (collector) => _CollectorAssignmentChip(
+                    collector: collector,
+                    onTap: () => _showCollectorPhone(context, collector),
+                  ),
+                )
                 .toList(),
           ),
           if (onReopen != null) ...[
@@ -2065,6 +2136,103 @@ class _CollectorAssignmentCard extends StatelessWidget {
             ),
           ],
         ],
+      ),
+    );
+  }
+
+  void _showCollectorPhone(
+    BuildContext context,
+    _CollectorAssignmentCollector collector,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _CollectorPhoneSheet(collector: collector),
+    );
+  }
+}
+
+class _CollectorAssignmentRoutePanel extends StatefulWidget {
+  final String route;
+
+  const _CollectorAssignmentRoutePanel({required this.route});
+
+  @override
+  State<_CollectorAssignmentRoutePanel> createState() =>
+      _CollectorAssignmentRoutePanelState();
+}
+
+class _CollectorAssignmentRoutePanelState
+    extends State<_CollectorAssignmentRoutePanel> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    const deepBlue = Color(0xFF0B4F2A);
+    const green = Color(0xFF16A34A);
+
+    return InkWell(
+      onTap: () => setState(() => _expanded = !_expanded),
+      borderRadius: BorderRadius.circular(20),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: const Color(0xFFEAF7EF),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: green.withValues(alpha: 0.24)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Icon(Icons.route_rounded, color: green, size: 21),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Trajet',
+                    style: TextStyle(
+                      color: Color(0xFF607169),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    widget.route,
+                    maxLines: _expanded ? 4 : 1,
+                    overflow: _expanded
+                        ? TextOverflow.visible
+                        : TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: deepBlue,
+                      fontSize: 16,
+                      height: 1.25,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(
+              _expanded
+                  ? Icons.keyboard_arrow_up_rounded
+                  : Icons.keyboard_arrow_down_rounded,
+              color: deepBlue,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -2150,27 +2318,169 @@ class _CollectorAssignmentInfo extends StatelessWidget {
 }
 
 class _CollectorAssignmentChip extends StatelessWidget {
-  final String label;
+  final _CollectorAssignmentCollector collector;
+  final VoidCallback onTap;
 
-  const _CollectorAssignmentChip({required this.label});
+  const _CollectorAssignmentChip({
+    required this.collector,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFFEAF7EF),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(
-          color: const Color(0xFF16A34A).withValues(alpha: 0.2),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+          decoration: BoxDecoration(
+            color: const Color(0xFFEAF7EF),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color: const Color(0xFF16A34A).withValues(alpha: 0.2),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.person_pin_circle_rounded,
+                color: Color(0xFF16A34A),
+                size: 17,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                collector.name,
+                style: const TextStyle(
+                  color: Color(0xFF0B4F2A),
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          color: Color(0xFF0B4F2A),
-          fontSize: 12.5,
-          fontWeight: FontWeight.w900,
+    );
+  }
+}
+
+class _CollectorPhoneSheet extends StatelessWidget {
+  final _CollectorAssignmentCollector collector;
+
+  const _CollectorPhoneSheet({required this.collector});
+
+  @override
+  Widget build(BuildContext context) {
+    const deepBlue = Color(0xFF0B4F2A);
+    const green = Color(0xFF16A34A);
+
+    return SafeArea(
+      child: Container(
+        margin: const EdgeInsets.all(12),
+        padding: const EdgeInsets.fromLTRB(18, 14, 18, 20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(28),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.14),
+              blurRadius: 28,
+              offset: const Offset(0, 12),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 44,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: deepBlue.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: green.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const Icon(Icons.badge_rounded, color: green),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        collector.name,
+                        style: const TextStyle(
+                          color: deepBlue,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Numéro du percepteur',
+                        style: TextStyle(
+                          color: Color(0xFF607169),
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEAF7EF),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: green.withValues(alpha: 0.2)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.phone_rounded, color: green),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      collector.phone,
+                      style: const TextStyle(
+                        color: deepBlue,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            SizedBox(
+              width: double.infinity,
+              child: TextButton.icon(
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.check_rounded),
+                label: const Text('Compris'),
+              ),
+            ),
+          ],
         ),
       ),
     );
