@@ -87,31 +87,10 @@ class _WelcomePageState extends State<WelcomePage> {
                         children: [
                           Align(
                             alignment: Alignment.center,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 18,
-                                vertical: 10,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.86),
-                                borderRadius: BorderRadius.circular(24),
-                                border: Border.all(
-                                  color: Colors.white.withValues(alpha: 0.5),
-                                  width: 1.2,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.12),
-                                    blurRadius: 20,
-                                    offset: const Offset(0, 10),
-                                  ),
-                                ],
-                              ),
-                              child: Image.asset(
-                                'assets/images/logo_fofana_no_background.png',
-                                height: compact ? 68 : 82,
-                                fit: BoxFit.contain,
-                              ),
+                            child: Image.asset(
+                              'assets/images/logo_fofana_no_background.png',
+                              height: compact ? 68 : 82,
+                              fit: BoxFit.contain,
                             ),
                           ),
                           SizedBox(height: compact ? 18 : 28),

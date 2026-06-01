@@ -1539,15 +1539,15 @@ class _NewsSectionState extends State<_NewsSection> {
                   fontWeight: FontWeight.w900,
                 ),
               ),
-              OutlinedButton(
+              ElevatedButton(
                 onPressed: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => const _NewsListPage()),
                   );
                 },
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: green,
-                  side: const BorderSide(color: green, width: 1.3),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFE53935),
+                  foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 14,
                     vertical: 10,
@@ -1555,6 +1555,7 @@ class _NewsSectionState extends State<_NewsSection> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(999),
                   ),
+                  elevation: 0,
                 ),
                 child: const Text(
                   'Voir plus',

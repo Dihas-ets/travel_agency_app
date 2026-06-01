@@ -9,6 +9,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:code_initial/presentation/pages/parcel/parcel_pages.dart';
 
 class CollectorHomePage extends StatefulWidget {
   const CollectorHomePage({super.key});
@@ -273,6 +274,7 @@ class _CollectorParcelRecord {
   final String receiverName;
   final String receiverPhone;
   final String image;
+  final String destination;
   String status;
 
   _CollectorParcelRecord({
@@ -281,6 +283,7 @@ class _CollectorParcelRecord {
     required this.receiverName,
     required this.receiverPhone,
     required this.image,
+    required this.destination,
     required this.status,
   });
 }
@@ -304,6 +307,7 @@ class _CollectorColisContentState extends State<_CollectorColisContent> {
       receiverName: 'Aminata Sanni',
       receiverPhone: '+229 01 97 12 43 10',
       image: 'assets/images/welcome_image.jpg',
+      destination: 'Cotonou',
       status: 'En attente',
     ),
     _CollectorParcelRecord(
@@ -312,6 +316,7 @@ class _CollectorColisContentState extends State<_CollectorColisContent> {
       receiverName: 'Boris Adjovi',
       receiverPhone: '+229 01 62 54 88 03',
       image: 'assets/images/onboarding2.png',
+      destination: 'Porto-Novo',
       status: 'En attente',
     ),
     _CollectorParcelRecord(
@@ -320,6 +325,7 @@ class _CollectorColisContentState extends State<_CollectorColisContent> {
       receiverName: 'Clarisse Hounkpe',
       receiverPhone: '+229 01 68 13 06 54',
       image: 'assets/images/onboarding3.png',
+      destination: 'Abomey',
       status: 'En attente',
     ),
   ];
@@ -331,11 +337,24 @@ class _CollectorColisContentState extends State<_CollectorColisContent> {
       receiverName: 'Didier Koto',
       receiverPhone: '+229 01 91 03 24 78',
       image: 'assets/images/onboarding1.png',
+      destination: 'Parakou',
       status: 'Arriver',
     ),
   ];
 
   String? _selectedPhone;
+  String _searchQuery = '';
+
+  List<_CollectorParcelRecord> get _filteredParcels {
+    if (_searchQuery.isEmpty) return _availableParcels;
+    final query = _searchQuery.toLowerCase();
+    return _availableParcels.where((parcel) {
+      return parcel.id.toLowerCase().contains(query) ||
+          parcel.receiverName.toLowerCase().contains(query) ||
+          parcel.receiverPhone.toLowerCase().contains(query) ||
+          parcel.collectorPhone.toLowerCase().contains(query);
+    }).toList();
+  }
 
   _CollectorParcelRecord? get _selectedParcel {
     if (_selectedPhone == null) return null;
@@ -346,39 +365,149 @@ class _CollectorColisContentState extends State<_CollectorColisContent> {
   }
 
   void _acceptSelectedParcel() {
-    final parcel = _selectedParcel;
-    if (parcel == null) return;
-    if (_transitParcels.any((item) => item.id == parcel.id)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Ce colis est deja dans la liste en transit.'),
-          backgroundColor: _deepBlue,
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Confirmer',
+          style: TextStyle(
+            color: _deepBlue,
+            fontWeight: FontWeight.w900,
+          ),
         ),
-      );
-      return;
-    }
+        content: Text(
+          'Êtes-vous sûr de vouloir accepter le colis ${_selectedParcel?.id} ?',
+          style: const TextStyle(
+            color: _mutedText,
+            height: 1.4,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Non'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              final parcel = _selectedParcel;
+              if (parcel == null) return;
+              if (_transitParcels.any((item) => item.id == parcel.id)) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Ce colis est deja dans la liste en transit.'),
+                    backgroundColor: _deepBlue,
+                  ),
+                );
+                return;
+              }
 
-    setState(() {
-      parcel.status = 'Arriver';
-      _transitParcels.insert(0, parcel);
-      _selectedPhone = null;
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Colis ${parcel.id} accepte.'),
-        backgroundColor: _green,
+              setState(() {
+                parcel.status = 'Arriver';
+                _transitParcels.insert(0, parcel);
+                _selectedPhone = null;
+              });
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Colis ${parcel.id} accepte.'),
+                  backgroundColor: _green,
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _green,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Oui'),
+          ),
+        ],
       ),
     );
   }
 
-  void _clearSelection() => setState(() => _selectedPhone = null);
+  void _clearSelection() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Confirmer',
+          style: TextStyle(
+            color: _deepBlue,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        content: const Text(
+          'Êtes-vous sûr de vouloir vider la sélection ?',
+          style: TextStyle(
+            color: _mutedText,
+            height: 1.4,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Non'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              setState(() => _selectedPhone = null);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _deepBlue,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Oui'),
+          ),
+        ],
+      ),
+    );
+  }
 
   void _removeParcel(_CollectorParcelRecord parcel) {
-    setState(() => _transitParcels.removeWhere((item) => item.id == parcel.id));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Colis ${parcel.id} retire du transit.'),
-        backgroundColor: _deepBlue,
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Confirmer',
+          style: TextStyle(
+            color: _deepBlue,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        content: Text(
+          'Êtes-vous sûr de vouloir retirer le colis ${parcel.id} du transit ?',
+          style: const TextStyle(
+            color: _mutedText,
+            height: 1.4,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Non'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              setState(() => _transitParcels.removeWhere((item) => item.id == parcel.id));
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Colis ${parcel.id} retire du transit.'),
+                  backgroundColor: _deepBlue,
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFE53935),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Oui'),
+          ),
+        ],
       ),
     );
   }
@@ -418,6 +547,7 @@ class _CollectorColisContentState extends State<_CollectorColisContent> {
             Text('Percepteur : ${parcel.collectorPhone}'),
             Text('Recepteur : ${parcel.receiverName}'),
             Text('Telephone : ${parcel.receiverPhone}'),
+            Text('Destination : ${parcel.destination}'),
             Text('Statut : ${parcel.status}'),
           ],
         ),
@@ -435,9 +565,12 @@ class _CollectorColisContentState extends State<_CollectorColisContent> {
   Widget build(BuildContext context) {
     final selectedParcel = _selectedParcel;
 
-    return ListView(
-      padding: const EdgeInsets.only(bottom: 18),
+    return Stack(
       children: [
+        Positioned.fill(
+          child: ListView(
+            padding: const EdgeInsets.only(bottom: 120),
+            children: [
         Container(
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
@@ -562,7 +695,7 @@ class _CollectorColisContentState extends State<_CollectorColisContent> {
                       label: 'Numero du percepteur',
                       icon: Icons.phone_rounded,
                     ),
-                    items: _availableParcels
+                    items: _filteredParcels
                         .map(
                           (parcel) => DropdownMenuItem(
                             value: parcel.collectorPhone,
@@ -601,6 +734,29 @@ class _CollectorColisContentState extends State<_CollectorColisContent> {
                     ],
                   );
                 },
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                onChanged: (value) => setState(() => _searchQuery = value),
+                decoration: InputDecoration(
+                  labelText: 'Rechercher',
+                  hintText: 'ID / Nom / Téléphone / N° de coli',
+                  prefixIcon: const Icon(Icons.search_rounded, color: _green),
+                  filled: true,
+                  fillColor: const Color(0xFFF8FBFF),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: const BorderSide(color: Color(0xFFE1E4EC)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: const BorderSide(color: Color(0xFFE1E4EC)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: const BorderSide(color: _green, width: 1.5),
+                  ),
+                ),
               ),
               const SizedBox(height: 16),
               ClipRRect(
@@ -697,6 +853,22 @@ class _CollectorColisContentState extends State<_CollectorColisContent> {
           onToggleStatus: _toggleStatus,
         ),
       ],
+    ),
+  ),
+  Positioned(
+    bottom: 18,
+    right: 18,
+    child: FloatingActionButton(
+      onPressed: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const SendParcelPage()),
+        );
+      },
+      backgroundColor: const Color(0xFFE53935),
+      child: const Icon(Icons.add_rounded),
+    ),
+  ),
+],
     );
   }
 }
@@ -2138,7 +2310,7 @@ class _CollectorMenuButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const deepBlue = Color(0xFF0B4F2A);
-    const green = Color(0xFF16A34A);
+    const red = Color(0xFFE53935);
 
     return Material(
       color: Colors.white,
@@ -2166,10 +2338,10 @@ class _CollectorMenuButton extends StatelessWidget {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: green.withValues(alpha: 0.1),
+                  color: red.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: Icon(icon, color: green, size: 26),
+                child: Icon(icon, color: red, size: 26),
               ),
               const SizedBox(height: 12),
               Text(
@@ -6201,7 +6373,7 @@ class _CollectorNewsSectionState extends State<_CollectorNewsSection> {
                   fontWeight: FontWeight.w900,
                 ),
               ),
-              OutlinedButton(
+              ElevatedButton(
                 onPressed: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(
@@ -6209,9 +6381,9 @@ class _CollectorNewsSectionState extends State<_CollectorNewsSection> {
                     ),
                   );
                 },
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: green,
-                  side: const BorderSide(color: green, width: 1.3),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFE53935),
+                  foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 14,
                     vertical: 10,
@@ -6219,6 +6391,7 @@ class _CollectorNewsSectionState extends State<_CollectorNewsSection> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(999),
                   ),
+                  elevation: 0,
                 ),
                 child: const Text(
                   'Voir plus',
