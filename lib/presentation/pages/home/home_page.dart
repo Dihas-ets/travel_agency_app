@@ -1514,7 +1514,7 @@ class _NewsSectionState extends State<_NewsSection> {
 
   @override
   Widget build(BuildContext context) {
-    const red = Color(0xFF16A34A);
+    const green = Color(0xFF16A34A);
     const deepBlue = Color(0xFF0B4F2A);
 
     void openDetail(_NewsArticle article) {
@@ -1546,8 +1546,8 @@ class _NewsSectionState extends State<_NewsSection> {
                   );
                 },
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: red,
-                  side: const BorderSide(color: red, width: 1.3),
+                  foregroundColor: green,
+                  side: const BorderSide(color: green, width: 1.3),
                   padding: const EdgeInsets.symmetric(
                     horizontal: 14,
                     vertical: 10,
@@ -1598,7 +1598,7 @@ class _NewsSectionState extends State<_NewsSection> {
               width: isActive ? 22 : 10,
               height: 6,
               decoration: BoxDecoration(
-                color: isActive ? red : Colors.black.withValues(alpha: 0.25),
+                color: isActive ? green : Colors.black.withValues(alpha: 0.25),
                 borderRadius: BorderRadius.circular(99),
               ),
             );
@@ -1669,7 +1669,7 @@ class _NewsListPageState extends State<_NewsListPage> {
 
   @override
   Widget build(BuildContext context) {
-    const red = Color(0xFF16A34A);
+    const green = Color(0xFF16A34A);
     const deepBlue = Color(0xFF0B4F2A);
     final filtered = _filteredArticles;
     final recent = _fofanaNewsArticles.take(3).toList();
@@ -1734,10 +1734,10 @@ class _NewsListPageState extends State<_NewsListPage> {
                     selected: isSelected,
                     label: Text(category),
                     onSelected: (_) => setState(() => _category = category),
-                    selectedColor: red,
+                    selectedColor: green,
                     backgroundColor: Colors.white,
                     side: BorderSide(
-                      color: isSelected ? red : Colors.transparent,
+                      color: isSelected ? green : Colors.transparent,
                     ),
                     labelStyle: TextStyle(
                       color: isSelected ? Colors.white : deepBlue,
@@ -1805,7 +1805,7 @@ class _NewsListPageState extends State<_NewsListPage> {
                           height: 8,
                           decoration: BoxDecoration(
                             color: isActive
-                                ? red
+                                ? green
                                 : deepBlue.withValues(alpha: 0.08),
                             borderRadius: BorderRadius.circular(99),
                           ),
@@ -1856,7 +1856,7 @@ class _NewsHeroTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const red = Color(0xFF16A34A);
+    const green = Color(0xFF16A34A);
 
     return Material(
       color: Colors.transparent,
@@ -1943,7 +1943,7 @@ class _NewsHeroTile extends StatelessWidget {
                   width: 34,
                   height: 34,
                   decoration: BoxDecoration(
-                    color: red,
+                    color: green,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(
@@ -2133,19 +2133,20 @@ class _NewsCategoryPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const red = Color(0xFF16A34A);
+    const green = Color(0xFF16A34A);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
       decoration: BoxDecoration(
         // Pastille forte pour garder les catégories lisibles sur toutes les images.
-        color: red,
+        color: light ? green.withValues(alpha: 0.12) : green,
+        border: light ? Border.all(color: green.withValues(alpha: 0.22)) : null,
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
         category,
-        style: const TextStyle(
-          color: Colors.white,
+        style: TextStyle(
+          color: light ? green : Colors.white,
           fontSize: 12.5,
           fontWeight: FontWeight.w900,
         ),
@@ -2161,7 +2162,7 @@ class _NewsDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const red = Color(0xFF16A34A);
+    const green = Color(0xFF16A34A);
     const deepBlue = Color(0xFF0B4F2A);
 
     return Scaffold(
@@ -2243,7 +2244,7 @@ class _NewsDetailPage extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.event_rounded, color: red, size: 18),
+                        const Icon(Icons.event_rounded, color: green, size: 18),
                         const SizedBox(width: 8),
                         Text(
                           'Publié le ${article.date}',
@@ -2291,12 +2292,12 @@ class _NewsDetailPage extends StatelessWidget {
                             width: 42,
                             height: 42,
                             decoration: BoxDecoration(
-                              color: red.withValues(alpha: 0.11),
+                              color: green.withValues(alpha: 0.11),
                               borderRadius: BorderRadius.circular(14),
                             ),
                             child: const Icon(
                               Icons.info_outline_rounded,
-                              color: red,
+                              color: green,
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -2338,7 +2339,7 @@ class _NewsDetailPage extends StatelessWidget {
                         icon: const Icon(Icons.arrow_back_rounded),
                         label: const Text('Retour aux actualités'),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: red,
+                          backgroundColor: green,
                           foregroundColor: Colors.white,
                           elevation: 0,
                           shape: RoundedRectangleBorder(
@@ -2496,7 +2497,7 @@ class _VoyageActionsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const deepBlue = Color(0xFF0B4F2A);
-    const red = Color(0xFF16A34A);
+    const red = Color(0xFFE53935);
 
     Widget actionTile({
       required IconData icon,
@@ -4765,7 +4766,7 @@ class _ReservationCard extends StatelessWidget {
                 child: Text(
                   item.status,
                   style: const TextStyle(
-                    color: Color(0xFF16A34A),
+                    color: Color(0xFFE53935),
                     fontWeight: FontWeight.w900,
                     fontSize: 12.5,
                   ),
@@ -5410,7 +5411,7 @@ class _TicketVisual extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const deepBlue = Color(0xFF0B4F2A);
-    const red = Color(0xFF16A34A);
+    const red = Color(0xFFE53935);
     const muted = Color(0xFF9AA3B8);
 
     return Container(
@@ -5987,7 +5988,7 @@ class _ParcelNotificationIconButton extends StatelessWidget {
                   width: 19,
                   height: 19,
                   decoration: const BoxDecoration(
-                    color: Color(0xFF16A34A),
+                    color: Color(0xFFE53935),
                     shape: BoxShape.circle,
                   ),
                   child: Center(
@@ -6061,7 +6062,7 @@ class _ClientNotificationTile extends StatelessWidget {
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right_rounded, color: Color(0xFF16A34A)),
+              const Icon(Icons.chevron_right_rounded, color: Color(0xFFE53935)),
             ],
           ),
         ),
@@ -6308,15 +6309,15 @@ class _ClientImageFallback extends StatelessWidget {
       width: width ?? double.infinity,
       height: height,
       decoration: BoxDecoration(
-        color: const Color(0xFF16A34A).withValues(alpha: 0.10),
+        color: const Color(0xFFE53935).withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: const Color(0xFF16A34A).withValues(alpha: 0.22),
+          color: const Color(0xFFE53935).withValues(alpha: 0.22),
         ),
       ),
       child: Icon(
         Icons.inventory_2_rounded,
-        color: const Color(0xFF16A34A),
+        color: const Color(0xFFE53935),
         size: iconSize,
       ),
     );
@@ -6701,7 +6702,7 @@ class _AccountMenuViewState extends State<_AccountMenuView> {
                   width: 42,
                   height: 42,
                   decoration: const BoxDecoration(
-                    color: Color(0xFF16A34A),
+                    color: Color(0xFFE53935),
                     shape: BoxShape.circle,
                     border: Border.fromBorderSide(
                       BorderSide(color: Colors.white, width: 3),
@@ -6903,24 +6904,24 @@ class _AccountPanelState extends State<_AccountPanel> {
                   ),
                   const SizedBox(width: 10),
                   TextButton.icon(
-                  onPressed: _toggleEdit,
-                  icon: Icon(
-                    _isEditing ? Icons.check_rounded : Icons.edit_rounded,
-                    size: 21,
-                  ),
-                  label: Text(_isEditing ? 'Enregistrer' : 'Modifier'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: const Color(0xFF16A34A),
-                    textStyle: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w900,
+                    onPressed: _toggleEdit,
+                    icon: Icon(
+                      _isEditing ? Icons.check_rounded : Icons.edit_rounded,
+                      size: 21,
                     ),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 10,
+                    label: Text(_isEditing ? 'Enregistrer' : 'Modifier'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: const Color(0xFF16A34A),
+                      textStyle: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w900,
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
                     ),
                   ),
-                ),
                 ],
               ),
             ],

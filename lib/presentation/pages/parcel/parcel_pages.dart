@@ -7,7 +7,7 @@ import 'package:code_initial/widgets/common/african_phone_field.dart';
 import 'package:image_picker/image_picker.dart';
 
 const Color _deepBlue = Color(0xFF0B4F2A);
-const Color _logoRed = Color(0xFF16A34A);
+const Color _logoRed = Color(0xFFE53935);
 const Color _pageBackground = Color(0xFFF8F9FE);
 
 const List<String> _beninCities = [

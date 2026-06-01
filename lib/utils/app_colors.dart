@@ -16,6 +16,12 @@ class AppColors {
   /// Vert doux pour les fonds légers.
   static const Color lightGreen = Color(0xFFEAF7EF);
 
+  /// Rouge d'accent pour dynamiser les icones, badges et actions secondaires.
+  static const Color accentRed = Color(0xFFE53935);
+
+  /// Rouge tres doux pour les fonds d'icones et les etats legers.
+  static const Color softRed = Color(0xFFFFEBEE);
+
   /// Fond général clair de l'application.
   static const Color background = Color(0xFFF8FCF9);
 }

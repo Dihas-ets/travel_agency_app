@@ -5,7 +5,7 @@ import 'package:code_initial/presentation/pages/parcel/billet_page.dart';
 import 'package:code_initial/presentation/pages/parcel/parcel_store.dart';
 
 const Color _deepBlue = Color(0xFF0B4F2A);
-const Color _logoRed = Color(0xFF16A34A);
+const Color _logoRed = Color(0xFFE53935);
 const Color _pageBackground = Color(0xFFF6F8FF);
 const Color _mutedText = Color(0xFF6F7890);
 

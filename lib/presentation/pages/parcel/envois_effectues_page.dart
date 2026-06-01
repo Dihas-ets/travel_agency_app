@@ -122,7 +122,7 @@ class _EnvoisEffectuesPageState extends State<EnvoisEffectuesPage> {
               bottom: 28,
               child: _ExpandableFabMenu(
                 blue: logoBlue,
-                red: const Color(0xFF16A34A),
+                red: const Color(0xFFE53935),
                 isOpen: _isFabMenuOpen,
                 onToggle: _toggleFabMenu,
                 onSendParcel: _openSendParcelPage,

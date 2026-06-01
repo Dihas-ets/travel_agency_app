@@ -52,6 +52,8 @@ class Main extends StatelessWidget {
           seedColor: AppColors.primary,
           primary: AppColors.primary,
           secondary: AppColors.darkGreen,
+          tertiary: AppColors.accentRed,
+          error: AppColors.accentRed,
           surface: Colors.white,
         ),
         scaffoldBackgroundColor: AppColors.background,
