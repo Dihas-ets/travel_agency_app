@@ -157,6 +157,8 @@ class _HomePageState extends State<HomePage> {
     final isVoyageTab = _currentIndex == 1;
     final isParcelTab = _currentIndex == 2;
     final isProfileTab = _currentIndex == 3;
+    const navigationRed = Color(0xFFE53935);
+    const navigationGreen = Color(0xFF16A34A);
 
     return Scaffold(
       body: Stack(
@@ -263,6 +265,7 @@ class _HomePageState extends State<HomePage> {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(26),
+            border: Border.all(color: navigationGreen.withValues(alpha: 0.10)),
             boxShadow: [
               BoxShadow(
                 color: const Color(0xFF0B4F2A).withValues(alpha: 0.12),
@@ -284,10 +287,22 @@ class _HomePageState extends State<HomePage> {
                     duration: const Duration(milliseconds: 220),
                     padding: const EdgeInsets.symmetric(vertical: 7),
                     decoration: BoxDecoration(
-                      color: isActive
-                          ? const Color(0xFF0B4F2A)
-                          : Colors.transparent,
+                      color: isActive ? navigationGreen : Colors.transparent,
                       borderRadius: BorderRadius.circular(20),
+                      border: isActive
+                          ? Border.all(
+                              color: navigationRed.withValues(alpha: 0.22),
+                            )
+                          : null,
+                      boxShadow: isActive
+                          ? [
+                              BoxShadow(
+                                color: navigationGreen.withValues(alpha: 0.24),
+                                blurRadius: 12,
+                                offset: const Offset(0, 5),
+                              ),
+                            ]
+                          : null,
                     ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -295,7 +310,7 @@ class _HomePageState extends State<HomePage> {
                         Icon(
                           tab.icon,
                           color: isActive
-                              ? Colors.white
+                              ? navigationRed
                               : const Color(0xFF7B849B),
                           size: 20,
                         ),
@@ -308,10 +323,12 @@ class _HomePageState extends State<HomePage> {
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               color: isActive
-                                  ? Colors.white
+                                  ? navigationRed
                                   : const Color(0xFF7B849B),
                               fontSize: 10.8,
-                              fontWeight: FontWeight.w800,
+                              fontWeight: isActive
+                                  ? FontWeight.w900
+                                  : FontWeight.w800,
                             ),
                           ),
                         ),
@@ -626,7 +643,7 @@ class _ConnectedHomeContentState extends State<_ConnectedHomeContent> {
           const Text(
             'Tarifs',
             style: TextStyle(
-              color: Color(0xFF0B4F2A),
+              color: Color(0xFFE53935),
               fontSize: 20,
               fontWeight: FontWeight.w900,
             ),
@@ -1515,7 +1532,6 @@ class _NewsSectionState extends State<_NewsSection> {
   @override
   Widget build(BuildContext context) {
     const green = Color(0xFF16A34A);
-    const deepBlue = Color(0xFF0B4F2A);
 
     void openDetail(_NewsArticle article) {
       Navigator.of(context).push(
@@ -1534,7 +1550,7 @@ class _NewsSectionState extends State<_NewsSection> {
               const Text(
                 'Actualités',
                 style: TextStyle(
-                  color: deepBlue,
+                  color: Color(0xFFE53935),
                   fontSize: 19,
                   fontWeight: FontWeight.w900,
                 ),
@@ -1546,7 +1562,7 @@ class _NewsSectionState extends State<_NewsSection> {
                   );
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFE53935),
+                  backgroundColor: green,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 14,
@@ -2436,6 +2452,19 @@ class _VoyageTabContent extends StatelessWidget {
 
             const SizedBox(height: 18),
 
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 8),
+              child: Text(
+                'Vos options de voyage',
+                style: TextStyle(
+                  color: Color(0xFFE53935),
+                  fontSize: 19,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+
             _VoyageActionsCard(
               onReservation: () {
                 Navigator.of(context).push(
@@ -2498,7 +2527,7 @@ class _VoyageActionsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const deepBlue = Color(0xFF0B4F2A);
-    const red = Color(0xFFE53935);
+    const green = Color(0xFF16A34A);
 
     Widget actionTile({
       required IconData icon,
@@ -2533,11 +2562,11 @@ class _VoyageActionsCard extends StatelessWidget {
                   width: 42,
                   height: 42,
                   decoration: BoxDecoration(
-                    color: red.withValues(alpha: 0.10),
+                    color: green.withValues(alpha: 0.11),
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: red.withValues(alpha: 0.35)),
+                    border: Border.all(color: green.withValues(alpha: 0.35)),
                   ),
-                  child: Icon(icon, size: 20, color: red),
+                  child: Icon(icon, size: 20, color: green),
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -2576,16 +2605,6 @@ class _VoyageActionsCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Vos options voyage',
-              style: TextStyle(
-                color: deepBlue,
-                fontSize: 18,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-            const SizedBox(height: 12),
-
             Row(
               children: [
                 actionTile(
@@ -5948,6 +5967,7 @@ class _ParcelNotificationIconButton extends StatelessWidget {
                         return _ClientNotificationTile(
                           parcel: parcel,
                           onTap: () {
+                            ParcelStore.markNotificationRead(parcel.code);
                             Navigator.pop(sheetContext);
                             Navigator.of(context).push(
                               MaterialPageRoute(

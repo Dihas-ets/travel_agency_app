@@ -62,6 +62,7 @@ class ParcelStore {
   static final List<ParcelRecord> pendingParcels = [];
   static final List<ParcelRecord> registeredParcels = [];
   static final List<ParcelRecord> notifications = [];
+  static final Set<String> _unreadNotificationCodes = {};
 
   static void upsertPending(ParcelRecord parcel) {
     if (registeredParcels.any((item) => item.code == parcel.code)) return;
@@ -91,10 +92,21 @@ class ParcelStore {
     // mémoire pour que le clic montre un vrai contenu au lieu d'un simple badge.
     notifications.removeWhere((item) => item.code == registered.code);
     notifications.insert(0, registered);
-    notificationCount.value += 1;
+    _unreadNotificationCodes.add(registered.code);
+    _refreshNotificationCount();
   }
 
   static void clearNotifications() {
-    notificationCount.value = 0;
+    _unreadNotificationCodes.clear();
+    _refreshNotificationCount();
+  }
+
+  static void markNotificationRead(String code) {
+    _unreadNotificationCodes.remove(code);
+    _refreshNotificationCount();
+  }
+
+  static void _refreshNotificationCount() {
+    notificationCount.value = _unreadNotificationCodes.length;
   }
 }

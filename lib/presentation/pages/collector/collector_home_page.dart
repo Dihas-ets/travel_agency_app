@@ -41,6 +41,8 @@ class _CollectorHomePageState extends State<CollectorHomePage> {
   @override
   Widget build(BuildContext context) {
     final currentTab = _tabs[_currentIndex];
+    const navigationRed = Color(0xFFE53935);
+    const navigationGreen = Color(0xFF16A34A);
 
     return Scaffold(
       body: Container(
@@ -111,6 +113,7 @@ class _CollectorHomePageState extends State<CollectorHomePage> {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(26),
+            border: Border.all(color: navigationGreen.withValues(alpha: 0.10)),
             boxShadow: [
               BoxShadow(
                 color: const Color(0xFF0B4F2A).withValues(alpha: 0.12),
@@ -131,10 +134,22 @@ class _CollectorHomePageState extends State<CollectorHomePage> {
                     duration: const Duration(milliseconds: 220),
                     padding: const EdgeInsets.symmetric(vertical: 7),
                     decoration: BoxDecoration(
-                      color: isActive
-                          ? const Color(0xFF0B4F2A)
-                          : Colors.transparent,
+                      color: isActive ? navigationGreen : Colors.transparent,
                       borderRadius: BorderRadius.circular(20),
+                      border: isActive
+                          ? Border.all(
+                              color: navigationRed.withValues(alpha: 0.22),
+                            )
+                          : null,
+                      boxShadow: isActive
+                          ? [
+                              BoxShadow(
+                                color: navigationGreen.withValues(alpha: 0.24),
+                                blurRadius: 12,
+                                offset: const Offset(0, 5),
+                              ),
+                            ]
+                          : null,
                     ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -142,7 +157,7 @@ class _CollectorHomePageState extends State<CollectorHomePage> {
                         Icon(
                           tab.icon,
                           color: isActive
-                              ? Colors.white
+                              ? navigationRed
                               : const Color(0xFF7B849B),
                           size: 20,
                         ),
@@ -155,10 +170,12 @@ class _CollectorHomePageState extends State<CollectorHomePage> {
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               color: isActive
-                                  ? Colors.white
+                                  ? navigationRed
                                   : const Color(0xFF7B849B),
                               fontSize: 10.8,
-                              fontWeight: FontWeight.w800,
+                              fontWeight: isActive
+                                  ? FontWeight.w900
+                                  : FontWeight.w800,
                             ),
                           ),
                         ),
@@ -345,6 +362,7 @@ class _CollectorColisContentState extends State<_CollectorColisContent> {
 
   String? _selectedPhone;
   String _searchQuery = '';
+  int _selectedColisMenuIndex = 0;
 
   List<_CollectorParcelRecord> get _filteredParcels {
     if (_searchQuery.isEmpty) return _availableParcels;
@@ -372,17 +390,11 @@ class _CollectorColisContentState extends State<_CollectorColisContent> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text(
           'Confirmer',
-          style: TextStyle(
-            color: _deepBlue,
-            fontWeight: FontWeight.w900,
-          ),
+          style: TextStyle(color: _deepBlue, fontWeight: FontWeight.w900),
         ),
         content: Text(
           'Êtes-vous sûr de vouloir accepter le colis ${_selectedParcel?.id} ?',
-          style: const TextStyle(
-            color: _mutedText,
-            height: 1.4,
-          ),
+          style: const TextStyle(color: _mutedText, height: 1.4),
         ),
         actions: [
           TextButton(
@@ -397,7 +409,9 @@ class _CollectorColisContentState extends State<_CollectorColisContent> {
               if (_transitParcels.any((item) => item.id == parcel.id)) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('Ce colis est deja dans la liste en transit.'),
+                    content: Text(
+                      'Ce colis est deja dans la liste en transit.',
+                    ),
                     backgroundColor: _deepBlue,
                   ),
                 );
@@ -434,17 +448,11 @@ class _CollectorColisContentState extends State<_CollectorColisContent> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text(
           'Confirmer',
-          style: TextStyle(
-            color: _deepBlue,
-            fontWeight: FontWeight.w900,
-          ),
+          style: TextStyle(color: _deepBlue, fontWeight: FontWeight.w900),
         ),
         content: const Text(
           'Êtes-vous sûr de vouloir vider la sélection ?',
-          style: TextStyle(
-            color: _mutedText,
-            height: 1.4,
-          ),
+          style: TextStyle(color: _mutedText, height: 1.4),
         ),
         actions: [
           TextButton(
@@ -474,17 +482,11 @@ class _CollectorColisContentState extends State<_CollectorColisContent> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text(
           'Confirmer',
-          style: TextStyle(
-            color: _deepBlue,
-            fontWeight: FontWeight.w900,
-          ),
+          style: TextStyle(color: _deepBlue, fontWeight: FontWeight.w900),
         ),
         content: Text(
           'Êtes-vous sûr de vouloir retirer le colis ${parcel.id} du transit ?',
-          style: const TextStyle(
-            color: _mutedText,
-            height: 1.4,
-          ),
+          style: const TextStyle(color: _mutedText, height: 1.4),
         ),
         actions: [
           TextButton(
@@ -494,7 +496,10 @@ class _CollectorColisContentState extends State<_CollectorColisContent> {
           ElevatedButton(
             onPressed: () {
               Navigator.of(context).pop();
-              setState(() => _transitParcels.removeWhere((item) => item.id == parcel.id));
+              setState(
+                () =>
+                    _transitParcels.removeWhere((item) => item.id == parcel.id),
+              );
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text('Colis ${parcel.id} retire du transit.'),
@@ -566,82 +571,437 @@ class _CollectorColisContentState extends State<_CollectorColisContent> {
   Widget build(BuildContext context) {
     final selectedParcel = _selectedParcel;
 
+    return Column(
+      children: [
+        _CollectorColisModeTabs(
+          selectedIndex: _selectedColisMenuIndex,
+          onChanged: (index) => setState(() => _selectedColisMenuIndex = index),
+        ),
+        const SizedBox(height: 14),
+        Expanded(
+          child: _selectedColisMenuIndex == 0
+              ? _buildEmbarquementContent(selectedParcel)
+              : const ColisAttentePage(initialTabIndex: 0, showHeader: false),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEmbarquementContent(_CollectorParcelRecord? selectedParcel) {
     return Stack(
       children: [
         Positioned.fill(
           child: ListView(
             padding: const EdgeInsets.only(bottom: 120),
             children: [
-        Container(
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            color: _deepBlue,
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: _deepBlue.withValues(alpha: 0.16),
-                blurRadius: 22,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
               Container(
-                width: 52,
-                height: 52,
+                padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.20),
-                  ),
+                  color: _deepBlue,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: _deepBlue.withValues(alpha: 0.16),
+                      blurRadius: 22,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
                 ),
-                child: const Icon(
-                  Icons.local_shipping_rounded,
-                  color: Colors.white,
-                  size: 27,
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
                   children: [
-                    const Text(
-                      'Gestion des colis',
-                      style: TextStyle(
+                    Container(
+                      width: 52,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.20),
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.local_shipping_rounded,
                         color: Colors.white,
-                        fontSize: 19,
-                        fontWeight: FontWeight.w900,
+                        size: 27,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${_transitParcels.length} colis en transit',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.78),
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w800,
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Gestion des colis',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 19,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${_transitParcels.length} colis en transit',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.78),
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 9,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: const Text(
+                        'Actif',
+                        style: TextStyle(
+                          color: Color(0xFFE53935),
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
+              const SizedBox(height: 16),
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 9,
-                ),
+                padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(999),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: _deepBlue.withValues(alpha: 0.08)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: _deepBlue.withValues(alpha: 0.07),
+                      blurRadius: 18,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
                 ),
-                child: const Text(
-                  'Actif',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Nouveau colis à accepter',
+                      style: TextStyle(
+                        color: _deepBlue,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    const Text(
+                      'Sélectionnez le numéro du percepteur pour afficher les informations du colis.',
+                      style: TextStyle(
+                        color: _mutedText,
+                        fontSize: 13,
+                        height: 1.35,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final compact = constraints.maxWidth < 560;
+                        final phoneField = DropdownButtonFormField<String>(
+                          initialValue: _selectedPhone,
+                          isExpanded: true,
+                          decoration: _collectorColisInputDecoration(
+                            label: 'Numero du recepteur',
+                            icon: Icons.phone_rounded,
+                          ),
+                          items: _filteredParcels
+                              .map(
+                                (parcel) => DropdownMenuItem(
+                                  value: parcel.collectorPhone,
+                                  child: Text(parcel.collectorPhone),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (value) =>
+                              setState(() => _selectedPhone = value),
+                        );
+                        final receiverField = TextFormField(
+                          readOnly: true,
+                          initialValue: selectedParcel?.receiverName ?? '',
+                          key: ValueKey(selectedParcel?.receiverName ?? ''),
+                          decoration: _collectorColisInputDecoration(
+                            label: 'Nom du recepteur',
+                            icon: Icons.person_rounded,
+                          ),
+                        );
+
+                        if (compact) {
+                          return Column(
+                            children: [
+                              phoneField,
+                              const SizedBox(height: 12),
+                              receiverField,
+                            ],
+                          );
+                        }
+
+                        return Row(
+                          children: [
+                            Expanded(child: phoneField),
+                            const SizedBox(width: 12),
+                            Expanded(child: receiverField),
+                          ],
+                        );
+                      },
+                    ),
+
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        height: 170,
+                        width: double.infinity,
+                        color: const Color(0xFFF8FBFF),
+                        child: selectedParcel == null
+                            ? const Center(
+                                child: Icon(
+                                  Icons.inventory_2_rounded,
+                                  color: _green,
+                                  size: 54,
+                                ),
+                              )
+                            : Image.asset(
+                                selectedParcel.image,
+                                fit: BoxFit.cover,
+                              ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: selectedParcel == null
+                                ? null
+                                : _acceptSelectedParcel,
+                            icon: const Icon(Icons.check_rounded),
+                            label: const Text('Accepter'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _green,
+                              foregroundColor: Colors.white,
+                              disabledBackgroundColor: _green.withValues(
+                                alpha: 0.35,
+                              ),
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _selectedPhone == null
+                                ? null
+                                : _clearSelection,
+                            icon: const Icon(Icons.cleaning_services_rounded),
+                            label: const Text('Vider'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: _deepBlue,
+                              side: BorderSide(
+                                color: _deepBlue.withValues(alpha: 0.26),
+                                width: 1.3,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Colis en transit',
+                      style: TextStyle(
+                        color: _deepBlue,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    '${_transitParcels.length} élément${_transitParcels.length > 1 ? 's' : ''}',
+                    style: const TextStyle(
+                      color: _mutedText,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                onChanged: (value) => setState(() => _searchQuery = value),
+                decoration: InputDecoration(
+                  labelText: 'Rechercher',
+                  hintText: 'ID / Nom / Téléphone / N° de coli',
+                  prefixIcon: const Icon(Icons.search_rounded, color: _green),
+                  filled: true,
+                  fillColor: const Color(0xFFF8FBFF),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: const BorderSide(color: Color(0xFFE1E4EC)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: const BorderSide(color: Color(0xFFE1E4EC)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: const BorderSide(color: _green, width: 1.5),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              _CollectorTransitParcelTable(
+                parcels: _transitParcels,
+                onView: _showParcelDetail,
+                onRemove: _removeParcel,
+                onToggleStatus: _toggleStatus,
+              ),
+            ],
+          ),
+        ),
+        Positioned(
+          bottom: 18,
+          right: 18,
+          child: FloatingActionButton(
+            onPressed: () {
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                backgroundColor: Colors.transparent,
+                builder: (_) => const SendParcelPage(showModeTabs: false),
+              );
+            },
+            backgroundColor: _green,
+            child: const Icon(Icons.add_rounded),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CollectorColisModeTabs extends StatelessWidget {
+  final int selectedIndex;
+  final ValueChanged<int> onChanged;
+
+  const _CollectorColisModeTabs({
+    required this.selectedIndex,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const deepBlue = Color(0xFF0B4F2A);
+
+    return Container(
+      padding: const EdgeInsets.all(5),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: deepBlue.withValues(alpha: 0.08)),
+        boxShadow: [
+          BoxShadow(
+            color: deepBlue.withValues(alpha: 0.07),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          _CollectorColisModeButton(
+            label: 'Embarquement',
+            icon: Icons.local_shipping_rounded,
+            selected: selectedIndex == 0,
+            onTap: () => onChanged(0),
+          ),
+          const SizedBox(width: 6),
+          _CollectorColisModeButton(
+            label: 'Enregistrement',
+            icon: Icons.check_circle_rounded,
+            selected: selectedIndex == 1,
+            onTap: () => onChanged(1),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CollectorColisModeButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _CollectorColisModeButton({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const deepBlue = Color(0xFF0B4F2A);
+    const green = Color(0xFF16A34A);
+
+    return Expanded(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 11),
+          decoration: BoxDecoration(
+            color: selected ? green : Colors.transparent,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                color: selected
+                    ? Colors.white
+                    : deepBlue.withValues(alpha: 0.72),
+                size: 19,
+              ),
+              const SizedBox(width: 7),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: _green,
-                    fontSize: 12.5,
+                    color: selected
+                        ? Colors.white
+                        : deepBlue.withValues(alpha: 0.72),
+                    fontSize: 13,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
@@ -649,227 +1009,7 @@ class _CollectorColisContentState extends State<_CollectorColisContent> {
             ],
           ),
         ),
-        const SizedBox(height: 16),
-        Container(
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: _deepBlue.withValues(alpha: 0.08)),
-            boxShadow: [
-              BoxShadow(
-                color: _deepBlue.withValues(alpha: 0.07),
-                blurRadius: 18,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Nouveau colis à accepter',
-                style: TextStyle(
-                  color: _deepBlue,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: 5),
-              const Text(
-                'Sélectionnez le numéro du percepteur pour afficher les informations du colis.',
-                style: TextStyle(
-                  color: _mutedText,
-                  fontSize: 13,
-                  height: 1.35,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 16),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final compact = constraints.maxWidth < 560;
-                  final phoneField = DropdownButtonFormField<String>(
-                    initialValue: _selectedPhone,
-                    isExpanded: true,
-                    decoration: _collectorColisInputDecoration(
-                      label: 'Numero du recepteur',
-                      icon: Icons.phone_rounded,
-                    ),
-                    items: _filteredParcels
-                        .map(
-                          (parcel) => DropdownMenuItem(
-                            value: parcel.collectorPhone,
-                            child: Text(parcel.collectorPhone),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (value) =>
-                        setState(() => _selectedPhone = value),
-                  );
-                  final receiverField = TextFormField(
-                    readOnly: true,
-                    initialValue: selectedParcel?.receiverName ?? '',
-                    key: ValueKey(selectedParcel?.receiverName ?? ''),
-                    decoration: _collectorColisInputDecoration(
-                      label: 'Nom du recepteur',
-                      icon: Icons.person_rounded,
-                    ),
-                  );
-
-                  if (compact) {
-                    return Column(
-                      children: [
-                        phoneField,
-                        const SizedBox(height: 12),
-                        receiverField,
-                      ],
-                    );
-                  }
-
-                  return Row(
-                    children: [
-                      Expanded(child: phoneField),
-                      const SizedBox(width: 12),
-                      Expanded(child: receiverField),
-                    ],
-                  );
-                },
-              ),
-              
-              ClipRRect(
-                borderRadius: BorderRadius.circular(20),
-                child: Container(
-                  height: 170,
-                  width: double.infinity,
-                  color: const Color(0xFFF8FBFF),
-                  child: selectedParcel == null
-                      ? const Center(
-                          child: Icon(
-                            Icons.inventory_2_rounded,
-                            color: _green,
-                            size: 54,
-                          ),
-                        )
-                      : Image.asset(selectedParcel.image, fit: BoxFit.cover),
-                ),
-              ),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: selectedParcel == null
-                          ? null
-                          : _acceptSelectedParcel,
-                      icon: const Icon(Icons.check_rounded),
-                      label: const Text('Accepter'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _green,
-                        foregroundColor: Colors.white,
-                        disabledBackgroundColor: _green.withValues(alpha: 0.35),
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _selectedPhone == null
-                          ? null
-                          : _clearSelection,
-                      icon: const Icon(Icons.cleaning_services_rounded),
-                      label: const Text('Vider'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: _deepBlue,
-                        side: BorderSide(
-                          color: _deepBlue.withValues(alpha: 0.26),
-                          width: 1.3,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 18),
-        Row(
-          children: [
-            const Expanded(
-              child: Text(
-                'Colis en transit',
-                style: TextStyle(
-                  color: _deepBlue,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ),
-            Text(
-              '${_transitParcels.length} élément${_transitParcels.length > 1 ? 's' : ''}',
-              style: const TextStyle(
-                color: _mutedText,
-                fontSize: 13,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        TextField(
-          onChanged: (value) => setState(() => _searchQuery = value),
-          decoration: InputDecoration(
-            labelText: 'Rechercher',
-            hintText: 'ID / Nom / Téléphone / N° de coli',
-            prefixIcon: const Icon(Icons.search_rounded, color: _green),
-            filled: true,
-            fillColor: const Color(0xFFF8FBFF),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(color: Color(0xFFE1E4EC)),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(color: Color(0xFFE1E4EC)),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(color: _green, width: 1.5),
-            ),
-          ),
-        ),
-        const SizedBox(height: 10),
-        _CollectorTransitParcelTable(
-          parcels: _transitParcels,
-          onView: _showParcelDetail,
-          onRemove: _removeParcel,
-          onToggleStatus: _toggleStatus,
-        ),
-      ],
-    ),
-  ),
-  Positioned(
-    bottom: 18,
-    right: 18,
-    child: FloatingActionButton(
-      onPressed: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const SendParcelPage()),
-        );
-      },
-      backgroundColor: const Color(0xFFE53935),
-      child: const Icon(Icons.add_rounded),
-    ),
-  ),
-],
+      ),
     );
   }
 }
@@ -1684,15 +1824,15 @@ class _CollectorMainMenuView extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           _CollectorMenuOptionTile(
+            icon: Icons.assignment_turned_in_rounded,
+            title: 'Mes affectations',
+            onTap: onAssignmentsTap,
+          ),
+          _CollectorMenuOptionTile(
             icon: Icons.account_circle_outlined,
             title: 'Profil',
             isSelected: true,
             onTap: onProfileTap,
-          ),
-          _CollectorMenuOptionTile(
-            icon: Icons.assignment_turned_in_rounded,
-            title: 'Mes affectations',
-            onTap: onAssignmentsTap,
           ),
           _CollectorMenuOptionTile(
             icon: Icons.inventory_2_rounded,
@@ -1861,10 +2001,10 @@ class _CollectorProfileMenuView extends StatelessWidget {
                 onTap: onBack,
               ),
               Expanded(
-                    child: Image.asset(
-                      'assets/images/logo_fofana_no_background.png',
-                      height: 70,
-                    ),
+                child: Image.asset(
+                  'assets/images/logo_fofana_no_background.png',
+                  height: 70,
+                ),
               ),
               const SizedBox(width: 52),
             ],
@@ -2242,63 +2382,74 @@ class _CollectorVoyageMenu extends StatelessWidget {
           child: Text(
             'Menu',
             style: TextStyle(
-              color: Color(0xFF0B4F2A),
+              color: Color(0xFFE53935),
               fontSize: 19,
               fontWeight: FontWeight.w900,
             ),
           ),
         ),
         const SizedBox(height: 12),
-        GridView.count(
-          crossAxisCount: 2,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
-          childAspectRatio: 1.15,
+        _CollectorMenuButton(
+          icon: Icons.assignment_turned_in_rounded,
+          label: 'Affectations',
+          isWide: true,
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => const _CollectorAssignmentsPage(),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
           children: [
-            _CollectorMenuButton(
-              icon: Icons.login_rounded,
-              label: 'Connexion',
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const _CollectorConnectionPage(),
+            Expanded(
+              child: _CollectorMenuButton(
+                icon: Icons.login_rounded,
+                label: 'Connexion',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const _CollectorConnectionPage(),
+                  ),
                 ),
               ),
             ),
-            _CollectorMenuButton(
-              icon: Icons.qr_code_scanner_rounded,
-              label: 'Validation',
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const _TicketValidationPage(),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _CollectorMenuButton(
+                icon: Icons.qr_code_scanner_rounded,
+                label: 'Validation',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const _TicketValidationPage(),
+                  ),
                 ),
               ),
             ),
-            _CollectorMenuButton(
-              icon: Icons.confirmation_number_rounded,
-              label: 'Réservation',
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const _CollectorReservationPage(),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _CollectorMenuButton(
+                icon: Icons.confirmation_number_rounded,
+                label: 'Réservation',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const _CollectorReservationPage(),
+                  ),
                 ),
               ),
             ),
-            _CollectorMenuButton(
-              icon: Icons.history_rounded,
-              label: 'Historique',
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const _CollectorHistoryPage(),
-                ),
-              ),
-            ),
-            _CollectorMenuButton(
-              icon: Icons.assignment_turned_in_rounded,
-              label: 'Affectations',
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const _CollectorAssignmentsPage(),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _CollectorMenuButton(
+                icon: Icons.history_rounded,
+                label: 'Historique',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const _CollectorHistoryPage(),
+                  ),
                 ),
               ),
             ),
@@ -2313,17 +2464,19 @@ class _CollectorMenuButton extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
+  final bool isWide;
 
   const _CollectorMenuButton({
     required this.icon,
     required this.label,
     required this.onTap,
+    this.isWide = false,
   });
 
   @override
   Widget build(BuildContext context) {
     const deepBlue = Color(0xFF0B4F2A);
-    const red = Color(0xFFE53935);
+    const green = Color(0xFF16A34A);
 
     return Material(
       color: Colors.white,
@@ -2332,50 +2485,123 @@ class _CollectorMenuButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(22),
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.all(14),
+          constraints: BoxConstraints(minHeight: isWide ? 84 : 124),
+          padding: EdgeInsets.symmetric(
+            horizontal: isWide ? 16 : 14,
+            vertical: isWide ? 14 : 15,
+          ),
           decoration: BoxDecoration(
+            color: isWide ? const Color(0xFFF8FBFF) : Colors.white,
             borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: deepBlue.withValues(alpha: 0.08)),
+            border: Border.all(color: green.withValues(alpha: 0.14)),
             boxShadow: [
               BoxShadow(
-                color: deepBlue.withValues(alpha: 0.07),
+                color: green.withValues(alpha: 0.08),
                 blurRadius: 18,
                 offset: const Offset(0, 9),
               ),
             ],
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: red.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(16),
+          child: isWide
+              ? Row(
+                  children: [
+                    _CollectorMenuButtonIcon(icon: icon),
+                    const SizedBox(width: 13),
+                    Expanded(
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: deepBlue,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                    const Icon(
+                      Icons.arrow_forward_rounded,
+                      color: green,
+                      size: 22,
+                    ),
+                  ],
+                )
+              : Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _CollectorMenuButtonIcon(icon: icon),
+                    const SizedBox(height: 12),
+                    Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: deepBlue,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
                 ),
-                child: Icon(icon, color: red, size: 26),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: deepBlue,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );
   }
 }
 
+class _CollectorMenuButtonIcon extends StatelessWidget {
+  final IconData icon;
+
+  const _CollectorMenuButtonIcon({required this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    const green = Color(0xFF16A34A);
+
+    return Container(
+      width: 48,
+      height: 48,
+      decoration: BoxDecoration(
+        color: green.withValues(alpha: 0.11),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: green.withValues(alpha: 0.20)),
+      ),
+      child: Icon(icon, color: green, size: 26),
+    );
+  }
+}
+
 enum _CollectorAssignmentFilter { current, scheduled, past }
+
+enum _CollectorAssignmentPastStatusFilter { all, completed, reassigned, absent }
+
+extension on _CollectorAssignmentPastStatusFilter {
+  String get label {
+    switch (this) {
+      case _CollectorAssignmentPastStatusFilter.all:
+        return 'Tous';
+      case _CollectorAssignmentPastStatusFilter.completed:
+        return 'Effectué';
+      case _CollectorAssignmentPastStatusFilter.reassigned:
+        return 'Réaffecter';
+      case _CollectorAssignmentPastStatusFilter.absent:
+        return 'Absent';
+    }
+  }
+
+  bool matches(String status) {
+    switch (this) {
+      case _CollectorAssignmentPastStatusFilter.all:
+        return true;
+      case _CollectorAssignmentPastStatusFilter.completed:
+        return status == 'Effectué';
+      case _CollectorAssignmentPastStatusFilter.reassigned:
+        return status == 'Réaffecter';
+      case _CollectorAssignmentPastStatusFilter.absent:
+        return status == 'Absent';
+    }
+  }
+}
 
 class _CollectorAssignmentCollector {
   final String name;
@@ -2424,6 +2650,8 @@ class _CollectorAssignmentsPageState extends State<_CollectorAssignmentsPage> {
   static const Color _fofanaGreen = Color(0xFF16A34A);
 
   _CollectorAssignmentFilter _filter = _CollectorAssignmentFilter.current;
+  _CollectorAssignmentPastStatusFilter _pastStatusFilter =
+      _CollectorAssignmentPastStatusFilter.all;
 
   // Jeu de données local en attendant la connexion à l'API des affectations.
   final List<_CollectorAssignmentRecord> _currentAssignments = const [
@@ -2562,7 +2790,9 @@ class _CollectorAssignmentsPageState extends State<_CollectorAssignmentsPage> {
       case _CollectorAssignmentFilter.scheduled:
         return _scheduledAssignments;
       case _CollectorAssignmentFilter.past:
-        return _pastAssignments;
+        return _pastAssignments
+            .where((assignment) => _pastStatusFilter.matches(assignment.status))
+            .toList();
     }
   }
 
@@ -2577,19 +2807,38 @@ class _CollectorAssignmentsPageState extends State<_CollectorAssignmentsPage> {
     }
   }
 
-  void _reopenSession(_CollectorAssignmentRecord assignment) {
-    _CollectorNotificationStore.add(
-      title: 'Réouverture demandée',
-      message:
-          'Demande envoyée pour ${assignment.busMatricule} sur ${assignment.route}.',
-    );
+  Color _statusColor(String status) {
+    switch (status) {
+      case 'Absent':
+        return const Color(0xFFE11D48);
+      case 'Réaffecter':
+        return const Color(0xFFF97316);
+      case 'Effectué':
+        return const Color(0xFF16A34A);
+      default:
+        return const Color(0xFF0B4F2A);
+    }
+  }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Demande de réouverture de session envoyée.'),
-        backgroundColor: _deepBlue,
-      ),
-    );
+  void _selectFilter(_CollectorAssignmentFilter value) {
+    setState(() {
+      _filter = value;
+      if (_filter != _CollectorAssignmentFilter.past) {
+        _pastStatusFilter = _CollectorAssignmentPastStatusFilter.all;
+      }
+    });
+
+    if (value == _CollectorAssignmentFilter.current &&
+        _currentAssignments.isNotEmpty) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => _CollectorAssignmentDetailPage(
+            assignment: _currentAssignments.first,
+            mode: _CollectorAssignmentFilter.current,
+          ),
+        ),
+      );
+    }
   }
 
   @override
@@ -2659,7 +2908,7 @@ class _CollectorAssignmentsPageState extends State<_CollectorAssignmentsPage> {
                 children: [
                   _CollectorAssignmentSegmentedControl(
                     selected: _filter,
-                    onChanged: (value) => setState(() => _filter = value),
+                    onChanged: _selectFilter,
                   ),
                   const SizedBox(height: 18),
                   Text(
@@ -2671,15 +2920,127 @@ class _CollectorAssignmentsPageState extends State<_CollectorAssignmentsPage> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  ..._records.map(
-                    (item) => _CollectorAssignmentCard(
-                      assignment: item,
-                      mode: _filter,
-                      onReopen: _filter == _CollectorAssignmentFilter.current
-                          ? () => _reopenSession(item)
-                          : null,
+                  ...(_records.isEmpty
+                      ? [
+                          Center(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 20),
+                              child: Text(
+                                'Aucune affectation',
+                                style: TextStyle(
+                                  color: _deepBlue.withValues(alpha: 0.6),
+                                  fontSize: 15,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ]
+                      : _records
+                            .map(
+                              (item) => Container(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: _deepBlue.withValues(alpha: 0.08),
+                                  ),
+                                ),
+                                child: ListTile(
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 12,
+                                  ),
+                                  leading: Container(
+                                    width: 48,
+                                    height: 48,
+                                    decoration: BoxDecoration(
+                                      color: const Color(
+                                        0xFFE53935,
+                                      ).withValues(alpha: 0.12),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: const Icon(
+                                      Icons.directions_bus_filled_rounded,
+                                      color: Color(0xFFE53935),
+                                      size: 24,
+                                    ),
+                                  ),
+                                  title: Text(
+                                    item.busMatricule,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                  subtitle: Text(
+                                    '${item.route} • ${item.date} • ${item.time}',
+                                    style: TextStyle(
+                                      color: _deepBlue.withValues(alpha: 0.7),
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                  trailing: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: _statusColor(
+                                        item.status,
+                                      ).withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      item.status,
+                                      style: TextStyle(
+                                        color: _statusColor(item.status),
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                  ),
+                                  onTap: () => Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                          _CollectorAssignmentDetailPage(
+                                            assignment: item,
+                                            mode: _filter,
+                                          ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            )
+                            .toList()),
+                  if (_filter == _CollectorAssignmentFilter.past) ...[
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: _CollectorAssignmentPastStatusFilter.values
+                          .map(
+                            (status) => ChoiceChip(
+                              label: Text(status.label),
+                              selected: _pastStatusFilter == status,
+                              onSelected: (_) =>
+                                  setState(() => _pastStatusFilter = status),
+                              selectedColor: _fofanaGreen,
+                              backgroundColor: Colors.white,
+                              labelStyle: TextStyle(
+                                color: _pastStatusFilter == status
+                                    ? Colors.white
+                                    : _deepBlue,
+                                fontWeight: FontWeight.w800,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                          )
+                          .toList(),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),
@@ -2799,19 +3160,190 @@ class _CollectorAssignmentTabButton extends StatelessWidget {
   }
 }
 
-class _CollectorAssignmentCard extends StatelessWidget {
+class _CollectorAssignmentDetailPage extends StatelessWidget {
   final _CollectorAssignmentRecord assignment;
   final _CollectorAssignmentFilter mode;
-  final VoidCallback? onReopen;
 
-  const _CollectorAssignmentCard({
+  const _CollectorAssignmentDetailPage({
     required this.assignment,
     required this.mode,
-    this.onReopen,
   });
 
-  Color get _statusColor {
-    switch (assignment.status) {
+  @override
+  Widget build(BuildContext context) {
+    const deepBlue = Color(0xFF0B4F2A);
+    const green = Color(0xFF16A34A);
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF6F8FF),
+      appBar: AppBar(
+        backgroundColor: deepBlue,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        title: const Text('Détails de l\'affectation'),
+      ),
+      body: SafeArea(
+        bottom: false,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 26),
+          children: [
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: deepBlue.withValues(alpha: 0.08)),
+                boxShadow: [
+                  BoxShadow(
+                    color: deepBlue.withValues(alpha: 0.06),
+                    blurRadius: 16,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              assignment.busMatricule,
+                              style: const TextStyle(
+                                color: Colors.black,
+                                fontSize: 20,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              '${assignment.date} · ${assignment.time}',
+                              style: const TextStyle(
+                                color: Colors.black87,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _detailStatusColor(
+                            assignment.status,
+                          ).withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          assignment.status,
+                          style: TextStyle(
+                            color: _detailStatusColor(assignment.status),
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  _CollectorAssignmentRoutePanel(route: assignment.route),
+                  const SizedBox(height: 18),
+                  _CollectorAssignmentInfoGrid(
+                    children: [
+                      _CollectorAssignmentInfo(
+                        icon: Icons.person_rounded,
+                        label: 'Chauffeur',
+                        value: assignment.driverName,
+                      ),
+                      _CollectorAssignmentInfo(
+                        icon: Icons.phone_rounded,
+                        label: 'Téléphone chauffeur',
+                        value: assignment.driverPhone,
+                      ),
+                      _CollectorAssignmentInfo(
+                        icon: Icons.confirmation_number_rounded,
+                        label: 'Matricule bus',
+                        value: assignment.busMatricule,
+                      ),
+                      _CollectorAssignmentInfo(
+                        icon: Icons.lock_clock_rounded,
+                        label: 'Fermeture session',
+                        value: assignment.sessionCloseTime,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Collecteurs affectés',
+                    style: TextStyle(
+                      color: Colors.black,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  ...assignment.collectors.map(
+                    (collector) => ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: CircleAvatar(
+                        backgroundColor: green.withValues(alpha: 0.12),
+                        child: const Icon(Icons.person, color: green),
+                      ),
+                      title: Text(
+                        collector.name,
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                      subtitle: Text(collector.phone),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.phone_rounded),
+                        color: deepBlue,
+                        onPressed: () {
+                          showModalBottomSheet(
+                            context: context,
+                            backgroundColor: Colors.transparent,
+                            builder: (_) =>
+                                _CollectorPhoneSheet(collector: collector),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                  if (mode == _CollectorAssignmentFilter.current) ...[
+                    const SizedBox(height: 18),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: ElevatedButton.icon(
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(Icons.arrow_back_rounded),
+                        label: const Text('Retour'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: deepBlue,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Color _detailStatusColor(String status) {
+    switch (status) {
       case 'Absent':
         return const Color(0xFFE11D48);
       case 'Réaffecter':
@@ -2821,182 +3353,6 @@ class _CollectorAssignmentCard extends StatelessWidget {
       default:
         return const Color(0xFF0B4F2A);
     }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    const deepBlue = Color(0xFF0B4F2A);
-    const green = Color(0xFF16A34A);
-    const red = Color(0xFFE53935);
-    final showDate = mode != _CollectorAssignmentFilter.current;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: deepBlue.withValues(alpha: 0.08)),
-        boxShadow: [
-          BoxShadow(
-            color: deepBlue.withValues(alpha: 0.07),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: red.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: const Icon(
-                  Icons.directions_bus_filled_rounded,
-                  color: red,
-                  size: 27,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      assignment.busMatricule,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.black,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${showDate ? '${assignment.date} · ' : ''}${assignment.time}',
-                      style: const TextStyle(
-                        color: Colors.black,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 7,
-                ),
-                decoration: BoxDecoration(
-                  color: _statusColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  assignment.status,
-                  style: TextStyle(
-                    color: _statusColor,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _CollectorAssignmentRoutePanel(route: assignment.route),
-          const SizedBox(height: 12),
-          _CollectorAssignmentInfoGrid(
-            children: [
-              _CollectorAssignmentInfo(
-                icon: Icons.confirmation_number_rounded,
-                label: 'Matricule bus',
-                value: assignment.busMatricule,
-              ),
-              _CollectorAssignmentInfo(
-                icon: Icons.person_rounded,
-                label: 'Chauffeur',
-                value: assignment.driverName,
-              ),
-              _CollectorAssignmentInfo(
-                icon: Icons.phone_rounded,
-                label: 'Téléphone du chauffeur',
-                value: assignment.driverPhone,
-              ),
-              _CollectorAssignmentInfo(
-                icon: Icons.lock_clock_rounded,
-                label: 'Fermeture session',
-                value: assignment.sessionCloseTime,
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          const Text(
-            'Autres percepteurs affectés',
-            style: TextStyle(
-              color: Colors.black,
-              fontSize: 12.5,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: assignment.collectors
-                .map(
-                  (collector) => _CollectorAssignmentChip(
-                    collector: collector,
-                    onTap: () => _showCollectorPhone(context, collector),
-                  ),
-                )
-                .toList(),
-          ),
-          if (onReopen != null) ...[
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: ElevatedButton.icon(
-                onPressed: onReopen,
-                icon: const Icon(Icons.refresh_rounded),
-                label: const Text('Réouverture de session'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: green,
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  textStyle: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  void _showCollectorPhone(
-    BuildContext context,
-    _CollectorAssignmentCollector collector,
-  ) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _CollectorPhoneSheet(collector: collector),
-    );
   }
 }
 
@@ -3160,56 +3516,6 @@ class _CollectorAssignmentInfo extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _CollectorAssignmentChip extends StatelessWidget {
-  final _CollectorAssignmentCollector collector;
-  final VoidCallback onTap;
-
-  const _CollectorAssignmentChip({
-    required this.collector,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(999),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
-          decoration: BoxDecoration(
-            color: const Color(0xFFEAF7EF),
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(
-              color: const Color(0xFF16A34A).withValues(alpha: 0.2),
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.person_pin_circle_rounded,
-                color: Color(0xFF16A34A),
-                size: 17,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                collector.name,
-                style: const TextStyle(
-                  color: Colors.black,
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -6360,7 +6666,6 @@ class _CollectorNewsSectionState extends State<_CollectorNewsSection> {
   @override
   Widget build(BuildContext context) {
     const green = Color(0xFF16A34A);
-    const deepBlue = Color(0xFF0B4F2A);
 
     void openDetail(_CollectorNewsArticle article) {
       Navigator.of(context).push(
@@ -6381,7 +6686,7 @@ class _CollectorNewsSectionState extends State<_CollectorNewsSection> {
               const Text(
                 'Actualités',
                 style: TextStyle(
-                  color: deepBlue,
+                  color: Colors.red,
                   fontSize: 19,
                   fontWeight: FontWeight.w900,
                 ),
@@ -6395,7 +6700,7 @@ class _CollectorNewsSectionState extends State<_CollectorNewsSection> {
                   );
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFE53935),
+                  backgroundColor: green,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 14,
@@ -6408,7 +6713,11 @@ class _CollectorNewsSectionState extends State<_CollectorNewsSection> {
                 ),
                 child: const Text(
                   'Voir plus',
-                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13.5),
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 13.5,
+                    color: Colors.white,
+                  ),
                 ),
               ),
             ],

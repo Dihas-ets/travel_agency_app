@@ -11,8 +11,13 @@ const Color _mutedText = Color(0xFF6F7890);
 
 class ColisAttentePage extends StatefulWidget {
   final int initialTabIndex;
+  final bool showHeader;
 
-  const ColisAttentePage({super.key, this.initialTabIndex = 1});
+  const ColisAttentePage({
+    super.key,
+    this.initialTabIndex = 1,
+    this.showHeader = true,
+  });
 
   @override
   State<ColisAttentePage> createState() => _ColisAttentePageState();
@@ -82,41 +87,36 @@ class _ColisAttentePageState extends State<ColisAttentePage> {
               padding: const EdgeInsets.fromLTRB(18, 12, 18, 14),
               child: Column(
                 children: [
-                  Row(
-                    children: [
-                      _IconButton(
-                        icon: Icons.arrow_back_rounded,
-                        onTap: () => Navigator.of(context).maybePop(),
-                      ),
-                      const Spacer(),
-                      Image.asset(
-                        'assets/images/logo_fofana_no_background.png',
-                        height: 44,
-                        fit: BoxFit.contain,
-                      ),
-                      const Spacer(),
-                      _NotificationBell(),
-                    ],
-                  ),
-                  const SizedBox(height: 22),
-                  const Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Liste des colis',
-                      style: TextStyle(
-                        color: _deepBlue,
-                        fontSize: 26,
-                        fontWeight: FontWeight.w900,
+                  if (widget.showHeader) ...[
+                    Row(
+                      children: [
+                        _IconButton(
+                          icon: Icons.arrow_back_rounded,
+                          onTap: () => Navigator.of(context).maybePop(),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 22),
+                    const Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Liste des colis',
+                        style: TextStyle(
+                          color: _deepBlue,
+                          fontSize: 26,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  _SegmentedTabs(
-                    selectedIndex: _selectedIndex,
-                    registeredCount: registered.length,
-                    pendingCount: pending.length,
-                    onChanged: (index) => setState(() => _selectedIndex = index),
-                  ),
+                    const SizedBox(height: 16),
+                    _SegmentedTabs(
+                      selectedIndex: _selectedIndex,
+                      registeredCount: registered.length,
+                      pendingCount: pending.length,
+                      onChanged: (index) =>
+                          setState(() => _selectedIndex = index),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -172,7 +172,9 @@ class _ParcelPaymentPageState extends State<_ParcelPaymentPage> {
       ),
     );
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const ColisAttentePage(initialTabIndex: 0)),
+      MaterialPageRoute(
+        builder: (_) => const ColisAttentePage(initialTabIndex: 0),
+      ),
     );
   }
 
@@ -499,10 +501,7 @@ class _PendingParcelDetailsPage extends StatelessWidget {
   final ParcelRecord parcel;
   final VoidCallback onPay;
 
-  const _PendingParcelDetailsPage({
-    required this.parcel,
-    required this.onPay,
-  });
+  const _PendingParcelDetailsPage({required this.parcel, required this.onPay});
 
   @override
   Widget build(BuildContext context) {
@@ -697,11 +696,8 @@ class _ParcelThumbnail extends StatelessWidget {
         width: size,
         height: size,
         fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => _ImageFallback(
-          height: size,
-          width: size,
-          iconSize: 22,
-        ),
+        errorBuilder: (_, __, ___) =>
+            _ImageFallback(height: size, width: size, iconSize: 22),
       ),
     );
   }
@@ -728,11 +724,7 @@ class _ImageFallback extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: _logoRed.withValues(alpha: 0.22)),
       ),
-      child: Icon(
-        Icons.inventory_2_rounded,
-        color: _logoRed,
-        size: iconSize,
-      ),
+      child: Icon(Icons.inventory_2_rounded, color: _logoRed, size: iconSize),
     );
   }
 }
@@ -872,190 +864,6 @@ class _StatusPill extends StatelessWidget {
           color: color,
           fontSize: 12,
           fontWeight: FontWeight.w900,
-        ),
-      ),
-    );
-  }
-}
-
-class _NotificationBell extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return ValueListenableBuilder<int>(
-      valueListenable: ParcelStore.notificationCount,
-      builder: (context, count, _) {
-        return Stack(
-          clipBehavior: Clip.none,
-          children: [
-            _IconButton(
-              icon: Icons.notifications_none_rounded,
-              onTap: () => _showNotifications(context),
-            ),
-            if (count > 0)
-              Positioned(
-                right: -2,
-                top: -2,
-                child: Container(
-                  width: 20,
-                  height: 20,
-                  decoration: const BoxDecoration(
-                    color: _logoRed,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Center(
-                    child: Text(
-                      count > 9 ? '9+' : '$count',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _showNotifications(BuildContext context) {
-    final notifications = List<ParcelRecord>.from(ParcelStore.notifications);
-    ParcelStore.clearNotifications();
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) {
-        return SafeArea(
-          child: Container(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(context).size.height * 0.72,
-            ),
-            padding: const EdgeInsets.fromLTRB(18, 10, 18, 20),
-            decoration: const BoxDecoration(
-              color: _pageBackground,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 44,
-                    height: 5,
-                    decoration: BoxDecoration(
-                      color: _deepBlue.withValues(alpha: 0.16),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 18),
-                const Text(
-                  'Notifications',
-                  style: TextStyle(
-                    color: _deepBlue,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                if (notifications.isEmpty)
-                  const _NotificationEmptyState()
-                else
-                  Flexible(
-                    child: ListView.separated(
-                      shrinkWrap: true,
-                      physics: const BouncingScrollPhysics(),
-                      itemCount: notifications.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 10),
-                      itemBuilder: (context, index) {
-                        return _NotificationTile(parcel: notifications[index]);
-                      },
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _NotificationTile extends StatelessWidget {
-  final ParcelRecord parcel;
-
-  const _NotificationTile({required this.parcel});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _deepBlue.withValues(alpha: 0.08)),
-      ),
-      child: Row(
-        children: [
-          _ParcelThumbnail(parcel: parcel, size: 44),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  parcel.status,
-                  style: const TextStyle(
-                    color: _deepBlue,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${parcel.parcelNature} vers ${parcel.destinationCity}',
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: _mutedText,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _NotificationEmptyState extends StatelessWidget {
-  const _NotificationEmptyState();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 26, horizontal: 18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: _deepBlue.withValues(alpha: 0.08)),
-      ),
-      child: const Text(
-        'Aucune notification pour le moment',
-        textAlign: TextAlign.center,
-        style: TextStyle(
-          color: _mutedText,
-          fontSize: 15,
-          fontWeight: FontWeight.w800,
         ),
       ),
     );

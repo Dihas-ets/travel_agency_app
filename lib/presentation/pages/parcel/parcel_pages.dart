@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 
 const Color _deepBlue = Color(0xFF0B4F2A);
 const Color _logoRed = Color(0xFFE53935);
+const Color _fofanaGreen = Color(0xFF16A34A);
 const Color _pageBackground = Color(0xFFF8F9FE);
 
 const List<String> _beninCities = [
@@ -149,15 +150,25 @@ class ParcelMenuContent extends StatelessWidget {
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.only(top: 6, bottom: 24),
-      child: _ParcelActionsGrid(
-        onSendParcel: () {
-          Navigator.of(
-            context,
-          ).push(MaterialPageRoute(builder: (_) => const SendParcelPage()));
-        },
-        onTrackParcel: () => _showComingSoon(context, 'Suivre un colis'),
-        onInitiations: () => _openPendingParcels(context),
-        onMyParcels: () => _showComingSoon(context, 'Mes colis'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _ParcelIntroCard(),
+          const SizedBox(height: 14),
+          _ParcelActionsGrid(
+            onSendParcel: () {
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                backgroundColor: Colors.transparent,
+                builder: (_) => const SendParcelPage(),
+              );
+            },
+            onTrackParcel: () => _showComingSoon(context, 'Suivre un colis'),
+            onInitiations: () => _openPendingParcels(context),
+            onMyParcels: () => _showComingSoon(context, 'Mes colis'),
+          ),
+        ],
       ),
     );
   }
@@ -180,14 +191,90 @@ class ParcelMenuContent extends StatelessWidget {
   }
 }
 
+class _ParcelIntroCard extends StatelessWidget {
+  const _ParcelIntroCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: _fofanaGreen.withValues(alpha: 0.12)),
+        boxShadow: [
+          BoxShadow(
+            color: _deepBlue.withValues(alpha: 0.07),
+            blurRadius: 18,
+            offset: const Offset(0, 9),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 54,
+            height: 54,
+            decoration: BoxDecoration(
+              color: _fofanaGreen.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: _fofanaGreen.withValues(alpha: 0.18)),
+            ),
+            child: const Icon(
+              Icons.local_shipping_rounded,
+              color: _fofanaGreen,
+              size: 27,
+            ),
+          ),
+          const SizedBox(width: 14),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Gestion des colis',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: _logoRed,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                SizedBox(height: 5),
+                Text(
+                  'Envoyez, suivez et retrouvez rapidement vos opérations.',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Color(0xFF5F6B86),
+                    fontSize: 13.2,
+                    height: 1.25,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class SendParcelPage extends StatefulWidget {
-  const SendParcelPage({super.key});
+  final bool showModeTabs;
+
+  const SendParcelPage({super.key, this.showModeTabs = true});
 
   @override
   State<SendParcelPage> createState() => _SendParcelPageState();
 }
 
-class _SendParcelPageState extends State<SendParcelPage> {
+class _SendParcelPageState extends State<SendParcelPage>
+    with TickerProviderStateMixin {
+  late TabController _tabController;
   final TextEditingController _departureController = TextEditingController();
   final TextEditingController _destinationController = TextEditingController();
   final TextEditingController _valueController = TextEditingController();
@@ -203,7 +290,14 @@ class _SendParcelPageState extends State<SendParcelPage> {
   int _currentStep = 1;
 
   @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+  }
+
+  @override
   void dispose() {
+    _tabController.dispose();
     _departureController.dispose();
     _destinationController.dispose();
     _valueController.dispose();
@@ -277,10 +371,10 @@ class _SendParcelPageState extends State<SendParcelPage> {
                         width: 42,
                         height: 42,
                         decoration: BoxDecoration(
-                          color: _logoRed.withValues(alpha: 0.10),
+                          color: _fofanaGreen.withValues(alpha: 0.10),
                           borderRadius: BorderRadius.circular(14),
                         ),
-                        child: Icon(icon, color: _logoRed, size: 22),
+                        child: Icon(icon, color: _fofanaGreen, size: 22),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -327,7 +421,7 @@ class _SendParcelPageState extends State<SendParcelPage> {
                               borderRadius: BorderRadius.circular(14),
                               border: Border.all(
                                 color: isSelected
-                                    ? _logoRed.withValues(alpha: 0.36)
+                                    ? _fofanaGreen.withValues(alpha: 0.36)
                                     : _deepBlue.withValues(alpha: 0.07),
                               ),
                             ),
@@ -337,7 +431,7 @@ class _SendParcelPageState extends State<SendParcelPage> {
                                   isSelected
                                       ? Icons.check_circle_rounded
                                       : icon,
-                                  color: isSelected ? _logoRed : _deepBlue,
+                                  color: _fofanaGreen,
                                   size: 22,
                                 ),
                                 const SizedBox(width: 12),
@@ -385,7 +479,38 @@ class _SendParcelPageState extends State<SendParcelPage> {
   }
 
   Future<void> _pickAttachment() async {
-    final file = await _imagePicker.pickImage(source: ImageSource.gallery);
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (_) => Container(
+        padding: const EdgeInsets.all(16),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(
+                Icons.camera_alt_rounded,
+                color: _fofanaGreen,
+              ),
+              title: const Text('Prendre une photo'),
+              onTap: () => Navigator.pop(context, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.image_rounded, color: _deepBlue),
+              title: const Text('Choisir dans la galerie'),
+              onTap: () => Navigator.pop(context, ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (source == null) return;
+
+    final file = await _imagePicker.pickImage(source: source);
     if (file == null) return;
 
     setState(() => _pickedAttachment = file);
@@ -451,67 +576,132 @@ class _SendParcelPageState extends State<SendParcelPage> {
     return Scaffold(
       backgroundColor: _pageBackground,
       body: SafeArea(
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          padding: EdgeInsets.fromLTRB(24, 12, 24, 24 + bottomInset),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _ParcelHeader(
-                showStepBack: _currentStep == 2,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+              child: _ParcelHeader(
+                showStepBack:
+                    _currentStep == 2 &&
+                    (!widget.showModeTabs || _tabController.index == 0),
                 onMenuTap: () => Navigator.pop(context),
                 onStepBack: () => setState(() => _currentStep = 1),
               ),
-              SizedBox(height: _currentStep == 1 ? 30 : 34),
-              _StepDivider(label: 'Étape $_currentStep/2'),
-              const SizedBox(height: 24),
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 240),
-                child: _currentStep == 1
-                    ? _StepOneForm(
-                        key: const ValueKey('parcel-step-one'),
-                        departureController: _departureController,
-                        valueController: _valueController,
-                        selectedNature: _selectedNature,
-                        parcelCount: _parcelCount,
-                        onDepartureTap: () => _showCityPicker(
-                          title: 'Point de départ',
-                          controller: _departureController,
-                        ),
-                        onNatureTap: _showNaturePicker,
-                        onMinus: () => _changeParcelCount(-1),
-                        onPlus: () => _changeParcelCount(1),
-                        onNext: _goToStepTwo,
-                        onInitiations: () => _showInitiationsMessage(context),
-                      )
-                    : _StepTwoForm(
-                        key: const ValueKey('parcel-step-two'),
-                        destinationController: _destinationController,
-                        lastNameController: _lastNameController,
-                        firstNameController: _firstNameController,
-                        phoneController: _phoneController,
-                        deliveryFeeController: _deliveryFeeController,
-                        attachmentPath: _pickedAttachment?.path,
-                        attachmentName: _pickedAttachment?.name,
-                        onDestinationTap: () => _showCityPicker(
-                          title: 'Ville de destination',
-                          controller: _destinationController,
-                        ),
-                        onPickAttachment: _pickAttachment,
-                        onPreview: _previewTicket,
+            ),
+            if (widget.showModeTabs)
+              Container(
+                color: _pageBackground,
+                child: TabBar(
+                  controller: _tabController,
+                  onTap: (index) => setState(() {}),
+                  tabs: const [
+                    Tab(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.shopping_bag_rounded, size: 20),
+                          SizedBox(width: 8),
+                          Text('Embarquement'),
+                        ],
                       ),
+                    ),
+                    Tab(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.check_circle_rounded, size: 20),
+                          SizedBox(width: 8),
+                          Text('Enregistrement'),
+                        ],
+                      ),
+                    ),
+                  ],
+                  labelColor: _fofanaGreen,
+                  unselectedLabelColor: _deepBlue.withValues(alpha: 0.6),
+                  indicator: const BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(color: _fofanaGreen, width: 3),
+                    ),
+                  ),
+                ),
               ),
-            ],
-          ),
+            Expanded(
+              child: widget.showModeTabs
+                  ? TabBarView(
+                      controller: _tabController,
+                      children: [
+                        _buildEmbarquementTab(bottomInset),
+                        _buildEnregistrementTab(),
+                      ],
+                    )
+                  : _buildEmbarquementTab(bottomInset),
+            ),
+          ],
         ),
       ),
     );
   }
 
+  Widget _buildEmbarquementTab(double bottomInset) {
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      padding: EdgeInsets.fromLTRB(24, 30, 24, 24 + bottomInset),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(height: _currentStep == 1 ? 0 : 4),
+          _StepDivider(label: 'Étape $_currentStep/2'),
+          const SizedBox(height: 24),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 240),
+            child: _currentStep == 1
+                ? _StepOneForm(
+                    key: const ValueKey('parcel-step-one'),
+                    departureController: _departureController,
+                    valueController: _valueController,
+                    selectedNature: _selectedNature,
+                    parcelCount: _parcelCount,
+                    onDepartureTap: () => _showCityPicker(
+                      title: 'Point de départ',
+                      controller: _departureController,
+                    ),
+                    onNatureTap: _showNaturePicker,
+                    onMinus: () => _changeParcelCount(-1),
+                    onPlus: () => _changeParcelCount(1),
+                    onNext: _goToStepTwo,
+                    onInitiations: () => _showInitiationsMessage(context),
+                  )
+                : _StepTwoForm(
+                    key: const ValueKey('parcel-step-two'),
+                    destinationController: _destinationController,
+                    lastNameController: _lastNameController,
+                    firstNameController: _firstNameController,
+                    phoneController: _phoneController,
+                    deliveryFeeController: _deliveryFeeController,
+                    attachmentPath: _pickedAttachment?.path,
+                    attachmentName: _pickedAttachment?.name,
+                    onDestinationTap: () => _showCityPicker(
+                      title: 'Ville de destination',
+                      controller: _destinationController,
+                    ),
+                    onPickAttachment: _pickAttachment,
+                    onPreview: _previewTicket,
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEnregistrementTab() {
+    return const ColisAttentePage(initialTabIndex: 0);
+  }
+
   void _showInitiationsMessage(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => const ColisAttentePage(initialTabIndex: 1),
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Accédez à vos initiations en attente'),
+        backgroundColor: _deepBlue,
       ),
     );
   }
@@ -734,31 +924,22 @@ class _ParcelActionsGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FBFF),
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: _deepBlue.withValues(alpha: 0.08)),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: _fofanaGreen.withValues(alpha: 0.12)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
+            color: _deepBlue.withValues(alpha: 0.06),
             blurRadius: 18,
-            offset: const Offset(0, 10),
+            offset: const Offset(0, 9),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Vos options colis',
-            style: TextStyle(
-              color: _deepBlue,
-              fontSize: 18,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 12),
           Row(
             children: [
               _ParcelActionTile(
@@ -818,14 +999,15 @@ class _ParcelActionTile extends StatelessWidget {
           onTap: onTap,
           child: Container(
             constraints: const BoxConstraints(minHeight: 116),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 13),
             decoration: BoxDecoration(
+              color: const Color(0xFFF8FBFF),
               borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: _deepBlue.withValues(alpha: 0.10)),
+              border: Border.all(color: _fofanaGreen.withValues(alpha: 0.14)),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.06),
-                  blurRadius: 12,
+                  color: _fofanaGreen.withValues(alpha: 0.08),
+                  blurRadius: 14,
                   offset: const Offset(0, 6),
                 ),
               ],
@@ -837,11 +1019,13 @@ class _ParcelActionTile extends StatelessWidget {
                   width: 42,
                   height: 42,
                   decoration: BoxDecoration(
-                    color: _logoRed.withValues(alpha: 0.10),
+                    color: _fofanaGreen.withValues(alpha: 0.11),
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: _logoRed.withValues(alpha: 0.35)),
+                    border: Border.all(
+                      color: _fofanaGreen.withValues(alpha: 0.35),
+                    ),
                   ),
-                  child: Icon(icon, color: _logoRed, size: 20),
+                  child: Icon(icon, color: _fofanaGreen, size: 20),
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -891,9 +1075,7 @@ class _AttachmentField extends StatelessWidget {
           constraints: BoxConstraints(minHeight: hasFile ? 118 : 82),
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: hasFile
-                ? _logoRed.withValues(alpha: 0.035)
-                : Colors.white,
+            color: hasFile ? _logoRed.withValues(alpha: 0.035) : Colors.white,
             borderRadius: BorderRadius.circular(18),
             border: Border.all(
               color: hasFile
@@ -913,10 +1095,7 @@ class _AttachmentField extends StatelessWidget {
           ),
           child: Row(
             children: [
-              _AttachmentPreview(
-                filePath: filePath,
-                hasFile: hasFile,
-              ),
+              _AttachmentPreview(filePath: filePath, hasFile: hasFile),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
@@ -958,7 +1137,7 @@ class _AttachmentField extends StatelessWidget {
                 hasFile
                     ? Icons.check_circle_rounded
                     : Icons.add_photo_alternate_rounded,
-                color: hasFile ? _logoRed : _deepBlue,
+                color: _fofanaGreen,
                 size: 24,
               ),
             ],
@@ -982,12 +1161,12 @@ class _AttachmentPreview extends StatelessWidget {
         width: 52,
         height: 52,
         decoration: BoxDecoration(
-          color: _logoRed.withValues(alpha: 0.09),
+          color: _fofanaGreen.withValues(alpha: 0.09),
           borderRadius: BorderRadius.circular(15),
         ),
         child: const Icon(
           Icons.upload_file_rounded,
-          color: _logoRed,
+          color: _fofanaGreen,
           size: 24,
         ),
       );
@@ -1004,12 +1183,12 @@ class _AttachmentPreview extends StatelessWidget {
           width: 72,
           height: 72,
           decoration: BoxDecoration(
-            color: _logoRed.withValues(alpha: 0.09),
+            color: _fofanaGreen.withValues(alpha: 0.09),
             borderRadius: BorderRadius.circular(15),
           ),
           child: const Icon(
             Icons.insert_photo_rounded,
-            color: _logoRed,
+            color: _fofanaGreen,
             size: 24,
           ),
         ),
@@ -1141,10 +1320,10 @@ class _ChoiceField extends StatelessWidget {
                 width: 34,
                 height: 34,
                 decoration: BoxDecoration(
-                  color: _logoRed.withValues(alpha: 0.09),
+                  color: _fofanaGreen.withValues(alpha: 0.09),
                   borderRadius: BorderRadius.circular(11),
                 ),
-                child: Icon(icon, color: _logoRed, size: 19),
+                child: Icon(icon, color: _fofanaGreen, size: 19),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -1225,7 +1404,6 @@ class _ParcelInputField extends StatelessWidget {
   }
 }
 
-
 class _ParcelCountField extends StatelessWidget {
   final int count;
   final VoidCallback onMinus;
@@ -1260,12 +1438,12 @@ class _ParcelCountField extends StatelessWidget {
             width: 34,
             height: 34,
             decoration: BoxDecoration(
-              color: _logoRed.withValues(alpha: 0.09),
+              color: _fofanaGreen.withValues(alpha: 0.09),
               borderRadius: BorderRadius.circular(11),
             ),
             child: const Icon(
               Icons.view_in_ar_outlined,
-              color: _logoRed,
+              color: _fofanaGreen,
               size: 19,
             ),
           ),
@@ -1320,18 +1498,18 @@ class _CounterButton extends StatelessWidget {
           width: 42,
           height: 42,
           decoration: BoxDecoration(
-            color: _logoRed.withValues(alpha: 0.08),
+            color: _fofanaGreen.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: _logoRed.withValues(alpha: 0.08)),
+            border: Border.all(color: _fofanaGreen.withValues(alpha: 0.08)),
             boxShadow: [
               BoxShadow(
-                color: _logoRed.withValues(alpha: 0.05),
+                color: _fofanaGreen.withValues(alpha: 0.05),
                 blurRadius: 10,
                 offset: const Offset(0, 5),
               ),
             ],
           ),
-          child: Icon(icon, color: _logoRed, size: 20),
+          child: Icon(icon, color: _fofanaGreen, size: 20),
         ),
       ),
     );
@@ -1346,16 +1524,19 @@ class _PrimaryParcelButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isPreview = label == 'Aperçu';
+    final backgroundColor = isPreview ? _fofanaGreen : _logoRed;
+
     return SizedBox(
       width: double.infinity,
       height: 58,
       child: ElevatedButton(
         onPressed: onPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: _logoRed,
+          backgroundColor: backgroundColor,
           foregroundColor: Colors.white,
           elevation: 0,
-          shadowColor: _logoRed.withValues(alpha: 0.18),
+          shadowColor: backgroundColor.withValues(alpha: 0.18),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
           ),
