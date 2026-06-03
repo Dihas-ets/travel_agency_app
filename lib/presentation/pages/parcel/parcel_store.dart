@@ -11,6 +11,7 @@ class ParcelRecord {
   final int parcelCount;
   final String? attachmentPath;
   final String? attachmentName;
+  final String? deliveryFee;
   final DateTime createdAt;
   final String status;
 
@@ -23,10 +24,11 @@ class ParcelRecord {
     required this.recipientPhone,
     required this.parcelNature,
     required this.parcelCount,
-    required this.createdAt,
-    required this.status,
     this.attachmentPath,
     this.attachmentName,
+    this.deliveryFee,
+    required this.createdAt,
+    required this.status,
   });
 
   String get recipientFullName =>
@@ -35,6 +37,7 @@ class ParcelRecord {
   ParcelRecord copyWith({
     String? status,
     DateTime? createdAt,
+    String? deliveryFee,
   }) {
     return ParcelRecord(
       code: code,
@@ -47,6 +50,7 @@ class ParcelRecord {
       parcelCount: parcelCount,
       attachmentPath: attachmentPath,
       attachmentName: attachmentName,
+      deliveryFee: deliveryFee ?? this.deliveryFee,
       createdAt: createdAt ?? this.createdAt,
       status: status ?? this.status,
     );

@@ -7,7 +7,6 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:code_initial/presentation/pages/parcel/colis_attente_page.dart';
-import 'package:code_initial/presentation/pages/parcel/envois_effectues_page.dart';
 import 'package:code_initial/presentation/pages/parcel/parcel_store.dart';
 
 class BilletPage extends StatelessWidget {
@@ -21,6 +20,7 @@ class BilletPage extends StatelessWidget {
   final int parcelCount;
   final String? attachmentPath;
   final String? attachmentName;
+  final String deliveryFee;
   final bool showValidation;
 
   const BilletPage({
@@ -33,6 +33,7 @@ class BilletPage extends StatelessWidget {
     required this.recipientPhone,
     required this.parcelNature,
     required this.parcelCount,
+    required this.deliveryFee,
     this.attachmentPath,
     this.attachmentName,
     this.showValidation = true,
@@ -50,6 +51,7 @@ class BilletPage extends StatelessWidget {
       parcelCount: parcelCount,
       attachmentPath: attachmentPath,
       attachmentName: attachmentName,
+      deliveryFee: deliveryFee,
       createdAt: DateTime.now(),
       status: showValidation ? 'Enregistré' : 'En attente',
     );
@@ -311,6 +313,13 @@ class BilletPage extends StatelessWidget {
                 ),
                 pw.SizedBox(height: 16),
                 _pdfInfoBlock(
+                  'Frais de livraison',
+                  deliveryFee.isEmpty ? '--' : '$deliveryFee CFA',
+                  deepBlue,
+                  muted,
+                ),
+                pw.SizedBox(height: 16),
+                _pdfInfoBlock(
                   'Trajet',
                   '$departureCity -> $destinationCity',
                   deepBlue,
@@ -533,6 +542,11 @@ class BilletPage extends StatelessWidget {
                       rightValue: recipientPhone,
                       isPhone: true,
                     ),
+                    const SizedBox(height: 12),
+                    _SingleInfoBlock(
+                      title: 'Frais de livraison',
+                      value: deliveryFee.isEmpty ? '--' : '$deliveryFee CFA',
+                    ),
                     if (hasAttachment) ...[
                       const SizedBox(height: 14),
                       Text(
@@ -620,7 +634,7 @@ class BilletPage extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 height: 58,
-                child: ElevatedButton.icon(
+                child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: logoRed,
                     foregroundColor: Colors.white,
@@ -633,56 +647,37 @@ class BilletPage extends StatelessWidget {
                       fontSize: 15.5,
                     ),
                   ),
-                  onPressed: () =>
-                      _downloadTicketPdf(context, date: date, time: time),
-                  icon: const Icon(Icons.picture_as_pdf_rounded, size: 22),
-                  label: const Text('Télécharger en PDF'),
+                  onPressed: showValidation
+                      ? null
+                      : () => _openParcelList(context),
+                  child: const Text('Payer'),
                 ),
               ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                height: 58,
-                child: OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: deepBlue,
-                    side: BorderSide(color: deepBlue.withValues(alpha: 0.55)),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+              if (showValidation) ...[
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  height: 58,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: logoRed,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      textStyle: const TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 15.5,
+                      ),
                     ),
-                    textStyle: const TextStyle(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 15.5,
-                    ),
-                  ),
-                  onPressed: () {
-                    if (showValidation) {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => EnvoisEffectuesPage(
-                            code: code,
-                            departureCity: departureCity,
-                            destinationCity: destinationCity,
-                            recipientLastName: recipientLastName,
-                            recipientFirstName: recipientFirstName,
-                            recipientPhone: recipientPhone,
-                            parcelNature: parcelNature,
-                            parcelCount: parcelCount,
-                          ),
-                        ),
-                      );
-                      return;
-                    }
-
-                    _openParcelList(context);
-                  },
-                  child: Text(
-                    showValidation
-                        ? 'Liste des envois effectués'
-                        : 'Liste des colis en attente',
+                    onPressed: () =>
+                        _downloadTicketPdf(context, date: date, time: time),
+                    icon: const Icon(Icons.picture_as_pdf_rounded, size: 22),
+                    label: const Text('Télécharger en PDF'),
                   ),
                 ),
-              ),
+              ],
             ],
           ),
         ),

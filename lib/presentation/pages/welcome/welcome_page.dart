@@ -88,10 +88,10 @@ class _WelcomePageState extends State<WelcomePage> {
                           Align(
                             alignment: Alignment.center,
                             child: Image.asset(
-                              'assets/images/logo_fofana_no_background.png',
-                              height: compact ? 68 : 82,
-                              fit: BoxFit.contain,
-                            ),
+                                'assets/images/logo_fofana_black.png',
+                                height: compact ? 68 : 82,
+                                fit: BoxFit.contain,
+                              ),
                           ),
                           SizedBox(height: compact ? 18 : 28),
                           const Text(

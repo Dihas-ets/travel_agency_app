@@ -60,6 +60,7 @@ class _ColisAttentePageState extends State<ColisAttentePage> {
           parcelCount: parcel.parcelCount,
           attachmentPath: parcel.attachmentPath,
           attachmentName: parcel.attachmentName,
+          deliveryFee: parcel.deliveryFee ?? '',
           showValidation: true,
         ),
       ),

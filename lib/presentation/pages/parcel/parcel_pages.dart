@@ -194,6 +194,7 @@ class _SendParcelPageState extends State<SendParcelPage> {
   final TextEditingController _lastNameController = TextEditingController();
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _deliveryFeeController = TextEditingController();
   final ImagePicker _imagePicker = ImagePicker();
 
   String? _selectedNature;
@@ -209,6 +210,7 @@ class _SendParcelPageState extends State<SendParcelPage> {
     _lastNameController.dispose();
     _firstNameController.dispose();
     _phoneController.dispose();
+    _deliveryFeeController.dispose();
     super.dispose();
   }
 
@@ -394,6 +396,7 @@ class _SendParcelPageState extends State<SendParcelPage> {
         _lastNameController.text.trim().isEmpty ||
         _firstNameController.text.trim().isEmpty ||
         _phoneController.text.trim().isEmpty ||
+        _deliveryFeeController.text.trim().isEmpty ||
         _pickedAttachment == null ||
         _selectedNature == null ||
         _departureController.text.trim().isEmpty ||
@@ -428,6 +431,7 @@ class _SendParcelPageState extends State<SendParcelPage> {
           parcelCount: _parcelCount,
           attachmentPath: _pickedAttachment?.path,
           attachmentName: _pickedAttachment?.name,
+          deliveryFee: _deliveryFeeController.text.trim(),
           showValidation: false,
         ),
       ),
@@ -486,6 +490,7 @@ class _SendParcelPageState extends State<SendParcelPage> {
                         lastNameController: _lastNameController,
                         firstNameController: _firstNameController,
                         phoneController: _phoneController,
+                        deliveryFeeController: _deliveryFeeController,
                         attachmentPath: _pickedAttachment?.path,
                         attachmentName: _pickedAttachment?.name,
                         onDestinationTap: () => _showCityPicker(
@@ -494,7 +499,6 @@ class _SendParcelPageState extends State<SendParcelPage> {
                         ),
                         onPickAttachment: _pickAttachment,
                         onPreview: _previewTicket,
-                        onInitiations: () => _showInitiationsMessage(context),
                       ),
               ),
             ],
@@ -586,24 +590,24 @@ class _StepTwoForm extends StatelessWidget {
   final TextEditingController lastNameController;
   final TextEditingController firstNameController;
   final TextEditingController phoneController;
+  final TextEditingController deliveryFeeController;
   final String? attachmentPath;
   final String? attachmentName;
   final VoidCallback onDestinationTap;
   final VoidCallback onPickAttachment;
   final VoidCallback onPreview;
-  final VoidCallback onInitiations;
 
   const _StepTwoForm({
     required this.destinationController,
     required this.lastNameController,
     required this.firstNameController,
     required this.phoneController,
+    required this.deliveryFeeController,
     required this.attachmentPath,
     required this.attachmentName,
     required this.onDestinationTap,
     required this.onPickAttachment,
     required this.onPreview,
-    required this.onInitiations,
     super.key,
   });
 
@@ -635,6 +639,12 @@ class _StepTwoForm extends StatelessWidget {
           child: AfricanPhoneField(controller: phoneController),
         ),
         const SizedBox(height: 12),
+        _ParcelInputField(
+          controller: deliveryFeeController,
+          hintText: 'Frais de livraison',
+          keyboardType: TextInputType.number,
+        ),
+        const SizedBox(height: 12),
         // L'image sert de preuve visuelle du colis : on la met donc en avant
         // et le bouton Aperçu la rend obligatoire dans la validation.
         _AttachmentField(
@@ -644,11 +654,6 @@ class _StepTwoForm extends StatelessWidget {
         ),
         const SizedBox(height: 30),
         _PrimaryParcelButton(label: 'Aperçu', onPressed: onPreview),
-        const SizedBox(height: 14),
-        _OutlineParcelButton(
-          label: "Liste des initiations d'envoi",
-          onPressed: onInitiations,
-        ),
       ],
     );
   }

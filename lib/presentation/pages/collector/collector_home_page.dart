@@ -9,6 +9,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:code_initial/presentation/pages/parcel/colis_attente_page.dart';
 import 'package:code_initial/presentation/pages/parcel/parcel_pages.dart';
 
 class CollectorHomePage extends StatefulWidget {
@@ -306,7 +307,7 @@ class _CollectorColisContentState extends State<_CollectorColisContent> {
       collectorPhone: '+229 01 61 44 20 90',
       receiverName: 'Aminata Sanni',
       receiverPhone: '+229 01 97 12 43 10',
-      image: 'assets/images/welcome_image.jpg',
+      image: 'assets/images/coli1.jpg',
       destination: 'Cotonou',
       status: 'En attente',
     ),
@@ -315,7 +316,7 @@ class _CollectorColisContentState extends State<_CollectorColisContent> {
       collectorPhone: '+229 01 66 30 18 75',
       receiverName: 'Boris Adjovi',
       receiverPhone: '+229 01 62 54 88 03',
-      image: 'assets/images/onboarding2.png',
+      image: 'assets/images/coli3.jpg',
       destination: 'Porto-Novo',
       status: 'En attente',
     ),
@@ -324,7 +325,7 @@ class _CollectorColisContentState extends State<_CollectorColisContent> {
       collectorPhone: '+229 01 95 70 11 42',
       receiverName: 'Clarisse Hounkpe',
       receiverPhone: '+229 01 68 13 06 54',
-      image: 'assets/images/onboarding3.png',
+      image: 'assets/images/coli4.jpg',
       destination: 'Abomey',
       status: 'En attente',
     ),
@@ -336,7 +337,7 @@ class _CollectorColisContentState extends State<_CollectorColisContent> {
       collectorPhone: '+229 01 64 91 82 77',
       receiverName: 'Didier Koto',
       receiverPhone: '+229 01 91 03 24 78',
-      image: 'assets/images/onboarding1.png',
+      image: 'assets/images/coli2.jpg',
       destination: 'Parakou',
       status: 'Arriver',
     ),
@@ -692,7 +693,7 @@ class _CollectorColisContentState extends State<_CollectorColisContent> {
                     initialValue: _selectedPhone,
                     isExpanded: true,
                     decoration: _collectorColisInputDecoration(
-                      label: 'Numero du percepteur',
+                      label: 'Numero du recepteur',
                       icon: Icons.phone_rounded,
                     ),
                     items: _filteredParcels
@@ -735,30 +736,7 @@ class _CollectorColisContentState extends State<_CollectorColisContent> {
                   );
                 },
               ),
-              const SizedBox(height: 16),
-              TextField(
-                onChanged: (value) => setState(() => _searchQuery = value),
-                decoration: InputDecoration(
-                  labelText: 'Rechercher',
-                  hintText: 'ID / Nom / Téléphone / N° de coli',
-                  prefixIcon: const Icon(Icons.search_rounded, color: _green),
-                  filled: true,
-                  fillColor: const Color(0xFFF8FBFF),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(color: Color(0xFFE1E4EC)),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(color: Color(0xFFE1E4EC)),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(color: _green, width: 1.5),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
+              
               ClipRRect(
                 borderRadius: BorderRadius.circular(20),
                 child: Container(
@@ -844,6 +822,29 @@ class _CollectorColisContentState extends State<_CollectorColisContent> {
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 10),
+        TextField(
+          onChanged: (value) => setState(() => _searchQuery = value),
+          decoration: InputDecoration(
+            labelText: 'Rechercher',
+            hintText: 'ID / Nom / Téléphone / N° de coli',
+            prefixIcon: const Icon(Icons.search_rounded, color: _green),
+            filled: true,
+            fillColor: const Color(0xFFF8FBFF),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: const BorderSide(color: Color(0xFFE1E4EC)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: const BorderSide(color: Color(0xFFE1E4EC)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: const BorderSide(color: _green, width: 1.5),
+            ),
+          ),
         ),
         const SizedBox(height: 10),
         _CollectorTransitParcelTable(
@@ -1694,6 +1695,18 @@ class _CollectorMainMenuView extends StatelessWidget {
             onTap: onAssignmentsTap,
           ),
           _CollectorMenuOptionTile(
+            icon: Icons.inventory_2_rounded,
+            title: 'Mes colis enregistrés',
+            onTap: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const ColisAttentePage(initialTabIndex: 1),
+                ),
+              );
+            },
+          ),
+          _CollectorMenuOptionTile(
             icon: Icons.description_outlined,
             title: "Conditions d'utilisation",
             onTap: onTermsTap,
@@ -1848,10 +1861,10 @@ class _CollectorProfileMenuView extends StatelessWidget {
                 onTap: onBack,
               ),
               Expanded(
-                child: Image.asset(
-                  'assets/images/logo_fofana_no_background.png',
-                  height: 70,
-                ),
+                    child: Image.asset(
+                      'assets/images/logo_fofana_no_background.png',
+                      height: 70,
+                    ),
               ),
               const SizedBox(width: 52),
             ],
@@ -2611,7 +2624,7 @@ class _CollectorAssignmentsPageState extends State<_CollectorAssignmentsPage> {
                       ),
                       const Spacer(),
                       Image.asset(
-                        'assets/images/logo_fofana_no_background.png',
+                        'assets/images/logo_fofana_black.png',
                         height: 48,
                         fit: BoxFit.contain,
                       ),
@@ -4391,7 +4404,7 @@ class _CollectorReservationPageState extends State<_CollectorReservationPage> {
               width: double.infinity,
               decoration: const BoxDecoration(
                 image: DecorationImage(
-                  image: AssetImage('assets/images/welcome_image.jpg'),
+                  image: AssetImage('assets/images/coli1.jpg'),
                   fit: BoxFit.cover,
                   colorFilter: ColorFilter.mode(
                     Color(0x99060E27),
@@ -6243,7 +6256,7 @@ const List<_CollectorNewsArticle> _collectorNewsArticles = [
     category: 'Annonces',
     title: 'Nouveau départ sur Gouré',
     date: '28/03/2026',
-    image: 'assets/images/welcome_image.jpg',
+    image: 'assets/images/coli1.jpg',
     excerpt:
         'Fofana renforce son réseau avec un nouveau départ pensé pour faciliter les déplacements réguliers.',
     body: [
@@ -6256,7 +6269,7 @@ const List<_CollectorNewsArticle> _collectorNewsArticles = [
     category: 'Annonces',
     title: "Renforcement des départs sur l'axe Tchaourou",
     date: '25/03/2026',
-    image: 'assets/images/onboarding1.png',
+    image: 'assets/images/coli2.jpg',
     excerpt:
         'De nouveaux horaires sont ajoutés pour offrir plus de flexibilité aux voyageurs.',
     body: [
@@ -6269,7 +6282,7 @@ const List<_CollectorNewsArticle> _collectorNewsArticles = [
     category: 'Presse',
     title: 'Fofana modernise l’accueil dans ses agences',
     date: '18/03/2026',
-    image: 'assets/images/onboarding2.png',
+    image: 'assets/images/coli3.jpg',
     excerpt:
         'Un parcours client plus fluide est déployé pour améliorer l’achat de tickets et l’information voyageur.',
     body: [
@@ -6282,7 +6295,7 @@ const List<_CollectorNewsArticle> _collectorNewsArticles = [
     category: 'Conseils',
     title: 'Bien préparer son voyage avec Fofana',
     date: '12/03/2026',
-    image: 'assets/images/onboarding3.png',
+    image: 'assets/images/coli4.jpg',
     excerpt:
         'Quelques réflexes simples pour voyager sereinement et éviter les oublis avant le départ.',
     body: [

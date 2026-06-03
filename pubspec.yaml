@@ -81,11 +81,16 @@ flutter:
     - assets/images/onboarding1.png
     - assets/images/onboarding2.png
     - assets/images/onboarding3.png
+    - assets/images/coli1.jpg
+    - assets/images/coli2.jpg
+    - assets/images/coli3.jpg
+    - assets/images/coli4.jpg
     - assets/images/logo_carte.png
     - assets/images/logo_mtn.png
     - assets/images/logo_moov.png
     - assets/images/logo_celtiis.png
     - assets/images/logo_fofana.png
+    - assets/images/logo_fofana_black.png
     - assets/images/logo_fofana_no_background.png
     - assets/images/welcome_image.jpg
 
