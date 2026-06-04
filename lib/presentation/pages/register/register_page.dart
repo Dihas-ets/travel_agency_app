@@ -53,7 +53,12 @@ class _RegisterPageState extends State<RegisterPage> {
 
     Get.toNamed(
       Routes.VERIFY_CODE,
-      arguments: {'flow': 'register', 'phone': telephone},
+      arguments: {
+        'flow': 'register',
+        'phone': telephone,
+        'nom': nom,
+        'prenom': prenom,
+      },
     );
   }
 

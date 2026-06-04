@@ -9,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'package:code_initial/presentation/pages/parcel/parcel_pages.dart';
 import 'package:code_initial/presentation/pages/parcel/parcel_store.dart';
+import 'package:code_initial/data/local/session_store.dart';
 import 'package:code_initial/presentation/pages/tarifs/tarifs_page.dart';
 import 'package:code_initial/widgets/login/login_widgets.dart';
 import 'package:code_initial/widgets/tarifs/tarifs_widgets.dart';
@@ -5901,8 +5902,13 @@ class _ParcelNotificationIconButton extends StatelessWidget {
   const _ParcelNotificationIconButton();
 
   void _showClientNotifications(BuildContext context) {
-    final notifications = List<ParcelRecord>.from(ParcelStore.notifications);
-    ParcelStore.clearNotifications();
+    final currentPhone = SessionStore.currentClientPhone;
+    final notifications = List<ParcelRecord>.from(
+      ParcelStore.notifications.where(
+        (parcel) => currentPhone == null || parcel.senderPhone == currentPhone,
+      ),
+    );
+    ParcelStore.clearNotifications(senderPhone: currentPhone);
 
     showModalBottomSheet(
       context: context,
@@ -5993,7 +5999,12 @@ class _ParcelNotificationIconButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return ValueListenableBuilder<int>(
       valueListenable: ParcelStore.notificationCount,
-      builder: (context, count, _) {
+      builder: (context, _, __) {
+        final currentPhone = SessionStore.currentClientPhone;
+        final count = ParcelStore.unreadNotificationsCount(
+          senderPhone: currentPhone,
+        );
+
         return Stack(
           clipBehavior: Clip.none,
           children: [

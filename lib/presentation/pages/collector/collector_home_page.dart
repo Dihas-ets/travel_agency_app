@@ -2827,18 +2827,6 @@ class _CollectorAssignmentsPageState extends State<_CollectorAssignmentsPage> {
         _pastStatusFilter = _CollectorAssignmentPastStatusFilter.all;
       }
     });
-
-    if (value == _CollectorAssignmentFilter.current &&
-        _currentAssignments.isNotEmpty) {
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => _CollectorAssignmentDetailPage(
-            assignment: _currentAssignments.first,
-            mode: _CollectorAssignmentFilter.current,
-          ),
-        ),
-      );
-    }
   }
 
   @override
@@ -2936,82 +2924,183 @@ class _CollectorAssignmentsPageState extends State<_CollectorAssignmentsPage> {
                           ),
                         ]
                       : _records
-                            .map(
-                              (item) => Container(
-                                margin: const EdgeInsets.only(bottom: 8),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: _deepBlue.withValues(alpha: 0.08),
-                                  ),
+                        .map((item) {
+                          if (_filter == _CollectorAssignmentFilter.current) {
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 16),
+                              padding: const EdgeInsets.all(18),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(24),
+                                border: Border.all(
+                                  color: _deepBlue.withValues(alpha: 0.08),
                                 ),
-                                child: ListTile(
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 12,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: _deepBlue.withValues(alpha: 0.06),
+                                    blurRadius: 16,
+                                    offset: const Offset(0, 10),
                                   ),
-                                  leading: Container(
-                                    width: 48,
-                                    height: 48,
-                                    decoration: BoxDecoration(
-                                      color: const Color(
-                                        0xFFE53935,
-                                      ).withValues(alpha: 0.12),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: const Icon(
-                                      Icons.directions_bus_filled_rounded,
-                                      color: Color(0xFFE53935),
-                                      size: 24,
-                                    ),
-                                  ),
-                                  title: Text(
-                                    item.busMatricule,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w900,
-                                      fontSize: 15,
-                                    ),
-                                  ),
-                                  subtitle: Text(
-                                    '${item.route} • ${item.date} • ${item.time}',
-                                    style: TextStyle(
-                                      color: _deepBlue.withValues(alpha: 0.7),
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                  trailing: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 6,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: _statusColor(
-                                        item.status,
-                                      ).withValues(alpha: 0.1),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Text(
-                                      item.status,
-                                      style: TextStyle(
-                                        color: _statusColor(item.status),
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w900,
-                                      ),
-                                    ),
-                                  ),
-                                  onTap: () => Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (_) =>
-                                          _CollectorAssignmentDetailPage(
-                                            assignment: item,
-                                            mode: _filter,
+                                ],
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          item.busMatricule,
+                                          style: const TextStyle(
+                                            color: Colors.black,
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.w900,
                                           ),
+                                        ),
+                                      ),
+                                      _CollectorParcelStatusPill(
+                                        label: item.status,
+                                        strong: true,
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 12),
+                                  _CollectorAssignmentRoutePanel(
+                                    route: item.route,
+                                  ),
+                                  const SizedBox(height: 12),
+                                  _CollectorAssignmentInfoGrid(
+                                    children: [
+                                      _CollectorAssignmentInfo(
+                                        icon: Icons.person_rounded,
+                                        label: 'Chauffeur',
+                                        value: item.driverName,
+                                      ),
+                                      _CollectorAssignmentInfo(
+                                        icon: Icons.phone_rounded,
+                                        label: 'Téléphone chauffeur',
+                                        value: item.driverPhone,
+                                      ),
+                                      _CollectorAssignmentInfo(
+                                        icon: Icons.lock_clock_rounded,
+                                        label: 'Fin session',
+                                        value: item.sessionCloseTime,
+                                      ),
+                                      _CollectorAssignmentInfo(
+                                        icon: Icons.event_rounded,
+                                        label: 'Date/Heure',
+                                        value: '${item.date}\n${item.time}',
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 14),
+                                  Text(
+                                    'Collecteurs affectés :',
+                                    style: TextStyle(
+                                      color: const Color(0xFF0B4F2A),
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w900,
                                     ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: item.collectors.map(
+                                      (collector) {
+                                        return Padding(
+                                          padding: const EdgeInsets.only(bottom: 6),
+                                          child: Text(
+                                            '${collector.name} • ${collector.phone}',
+                                            style: const TextStyle(
+                                              color: Color(0xFF4B5563),
+                                              fontSize: 13.5,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ).toList(),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
+
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: _deepBlue.withValues(alpha: 0.08),
+                              ),
+                            ),
+                            child: ListTile(
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                              leading: Container(
+                                width: 48,
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  color: const Color(
+                                    0xFFE53935,
+                                  ).withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Icon(
+                                  Icons.directions_bus_filled_rounded,
+                                  color: Color(0xFFE53935),
+                                  size: 24,
+                                ),
+                              ),
+                              title: Text(
+                                item.busMatricule,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 15,
+                                ),
+                              ),
+                              subtitle: Text(
+                                '${item.route} • ${item.date} • ${item.time}',
+                                style: TextStyle(
+                                  color: _deepBlue.withValues(alpha: 0.7),
+                                  fontSize: 13,
+                                ),
+                              ),
+                              trailing: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: _statusColor(
+                                    item.status,
+                                  ).withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  item.status,
+                                  style: TextStyle(
+                                    color: _statusColor(item.status),
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w900,
                                   ),
                                 ),
                               ),
-                            )
+                              onTap: () => Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      _CollectorAssignmentDetailPage(
+                                        assignment: item,
+                                        mode: _filter,
+                                      ),
+                                ),
+                              ),
+                            ),
+                          );
+                        })
                             .toList()),
                   if (_filter == _CollectorAssignmentFilter.past) ...[
                     const SizedBox(height: 12),

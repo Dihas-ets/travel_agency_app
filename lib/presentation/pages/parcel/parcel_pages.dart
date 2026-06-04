@@ -166,7 +166,7 @@ class ParcelMenuContent extends StatelessWidget {
             },
             onTrackParcel: () => _showComingSoon(context, 'Suivre un colis'),
             onInitiations: () => _openPendingParcels(context),
-            onMyParcels: () => _showComingSoon(context, 'Mes colis'),
+            onMyParcels: () => _openMyParcels(context),
           ),
         ],
       ),
@@ -176,7 +176,21 @@ class ParcelMenuContent extends StatelessWidget {
   void _openPendingParcels(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => const ColisAttentePage(initialTabIndex: 1),
+        builder: (_) => const ColisAttentePage(
+          initialTabIndex: 1,
+          filterClientParcels: true,
+        ),
+      ),
+    );
+  }
+
+  void _openMyParcels(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const ColisAttentePage(
+          initialTabIndex: 0,
+          filterClientParcels: true,
+        ),
       ),
     );
   }

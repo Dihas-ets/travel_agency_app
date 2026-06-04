@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:code_initial/data/local/session_store.dart';
 import 'package:code_initial/presentation/pages/parcel/billet_page.dart';
 import 'package:code_initial/presentation/pages/parcel/parcel_store.dart';
 
@@ -12,11 +13,13 @@ const Color _mutedText = Color(0xFF6F7890);
 class ColisAttentePage extends StatefulWidget {
   final int initialTabIndex;
   final bool showHeader;
+  final bool filterClientParcels;
 
   const ColisAttentePage({
     super.key,
     this.initialTabIndex = 1,
     this.showHeader = true,
+    this.filterClientParcels = false,
   });
 
   @override
@@ -72,10 +75,20 @@ class _ColisAttentePageState extends State<ColisAttentePage> {
     );
   }
 
+  List<ParcelRecord> _visibleParcels(List<ParcelRecord> parcels) {
+    if (!widget.filterClientParcels || !SessionStore.hasClientPhone) {
+      return parcels;
+    }
+
+    return parcels
+        .where((parcel) => parcel.senderPhone == SessionStore.currentClientPhone)
+        .toList();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final pending = ParcelStore.pendingParcels;
-    final registered = ParcelStore.registeredParcels;
+    final pending = _visibleParcels(ParcelStore.pendingParcels);
+    final registered = _visibleParcels(ParcelStore.registeredParcels);
     final currentList = _selectedIndex == 0 ? registered : pending;
 
     return Scaffold(

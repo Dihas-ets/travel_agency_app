@@ -6,6 +6,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:code_initial/data/local/session_store.dart';
 import 'package:code_initial/presentation/pages/parcel/colis_attente_page.dart';
 import 'package:code_initial/presentation/pages/parcel/parcel_store.dart';
 
@@ -49,6 +50,7 @@ class BilletPage extends StatelessWidget {
       recipientPhone: recipientPhone,
       parcelNature: parcelNature,
       parcelCount: parcelCount,
+      senderPhone: SessionStore.currentClientPhone ?? 'Inconnu',
       attachmentPath: attachmentPath,
       attachmentName: attachmentName,
       deliveryFee: deliveryFee,

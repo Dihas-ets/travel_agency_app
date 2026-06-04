@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:code_initial/data/local/session_store.dart';
 import 'package:code_initial/navigation.dart';
 
 /// Page de vérification du code reçu par téléphone.
@@ -58,6 +59,13 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
         ),
       );
       return;
+    }
+
+    final arguments = Get.arguments as Map<String, dynamic>?;
+    final phone = arguments?['phone']?.toString() ?? '';
+    final flow = arguments?['flow']?.toString() ?? '';
+    if (phone.isNotEmpty && (flow == 'login' || flow == 'register')) {
+      SessionStore.setCurrentClientPhone(phone);
     }
 
     Get.offAllNamed(Routes.HOME);

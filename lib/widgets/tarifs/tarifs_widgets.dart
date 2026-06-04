@@ -31,7 +31,7 @@ class CityField extends StatelessWidget {
   final String hint; // Ex: "Ville de départ"
 
   final bool
-  isFirst; // Indique si c'est le premier champ (non utilisé visuellement ici)
+  isFirst; // Indique si c'est le premier champ (utilisé pour ajuster les marges)
 
   final VoidCallback onTap; // Ouvre la liste des villes
 

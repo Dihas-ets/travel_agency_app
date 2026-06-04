@@ -9,6 +9,7 @@ class ParcelRecord {
   final String recipientPhone;
   final String parcelNature;
   final int parcelCount;
+  final String senderPhone;
   final String? attachmentPath;
   final String? attachmentName;
   final String? deliveryFee;
@@ -24,6 +25,7 @@ class ParcelRecord {
     required this.recipientPhone,
     required this.parcelNature,
     required this.parcelCount,
+    required this.senderPhone,
     this.attachmentPath,
     this.attachmentName,
     this.deliveryFee,
@@ -38,6 +40,7 @@ class ParcelRecord {
     String? status,
     DateTime? createdAt,
     String? deliveryFee,
+    String? senderPhone,
   }) {
     return ParcelRecord(
       code: code,
@@ -48,6 +51,7 @@ class ParcelRecord {
       recipientPhone: recipientPhone,
       parcelNature: parcelNature,
       parcelCount: parcelCount,
+      senderPhone: senderPhone ?? this.senderPhone,
       attachmentPath: attachmentPath,
       attachmentName: attachmentName,
       deliveryFee: deliveryFee ?? this.deliveryFee,
@@ -96,9 +100,28 @@ class ParcelStore {
     _refreshNotificationCount();
   }
 
-  static void clearNotifications() {
-    _unreadNotificationCodes.clear();
+  static void clearNotifications({String? senderPhone}) {
+    if (senderPhone == null) {
+      _unreadNotificationCodes.clear();
+    } else {
+      _unreadNotificationCodes.removeWhere(
+        (code) => notifications.any(
+          (item) => item.code == code && item.senderPhone == senderPhone,
+        ),
+      );
+    }
     _refreshNotificationCount();
+  }
+
+  static int unreadNotificationsCount({String? senderPhone}) {
+    if (senderPhone == null) {
+      return _unreadNotificationCodes.length;
+    }
+
+    return notifications.where(
+      (item) => item.senderPhone == senderPhone &&
+          _unreadNotificationCodes.contains(item.code),
+    ).length;
   }
 
   static void markNotificationRead(String code) {

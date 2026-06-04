@@ -75,6 +75,7 @@ class User {
       'id': id,
       'fullName': fullName,
       'email': email,
+      'adress': adress,
       'phoneNumber': phoneNumber,
       'churchName': churchName,
       'countryCode': countryCode,
