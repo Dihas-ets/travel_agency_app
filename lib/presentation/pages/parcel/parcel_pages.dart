@@ -306,7 +306,7 @@ class _SendParcelPageState extends State<SendParcelPage>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 1, vsync: this);
   }
 
   @override
@@ -602,51 +602,11 @@ class _SendParcelPageState extends State<SendParcelPage>
                 onStepBack: () => setState(() => _currentStep = 1),
               ),
             ),
-            if (widget.showModeTabs)
-              Container(
-                color: _pageBackground,
-                child: TabBar(
-                  controller: _tabController,
-                  onTap: (index) => setState(() {}),
-                  tabs: const [
-                    Tab(
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.shopping_bag_rounded, size: 20),
-                          SizedBox(width: 8),
-                          Text('Embarquement'),
-                        ],
-                      ),
-                    ),
-                    Tab(
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.check_circle_rounded, size: 20),
-                          SizedBox(width: 8),
-                          Text('Enregistrement'),
-                        ],
-                      ),
-                    ),
-                  ],
-                  labelColor: _fofanaGreen,
-                  unselectedLabelColor: _deepBlue.withValues(alpha: 0.6),
-                  indicator: const BoxDecoration(
-                    border: Border(
-                      bottom: BorderSide(color: _fofanaGreen, width: 3),
-                    ),
-                  ),
-                ),
-              ),
             Expanded(
               child: widget.showModeTabs
                   ? TabBarView(
                       controller: _tabController,
-                      children: [
-                        _buildEmbarquementTab(bottomInset),
-                        _buildEnregistrementTab(),
-                      ],
+                      children: [_buildEmbarquementTab(bottomInset)],
                     )
                   : _buildEmbarquementTab(bottomInset),
             ),
@@ -707,15 +667,13 @@ class _SendParcelPageState extends State<SendParcelPage>
     );
   }
 
-  Widget _buildEnregistrementTab() {
-    return const ColisAttentePage(initialTabIndex: 0);
-  }
-
   void _showInitiationsMessage(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Accédez à vos initiations en attente'),
-        backgroundColor: _deepBlue,
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const ColisAttentePage(
+          initialTabIndex: 1,
+          filterClientParcels: true,
+        ),
       ),
     );
   }

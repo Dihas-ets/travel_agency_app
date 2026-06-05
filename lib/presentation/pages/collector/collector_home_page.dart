@@ -41,7 +41,6 @@ class _CollectorHomePageState extends State<CollectorHomePage> {
   @override
   Widget build(BuildContext context) {
     final currentTab = _tabs[_currentIndex];
-    const navigationRed = Color(0xFFE53935);
     const navigationGreen = Color(0xFF16A34A);
 
     return Scaffold(
@@ -138,7 +137,7 @@ class _CollectorHomePageState extends State<CollectorHomePage> {
                       borderRadius: BorderRadius.circular(20),
                       border: isActive
                           ? Border.all(
-                              color: navigationRed.withValues(alpha: 0.22),
+                              color: Colors.white.withValues(alpha: 0.30),
                             )
                           : null,
                       boxShadow: isActive
@@ -157,7 +156,7 @@ class _CollectorHomePageState extends State<CollectorHomePage> {
                         Icon(
                           tab.icon,
                           color: isActive
-                              ? navigationRed
+                              ? Colors.white
                               : const Color(0xFF7B849B),
                           size: 20,
                         ),
@@ -170,7 +169,7 @@ class _CollectorHomePageState extends State<CollectorHomePage> {
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               color: isActive
-                                  ? navigationRed
+                                  ? Colors.white
                                   : const Color(0xFF7B849B),
                               fontSize: 10.8,
                               fontWeight: isActive
@@ -1367,6 +1366,7 @@ class _CollectorNotificationIconButtonState
             _CollectorHeaderIconButton(
               icon: Icons.notifications_none_rounded,
               onTap: () {
+                _CollectorNotificationStore.clear();
                 showModalBottomSheet(
                   context: context,
                   backgroundColor: Colors.transparent,
@@ -1410,7 +1410,6 @@ class _CollectorNotificationsSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    _CollectorNotificationStore.clear();
     final notifications = _CollectorNotificationStore.notifications;
 
     return DraggableScrollableSheet(
@@ -1692,10 +1691,25 @@ class _CollectorMainMenuSheet extends StatefulWidget {
       _CollectorMainMenuSheetState();
 }
 
+enum _CollectorMainMenuTarget { profile, assignments, parcels, terms, logout }
+
 class _CollectorMainMenuSheetState extends State<_CollectorMainMenuSheet> {
   bool _showProfile = false;
+  _CollectorMainMenuTarget? _selectedMenu;
+
+  void _selectMenu(_CollectorMainMenuTarget target) {
+    setState(() => _selectedMenu = target);
+  }
+
+  void _openProfile() {
+    setState(() {
+      _selectedMenu = _CollectorMainMenuTarget.profile;
+      _showProfile = true;
+    });
+  }
 
   void _openAssignments() {
+    _selectMenu(_CollectorMainMenuTarget.assignments);
     final navigator = Navigator.of(context);
     navigator.pop();
     navigator.push(
@@ -1703,7 +1717,19 @@ class _CollectorMainMenuSheetState extends State<_CollectorMainMenuSheet> {
     );
   }
 
+  void _openParcels() {
+    _selectMenu(_CollectorMainMenuTarget.parcels);
+    final navigator = Navigator.of(context);
+    navigator.pop();
+    navigator.push(
+      MaterialPageRoute(
+        builder: (_) => const ColisAttentePage(initialTabIndex: 1),
+      ),
+    );
+  }
+
   void _showTerms() {
+    _selectMenu(_CollectorMainMenuTarget.terms);
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -1712,6 +1738,7 @@ class _CollectorMainMenuSheetState extends State<_CollectorMainMenuSheet> {
   }
 
   void _logout() {
+    _selectMenu(_CollectorMainMenuTarget.logout);
     Navigator.of(context).pushNamedAndRemoveUntil('/welcomepage', (_) => false);
   }
 
@@ -1738,9 +1765,11 @@ class _CollectorMainMenuSheetState extends State<_CollectorMainMenuSheet> {
                 : _CollectorMainMenuView(
                     key: const ValueKey('collector-menu'),
                     scrollController: scrollController,
+                    selectedMenu: _selectedMenu,
                     onClose: () => Navigator.pop(context),
-                    onProfileTap: () => setState(() => _showProfile = true),
+                    onProfileTap: _openProfile,
                     onAssignmentsTap: _openAssignments,
+                    onParcelsTap: _openParcels,
                     onTermsTap: _showTerms,
                     onLogoutTap: _logout,
                   ),
@@ -1753,18 +1782,22 @@ class _CollectorMainMenuSheetState extends State<_CollectorMainMenuSheet> {
 
 class _CollectorMainMenuView extends StatelessWidget {
   final ScrollController scrollController;
+  final _CollectorMainMenuTarget? selectedMenu;
   final VoidCallback onClose;
   final VoidCallback onProfileTap;
   final VoidCallback onAssignmentsTap;
+  final VoidCallback onParcelsTap;
   final VoidCallback onTermsTap;
   final VoidCallback onLogoutTap;
 
   const _CollectorMainMenuView({
     super.key,
     required this.scrollController,
+    required this.selectedMenu,
     required this.onClose,
     required this.onProfileTap,
     required this.onAssignmentsTap,
+    required this.onParcelsTap,
     required this.onTermsTap,
     required this.onLogoutTap,
   });
@@ -1824,36 +1857,33 @@ class _CollectorMainMenuView extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           _CollectorMenuOptionTile(
-            icon: Icons.assignment_turned_in_rounded,
-            title: 'Mes affectations',
-            onTap: onAssignmentsTap,
-          ),
-          _CollectorMenuOptionTile(
             icon: Icons.account_circle_outlined,
             title: 'Profil',
-            isSelected: true,
+            isSelected: selectedMenu == _CollectorMainMenuTarget.profile,
             onTap: onProfileTap,
+          ),
+          _CollectorMenuOptionTile(
+            icon: Icons.assignment_turned_in_rounded,
+            title: 'Mes affectations',
+            isSelected: selectedMenu == _CollectorMainMenuTarget.assignments,
+            onTap: onAssignmentsTap,
           ),
           _CollectorMenuOptionTile(
             icon: Icons.inventory_2_rounded,
             title: 'Mes colis enregistrés',
-            onTap: () {
-              Navigator.of(context).pop();
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const ColisAttentePage(initialTabIndex: 1),
-                ),
-              );
-            },
+            isSelected: selectedMenu == _CollectorMainMenuTarget.parcels,
+            onTap: onParcelsTap,
           ),
           _CollectorMenuOptionTile(
             icon: Icons.description_outlined,
             title: "Conditions d'utilisation",
+            isSelected: selectedMenu == _CollectorMainMenuTarget.terms,
             onTap: onTermsTap,
           ),
           _CollectorMenuOptionTile(
             icon: Icons.logout_rounded,
             title: 'Déconnexion',
+            isSelected: selectedMenu == _CollectorMainMenuTarget.logout,
             onTap: onLogoutTap,
           ),
           const SizedBox(height: 18),
@@ -2923,8 +2953,7 @@ class _CollectorAssignmentsPageState extends State<_CollectorAssignmentsPage> {
                             ),
                           ),
                         ]
-                      : _records
-                        .map((item) {
+                      : _records.map((item) {
                           if (_filter == _CollectorAssignmentFilter.current) {
                             return Container(
                               margin: const EdgeInsets.only(bottom: 16),
@@ -3004,22 +3033,23 @@ class _CollectorAssignmentsPageState extends State<_CollectorAssignmentsPage> {
                                   ),
                                   const SizedBox(height: 8),
                                   Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: item.collectors.map(
-                                      (collector) {
-                                        return Padding(
-                                          padding: const EdgeInsets.only(bottom: 6),
-                                          child: Text(
-                                            '${collector.name} • ${collector.phone}',
-                                            style: const TextStyle(
-                                              color: Color(0xFF4B5563),
-                                              fontSize: 13.5,
-                                              fontWeight: FontWeight.w700,
-                                            ),
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: item.collectors.map((collector) {
+                                      return Padding(
+                                        padding: const EdgeInsets.only(
+                                          bottom: 6,
+                                        ),
+                                        child: Text(
+                                          '${collector.name} • ${collector.phone}',
+                                          style: const TextStyle(
+                                            color: Color(0xFF4B5563),
+                                            fontSize: 13.5,
+                                            fontWeight: FontWeight.w700,
                                           ),
-                                        );
-                                      },
-                                    ).toList(),
+                                        ),
+                                      );
+                                    }).toList(),
                                   ),
                                 ],
                               ),
@@ -3100,8 +3130,7 @@ class _CollectorAssignmentsPageState extends State<_CollectorAssignmentsPage> {
                               ),
                             ),
                           );
-                        })
-                            .toList()),
+                        }).toList()),
                   if (_filter == _CollectorAssignmentFilter.past) ...[
                     const SizedBox(height: 12),
                     Wrap(
@@ -3741,26 +3770,91 @@ class _CollectorConnectionPage extends StatefulWidget {
 class _CollectorConnectionPageState extends State<_CollectorConnectionPage> {
   static const Color _deepBlue = Color(0xFF0B4F2A);
   static const Color _fofanaGreen = Color(0xFF16A34A);
+  static const int _initialSessionSeconds = 2 * 60 * 60;
+  static const int _initialResendSeconds = 120;
 
   final List<TextEditingController> _otpControllers = List.generate(
     6,
     (_) => TextEditingController(),
   );
-  final TextEditingController _requestController = TextEditingController(
-    text:
-        "Bonjour direction Fofana, merci de m'envoyer un code d'activation pour connecter mon voyage.",
-  );
-  bool _requestCode = false;
+  Timer? _sessionTimer;
+  Timer? _resendTimer;
+  int _sessionRemaining = _initialSessionSeconds;
+  int _resendRemaining = _initialResendSeconds;
+  bool _isSessionActive = true;
+  bool _showOtpRequest = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _startSessionTimer();
+  }
 
   @override
   void dispose() {
+    _sessionTimer?.cancel();
+    _resendTimer?.cancel();
     for (final controller in _otpControllers) {
       controller.dispose();
     }
-    _requestController.dispose();
     super.dispose();
   }
 
+  String _formatDuration(int totalSeconds) {
+    final hours = totalSeconds ~/ 3600;
+    final minutes = (totalSeconds % 3600) ~/ 60;
+    final seconds = totalSeconds % 60;
+    return '${hours.toString().padLeft(2, '0')}:'
+        '${minutes.toString().padLeft(2, '0')}:'
+        '${seconds.toString().padLeft(2, '0')}';
+  }
+
+  // Chrono principal de la session percepteur : quand il atteint zéro,
+  // l'interface bascule automatiquement l'état de session en "Fermée".
+  void _startSessionTimer() {
+    _sessionTimer?.cancel();
+    _sessionTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted || !_isSessionActive) return;
+      if (_sessionRemaining <= 1) {
+        setState(() {
+          _sessionRemaining = 0;
+          _isSessionActive = false;
+        });
+        _sessionTimer?.cancel();
+        return;
+      }
+      setState(() => _sessionRemaining--);
+    });
+  }
+
+  // Chrono affiché après une demande d'ouverture : il indique au percepteur
+  // quand il pourra demander ou recevoir un nouveau code OTP.
+  void _startResendTimer() {
+    _resendTimer?.cancel();
+    setState(() => _resendRemaining = _initialResendSeconds);
+    _resendTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      if (_resendRemaining <= 1) {
+        setState(() => _resendRemaining = 0);
+        _resendTimer?.cancel();
+        return;
+      }
+      setState(() => _resendRemaining--);
+    });
+  }
+
+  // La demande révèle les six champs OTP et démarre le compte à rebours de
+  // renvoi sans activer immédiatement la session.
+  void _requestSessionOpening() {
+    setState(() => _showOtpRequest = true);
+    _startResendTimer();
+    _CollectorNotificationStore.add(
+      title: 'Ouverture session',
+      message: "Demande d'ouverture de session envoyée.",
+    );
+  }
+
+  // L'activation exige les six chiffres, puis relance une session complète.
   void _activate() {
     final code = _otpControllers.map((item) => item.text.trim()).join();
     if (code.length < 6) {
@@ -3772,27 +3866,18 @@ class _CollectorConnectionPageState extends State<_CollectorConnectionPage> {
       return;
     }
 
-    _CollectorNotificationStore.add();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Voyage activé avec succès.'),
-        backgroundColor: _deepBlue,
-      ),
+    setState(() {
+      _isSessionActive = true;
+      _sessionRemaining = _initialSessionSeconds;
+    });
+    _startSessionTimer();
+    _CollectorNotificationStore.add(
+      title: 'Session activée',
+      message: 'Votre session percepteur est active.',
     );
-  }
-
-  void _submitCodeRequest() {
-    if (_requestController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Veuillez saisir le message de demande.')),
-      );
-      return;
-    }
-
-    _CollectorNotificationStore.add();
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Demande de code envoyée.'),
+        content: Text('Session activée avec succès.'),
         backgroundColor: _deepBlue,
       ),
     );
@@ -3840,6 +3925,11 @@ class _CollectorConnectionPageState extends State<_CollectorConnectionPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    _CollectorSessionCard(
+                      isActive: _isSessionActive,
+                      remainingLabel: _formatDuration(_sessionRemaining),
+                    ),
+                    const SizedBox(height: 18),
                     Container(
                       padding: const EdgeInsets.all(18),
                       decoration: BoxDecoration(
@@ -3859,142 +3949,102 @@ class _CollectorConnectionPageState extends State<_CollectorConnectionPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          const Text(
-                            "Code d'activation",
-                            style: TextStyle(
-                              color: _deepBlue,
-                              fontSize: 17,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                          const SizedBox(height: 14),
-                          Row(
-                            children: List.generate(
-                              _otpControllers.length,
-                              (index) => Expanded(
-                                child: Padding(
-                                  padding: EdgeInsets.only(
-                                    right: index == _otpControllers.length - 1
-                                        ? 0
-                                        : 8,
-                                  ),
-                                  child: _CollectorOtpBox(
-                                    controller: _otpControllers[index],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 18),
                           SizedBox(
                             height: 54,
-                            child: ElevatedButton(
-                              onPressed: _activate,
+                            child: ElevatedButton.icon(
+                              onPressed: _requestSessionOpening,
+                              icon: const Icon(Icons.lock_open_rounded),
+                              label: const Text(
+                                "Demande ouverture de session",
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: _fofanaGreen,
+                                backgroundColor: _deepBlue,
                                 foregroundColor: Colors.white,
                                 elevation: 0,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(16),
                                 ),
-                              ),
-                              child: const Text(
-                                'Activer',
-                                style: TextStyle(
-                                  fontSize: 16,
+                                textStyle: const TextStyle(
+                                  fontSize: 15.5,
                                   fontWeight: FontWeight.w900,
                                 ),
                               ),
                             ),
                           ),
-                          const SizedBox(height: 16),
-                          InkWell(
-                            onTap: () =>
-                                setState(() => _requestCode = !_requestCode),
-                            borderRadius: BorderRadius.circular(18),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 12,
+                          if (_showOtpRequest) ...[
+                            const SizedBox(height: 20),
+                            const Text(
+                              "Code d'activation",
+                              style: TextStyle(
+                                color: _deepBlue,
+                                fontSize: 17,
+                                fontWeight: FontWeight.w900,
                               ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF8FBFF),
-                                borderRadius: BorderRadius.circular(18),
-                                border: Border.all(
-                                  color: _deepBlue.withValues(alpha: 0.10),
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Checkbox(
-                                    value: _requestCode,
-                                    activeColor: _fofanaGreen,
-                                    onChanged: (value) => setState(
-                                      () => _requestCode = value ?? false,
+                            ),
+                            const SizedBox(height: 14),
+                            Row(
+                              children: List.generate(
+                                _otpControllers.length,
+                                (index) => [
+                                  if (index == 3)
+                                    const Padding(
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                      ),
+                                      child: Text(
+                                        '-',
+                                        style: TextStyle(
+                                          color: _deepBlue,
+                                          fontSize: 22,
+                                          fontWeight: FontWeight.w900,
+                                        ),
+                                      ),
                                     ),
-                                  ),
-                                  const Expanded(
-                                    child: Text(
-                                      'Faire une demande de code',
-                                      style: TextStyle(
-                                        color: _deepBlue,
-                                        fontSize: 14.5,
-                                        fontWeight: FontWeight.w900,
+                                  Expanded(
+                                    child: Padding(
+                                      padding: EdgeInsets.only(
+                                        right:
+                                            index == _otpControllers.length - 1
+                                            ? 0
+                                            : 6,
+                                      ),
+                                      child: _CollectorOtpBox(
+                                        controller: _otpControllers[index],
                                       ),
                                     ),
                                   ),
                                 ],
-                              ),
+                              ).expand((items) => items).toList(),
                             ),
-                          ),
-                          if (_requestCode) ...[
-                            const SizedBox(height: 14),
-                            TextField(
-                              controller: _requestController,
-                              minLines: 3,
-                              maxLines: 5,
+                            const SizedBox(height: 16),
+                            Text(
+                              'Renvoyez le code dans $_resendRemaining s',
+                              textAlign: TextAlign.center,
                               style: const TextStyle(
-                                color: _deepBlue,
+                                color: Color(0xFF5F6B86),
+                                fontSize: 13.5,
                                 fontWeight: FontWeight.w800,
                               ),
-                              decoration: InputDecoration(
-                                filled: true,
-                                fillColor: const Color(0xFFF8FBFF),
-                                prefixIcon: const Icon(
-                                  Icons.mark_email_read_rounded,
-                                  color: _deepBlue,
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(18),
-                                  borderSide: BorderSide(
-                                    color: _deepBlue.withValues(alpha: 0.10),
-                                  ),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(18),
-                                  borderSide: const BorderSide(
-                                    color: _fofanaGreen,
-                                    width: 1.5,
-                                  ),
-                                ),
-                              ),
                             ),
-                            const SizedBox(height: 14),
+                            const SizedBox(height: 16),
                             SizedBox(
-                              height: 52,
-                              child: OutlinedButton.icon(
-                                onPressed: _submitCodeRequest,
-                                icon: const Icon(Icons.send_rounded),
-                                label: const Text('Soumettre'),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: _deepBlue,
-                                  side: BorderSide(
-                                    color: _deepBlue.withValues(alpha: 0.2),
-                                  ),
+                              height: 54,
+                              child: ElevatedButton(
+                                onPressed: _activate,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: _fofanaGreen,
+                                  foregroundColor: Colors.white,
+                                  elevation: 0,
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(16),
                                   ),
-                                  textStyle: const TextStyle(
+                                ),
+                                child: const Text(
+                                  'Activer',
+                                  style: TextStyle(
+                                    fontSize: 16,
                                     fontWeight: FontWeight.w900,
                                   ),
                                 ),
@@ -4015,6 +4065,105 @@ class _CollectorConnectionPageState extends State<_CollectorConnectionPage> {
   }
 }
 
+class _CollectorSessionCard extends StatelessWidget {
+  final bool isActive;
+  final String remainingLabel;
+
+  const _CollectorSessionCard({
+    required this.isActive,
+    required this.remainingLabel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const deepBlue = Color(0xFF0B4F2A);
+    const red = Color(0xFFE53935);
+    final statusColor = isActive ? red : deepBlue;
+    final statusLabel = isActive ? 'Active' : 'Fermée';
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: deepBlue.withValues(alpha: 0.08)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Icon(Icons.account_circle_rounded, color: statusColor),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Ma session',
+                  style: TextStyle(
+                    color: deepBlue,
+                    fontSize: 19,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 7,
+                ),
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(99),
+                ),
+                child: Text(
+                  statusLabel,
+                  style: TextStyle(
+                    color: statusColor,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          const Text(
+            'Fermeture dans',
+            style: TextStyle(
+              color: Color(0xFF5F6B86),
+              fontSize: 13.5,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            remainingLabel,
+            style: TextStyle(
+              color: isActive ? deepBlue : red,
+              fontSize: 34,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _CollectorOtpBox extends StatelessWidget {
   final TextEditingController controller;
 
@@ -4027,6 +4176,7 @@ class _CollectorOtpBox extends StatelessWidget {
       textAlign: TextAlign.center,
       maxLength: 1,
       keyboardType: TextInputType.number,
+      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
       style: const TextStyle(
         color: Color(0xFF0B4F2A),
         fontSize: 20,

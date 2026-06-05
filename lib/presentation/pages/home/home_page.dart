@@ -158,7 +158,6 @@ class _HomePageState extends State<HomePage> {
     final isVoyageTab = _currentIndex == 1;
     final isParcelTab = _currentIndex == 2;
     final isProfileTab = _currentIndex == 3;
-    const navigationRed = Color(0xFFE53935);
     const navigationGreen = Color(0xFF16A34A);
 
     return Scaffold(
@@ -292,7 +291,7 @@ class _HomePageState extends State<HomePage> {
                       borderRadius: BorderRadius.circular(20),
                       border: isActive
                           ? Border.all(
-                              color: navigationRed.withValues(alpha: 0.22),
+                              color: Colors.white.withValues(alpha: 0.30),
                             )
                           : null,
                       boxShadow: isActive
@@ -311,7 +310,7 @@ class _HomePageState extends State<HomePage> {
                         Icon(
                           tab.icon,
                           color: isActive
-                              ? navigationRed
+                              ? Colors.white
                               : const Color(0xFF7B849B),
                           size: 20,
                         ),
@@ -324,7 +323,7 @@ class _HomePageState extends State<HomePage> {
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               color: isActive
-                                  ? navigationRed
+                                  ? Colors.white
                                   : const Color(0xFF7B849B),
                               fontSize: 10.8,
                               fontWeight: isActive
