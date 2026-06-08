@@ -11,6 +11,9 @@ import 'package:printing/printing.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:code_initial/presentation/pages/parcel/colis_attente_page.dart';
 import 'package:code_initial/presentation/pages/parcel/parcel_pages.dart';
+import 'package:code_initial/models/expense_model.dart';
+import 'package:code_initial/presentation/pages/expense/expense_store.dart';
+import 'package:code_initial/presentation/pages/expense/qr_scanner_page.dart';
 
 class CollectorHomePage extends StatefulWidget {
   const CollectorHomePage({super.key});
@@ -1251,6 +1254,9 @@ class _CollectorTabContent extends StatelessWidget {
     if (tab.title == 'Colis') {
       return const _CollectorColisContent();
     }
+    if (tab.title == 'Depense') {
+      return const _CollectorDepenseContent();
+    }
     if (tab.title == 'Profil') {
       return const _CollectorProfileTabContent();
     }
@@ -1312,6 +1318,465 @@ class _CollectorTabContent extends StatelessWidget {
       default:
         return 'Informations et paramètres du compte percepteur.';
     }
+  }
+}
+
+class _CollectorDepenseContent extends StatefulWidget {
+  const _CollectorDepenseContent();
+
+  @override
+  State<_CollectorDepenseContent> createState() => _CollectorDepenseContentState();
+}
+
+class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  final expenseStore = ExpenseStore();
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.68),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.86),
+          width: 1.1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                Text(
+                  'Dépenses de service',
+                  style: TextStyle(
+                    color: Color(0xFF0B4F2A),
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'Gérez vos frais de percepteur et consultez l\'historique.',
+                  style: TextStyle(
+                    color: Color(0xFF5F6B86),
+                    fontSize: 14.5,
+                    height: 1.45,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // TabBar
+          TabBar(
+            controller: _tabController,
+            labelColor: const Color(0xFF16A34A),
+            unselectedLabelColor: const Color(0xFF9AA4BA),
+            indicatorColor: const Color(0xFF16A34A),
+            indicatorWeight: 3,
+            tabs: const [
+              Tab(
+                child: Text(
+                  'En cours',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ),
+              Tab(
+                child: Text(
+                  'Historique',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ),
+            ],
+          ),
+          // TabBarView
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _buildOngoingTab(),
+                _buildHistoricalTab(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Onglet "En cours"
+  Widget _buildOngoingTab() {
+    return Stack(
+      children: [
+        ValueListenableBuilder<List<ExpenseModel>>(
+          valueListenable: expenseStore.expensesNotifier,
+          builder: (context, expenses, _) {
+            final ongoingExpenses =
+                expenses.where((e) => e.status == "En cours").toList();
+
+            if (ongoingExpenses.isEmpty) {
+              return Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Icon(
+                      Icons.payments_rounded,
+                      color: Color(0xFF16A34A),
+                      size: 52,
+                    ),
+                    SizedBox(height: 14),
+                    Text(
+                      'Aucune dépense en cours',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Color(0xFF0B4F2A),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'Cliquez sur + pour en ajouter une.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Color(0xFF5F6B86),
+                        fontSize: 14,
+                        height: 1.4,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            return ListView.separated(
+              padding: const EdgeInsets.all(16),
+              itemCount: ongoingExpenses.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              itemBuilder: (context, index) {
+                final expense = ongoingExpenses[index];
+                return _buildExpenseCard(expense);
+              },
+            );
+          },
+        ),
+        // Floating Action Button
+        Positioned(
+          bottom: 20,
+          right: 20,
+          child: FloatingActionButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const QRScannerPage(),
+                ),
+              );
+            },
+            backgroundColor: const Color(0xFF16A34A),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Icon(Icons.add, size: 28),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Onglet "Historique"
+  Widget _buildHistoricalTab() {
+    return ValueListenableBuilder<List<ExpenseModel>>(
+      valueListenable: expenseStore.expensesNotifier,
+      builder: (context, expenses, _) {
+        final historicalExpenses =
+            expenses.where((e) => e.status != "En cours").toList();
+
+        if (historicalExpenses.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                Icon(
+                  Icons.history_rounded,
+                  color: Color(0xFF16A34A),
+                  size: 52,
+                ),
+                SizedBox(height: 14),
+                Text(
+                  'Aucun historique',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Color(0xFF0B4F2A),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'Les dépenses validées apparaîtront ici.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Color(0xFF5F6B86),
+                    fontSize: 14,
+                    height: 1.4,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return ListView.separated(
+          padding: const EdgeInsets.all(16),
+          itemCount: historicalExpenses.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 12),
+          itemBuilder: (context, index) {
+            final expense = historicalExpenses[index];
+            return _buildExpenseCard(expense);
+          },
+        );
+      },
+    );
+  }
+
+  // Carte de dépense
+  Widget _buildExpenseCard(ExpenseModel expense) {
+    final totalAmount = expense.cost * expense.quantity;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFF0B4F2A).withValues(alpha: 0.08),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Libellé et montant total
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      expense.libelle,
+                      style: const TextStyle(
+                        color: Color(0xFF0B4F2A),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    if (expense.description.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        expense.description,
+                        style: const TextStyle(
+                          color: Color(0xFF5F6B86),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              Text(
+                '${totalAmount.toStringAsFixed(0)} FCFA',
+                style: const TextStyle(
+                  color: Color(0xFF16A34A),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Détails: coût, quantité
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF16A34A).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        '${expense.cost.toStringAsFixed(0)} FCFA',
+                        style: const TextStyle(
+                          color: Color(0xFF16A34A),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const Text(
+                        'par unité',
+                        style: TextStyle(
+                          color: Color(0xFF5F6B86),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFF9500).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        '${expense.quantity}',
+                        style: const TextStyle(
+                          color: Color(0xFFFF9500),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const Text(
+                        'quantité',
+                        style: TextStyle(
+                          color: Color(0xFF5F6B86),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (expense.note.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF9F5),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: const Color(0xFFFF9500).withValues(alpha: 0.3),
+                ),
+              ),
+              child: Text(
+                'Note: ${expense.note}',
+                style: const TextStyle(
+                  color: Color(0xFF5F6B86),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+
+          // Date et statut
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                _formatDate(expense.createdAt),
+                style: const TextStyle(
+                  color: Color(0xFF9AA4BA),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
+                decoration: BoxDecoration(
+                  color: _getStatusColor(expense.status).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  expense.status,
+                  style: TextStyle(
+                    color: _getStatusColor(expense.status),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status) {
+      case "En cours":
+        return const Color(0xFFFF9500);
+      case "Validé":
+        return const Color(0xFF16A34A);
+      case "Rejeté":
+        return const Color(0xFFEF4444);
+      default:
+        return const Color(0xFF5F6B86);
+    }
+  }
+
+  String _formatDate(DateTime date) {
+    final day = date.day.toString().padLeft(2, '0');
+    final month = date.month.toString().padLeft(2, '0');
+    final year = date.year.toString();
+    final hours = date.hour.toString().padLeft(2, '0');
+    final minutes = date.minute.toString().padLeft(2, '0');
+    return '$day/$month/$year $hours:$minutes';
   }
 }
 
