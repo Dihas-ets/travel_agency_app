@@ -124,13 +124,13 @@ flutter:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/images/logo_fofana_no_background.png"
+  image_path: "assets/images/logo_fofana.png"
   remove_alpha_ios: true
 
 
 flutter_native_splash:
   color: "#ffffff"
-  image: assets/images/logo_fofana_no_background.png
+  image: assets/images/logo_fofana.png
 
   android: true
   ios: true

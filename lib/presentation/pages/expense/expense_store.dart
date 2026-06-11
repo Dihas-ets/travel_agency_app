@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:code_initial/models/expense_model.dart';
 
+/// Singleton en mémoire pour stocker et notifier les changements
+/// des dépenses du percepteur.
 class ExpenseStore {
   static final ExpenseStore _instance = ExpenseStore._internal();
 
@@ -14,14 +16,14 @@ class ExpenseStore {
   final ValueNotifier<List<ExpenseModel>> expensesNotifier = ValueNotifier([]);
   final ValueNotifier<int> expenseCountNotifier = ValueNotifier(0);
 
-  // Get all expenses
+  /// Retourne l'ensemble des dépenses en mémoire.
   List<ExpenseModel> get allExpenses => _expenses;
 
-  // Get ongoing expenses (En cours)
+  /// Liste des dépenses en cours de traitement.
   List<ExpenseModel> get ongoingExpenses =>
       _expenses.where((e) => e.status == "En cours").toList();
 
-  // Get historical expenses (not ongoing)
+  /// Liste des dépenses déjà traitées (validées ou rejetées).
   List<ExpenseModel> get historicalExpenses =>
       _expenses.where((e) => e.status != "En cours").toList();
 
@@ -52,7 +54,9 @@ class ExpenseStore {
     _updateNotifiers();
   }
 
-  // Update expense status
+  /// Met à jour le statut d'une dépense existante.
+  ///
+  /// Exemple de statut : "En cours", "Validé", "Rejeté".
   void updateExpenseStatus(String id, String newStatus) {
     final index = _expenses.indexWhere((e) => e.id == id);
     if (index != -1) {
