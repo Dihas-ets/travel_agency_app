@@ -1352,53 +1352,131 @@ class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF0B4F2A).withValues(alpha: 0.08),
-            blurRadius: 24,
-            offset: const Offset(0, 10),
+    return ValueListenableBuilder<int>(
+      valueListenable: _CollectorReservationStore.version,
+      builder: (context, _, __) {
+        return Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF0B4F2A).withValues(alpha: 0.08),
+                blurRadius: 24,
+                offset: const Offset(0, 10),
+              ),
+            ],
           ),
-        ],
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ValueListenableBuilder<List<ExpenseModel>>(
+                valueListenable: expenseStore.expensesNotifier,
+                builder: (context, expenses, _) => Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildExpenseMenu(expenses),
+                    const SizedBox(height: 8),
+                    _buildTripHeader(expenses),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: Stack(
+                  children: [
+                    TabBarView(
+                      controller: _tabController,
+                      children: [_buildOngoingTab(), _buildHistoricalTab()],
+                    ),
+                    Positioned(
+                      right: 16,
+                      bottom: 8,
+                      child: FloatingActionButton(
+                        onPressed: _showAddExpenseSheet,
+                        backgroundColor: const Color(0xFF16A34A),
+                        foregroundColor: Colors.white,
+                        elevation: 4,
+                        child: const Icon(Icons.add_rounded, size: 30),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  List<ExpenseModel> _activeReservationExpenses(List<ExpenseModel> expenses) {
+    final reservation = _latestReservation();
+    if (reservation == null) return [];
+    return expenses
+        .where(
+          (expense) => expense.reservationReference == reservation.reference,
+        )
+        .toList();
+  }
+
+  List<ExpenseModel> _historicalReservationExpenses(
+    List<ExpenseModel> expenses,
+  ) {
+    final historicalReferences = _CollectorReservationStore
+        .historicalReservations
+        .map((reservation) => reservation.reference)
+        .toSet();
+    return expenses.where((expense) {
+      final reference = expense.reservationReference;
+      return reference != null && historicalReferences.contains(reference);
+    }).toList();
+  }
+
+  void _openManualExpenseForReservation(
+    _CollectorReservationRecord reservation,
+  ) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ManualExpensePage(
+          reservationReference: reservation.reference,
+          tripRoute: _reservationRoute(reservation),
+          busMatricule: reservation.busMatricule,
+        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ValueListenableBuilder<List<ExpenseModel>>(
-            valueListenable: expenseStore.expensesNotifier,
-            builder: (context, expenses, _) => _buildExpenseMenu(expenses),
-          ),
-          Expanded(
-            child: Stack(
-              children: [
-                TabBarView(
-                  controller: _tabController,
-                  children: [_buildOngoingTab(), _buildHistoricalTab()],
-                ),
-                Positioned(
-                  right: 16,
-                  bottom: 8,
-                  child: FloatingActionButton(
-                    onPressed: _showAddExpenseSheet,
-                    backgroundColor: const Color(0xFF16A34A),
-                    foregroundColor: Colors.white,
-                    elevation: 4,
-                    child: const Icon(Icons.add_rounded, size: 30),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+    );
+  }
+
+  void _openScannerForReservation(_CollectorReservationRecord reservation) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => QRScannerPage(
+          reservationReference: reservation.reference,
+          tripRoute: _reservationRoute(reservation),
+          busMatricule: reservation.busMatricule,
+        ),
+      ),
+    );
+  }
+
+  void _showNoActiveReservationMessage() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Créez d’abord une réservation pour saisir une dépense.'),
+        backgroundColor: Color(0xFF0B4F2A),
       ),
     );
   }
 
   void _showAddExpenseSheet() {
+    final reservation = _latestReservation();
+    if (reservation == null) {
+      _showNoActiveReservationMessage();
+      return;
+    }
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -1462,12 +1540,7 @@ class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
                         child: ElevatedButton.icon(
                           onPressed: () {
                             Navigator.pop(context);
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const QRScannerPage(),
-                              ),
-                            );
+                            _openScannerForReservation(reservation);
                           },
                           icon: const Icon(Icons.qr_code_scanner_rounded),
                           label: const Text('Scanner'),
@@ -1490,13 +1563,7 @@ class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
                         child: OutlinedButton.icon(
                           onPressed: () {
                             Navigator.pop(context);
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    const ManualExpensePage(),
-                              ),
-                            );
+                            _openManualExpenseForReservation(reservation);
                           },
                           icon: const Icon(Icons.edit_note_rounded),
                           label: const Text('Saisie'),
@@ -1635,10 +1702,17 @@ class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
                     Expanded(
                       child: ElevatedButton.icon(
                         onPressed: () {
+                          final reservation = _latestReservation();
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => const QRScannerPage(),
+                              builder: (context) => QRScannerPage(
+                                reservationReference: reservation?.reference,
+                                tripRoute: reservation == null
+                                    ? null
+                                    : _reservationRoute(reservation),
+                                busMatricule: reservation?.busMatricule,
+                              ),
                             ),
                           );
                         },
@@ -1662,10 +1736,17 @@ class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
                     Expanded(
                       child: OutlinedButton.icon(
                         onPressed: () {
+                          final reservation = _latestReservation();
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => const ManualExpensePage(),
+                              builder: (context) => ManualExpensePage(
+                                reservationReference: reservation?.reference,
+                                tripRoute: reservation == null
+                                    ? null
+                                    : _reservationRoute(reservation),
+                                busMatricule: reservation?.busMatricule,
+                              ),
                             ),
                           );
                         },
@@ -1697,12 +1778,8 @@ class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
   }
 
   Widget _buildExpenseMenu(List<ExpenseModel> expenses) {
-    final ongoingExpenses = expenses
-        .where((expense) => expense.status == 'En cours')
-        .toList();
-    final historicalExpenses = expenses
-        .where((expense) => expense.status != 'En cours')
-        .toList();
+    final ongoingExpenses = _activeReservationExpenses(expenses);
+    final historicalExpenses = _historicalReservationExpenses(expenses);
     final ongoingTotal = ongoingExpenses.fold<double>(
       0,
       (sum, expense) => sum + (expense.cost * expense.quantity),
@@ -1730,6 +1807,71 @@ class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
             title: 'Historique',
             detail: '${historyTotal.toStringAsFixed(0)} FCFA',
             onTap: () => _tabController.animateTo(1),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTripHeader(List<ExpenseModel> expenses) {
+    final isOngoing = _tabController.index == 0;
+    final reservation = isOngoing
+        ? _CollectorReservationStore.activeReservation
+        : _latestHistoricalReservation();
+
+    if (reservation == null) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 14),
+        child: SizedBox.shrink(),
+      );
+    }
+
+    final trajet = _reservationRoute(reservation);
+    final matricule = reservation.busMatricule;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 0, 14, 6),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFEBEE),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.directions_bus_filled_rounded,
+              color: Color(0xFFEF4444),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  trajet,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF0F172A),
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Bus: $matricule',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF64748B),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -1861,11 +2003,9 @@ class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
     return ValueListenableBuilder<List<ExpenseModel>>(
       valueListenable: expenseStore.expensesNotifier,
       builder: (context, expenses, _) {
-        final ongoingExpenses = expenses
-            .where((e) => e.status == 'En cours')
-            .toList();
+        final reservation = _CollectorReservationStore.activeReservation;
 
-        if (ongoingExpenses.isEmpty) {
+        if (reservation == null) {
           return Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -1877,7 +2017,7 @@ class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
                 ),
                 SizedBox(height: 14),
                 Text(
-                  'Aucune dépense en cours',
+                  'Aucune réservation en cours',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Color(0xFF0B4F2A),
@@ -1887,7 +2027,7 @@ class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
                 ),
                 SizedBox(height: 8),
                 Text(
-                  'Ajoutez une nouvelle dépense ou scannez un QR.',
+                  'Créez une réservation pour saisir les dépenses du trajet.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Color(0xFF5F6B86),
@@ -1901,16 +2041,135 @@ class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
           );
         }
 
-        return ListView.separated(
+        final ongoingExpenses = _activeReservationExpenses(expenses)
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+        return ListView(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 86),
-          itemCount: ongoingExpenses.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 14),
-          itemBuilder: (context, index) {
-            final expense = ongoingExpenses[index];
-            return _buildModernExpenseCard(expense);
-          },
+          children: [_buildOngoingTripCard(reservation, ongoingExpenses)],
         );
       },
+    );
+  }
+
+  Widget _buildOngoingTripCard(
+    _CollectorReservationRecord reservation,
+    List<ExpenseModel> expenses,
+  ) {
+    final totalAmount = expenses.fold<double>(
+      0,
+      (sum, expense) => sum + (expense.cost * expense.quantity),
+    );
+
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: () => _showReservationExpenseSheet(reservation, expenses),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.035),
+                blurRadius: 12,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEAF7EF),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Icon(
+                      Icons.directions_bus_filled_rounded,
+                      color: Color(0xFF16A34A),
+                      size: 26,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _reservationRoute(reservation),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Color(0xFF0F172A),
+                            fontSize: 15,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Bus: ${reservation.busMatricule}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Color(0xFF64748B),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    color: Color(0xFF94A3B8),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      '${expenses.length} dépense${expenses.length > 1 ? 's' : ''}',
+                      style: const TextStyle(
+                        color: Color(0xFF0F172A),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    Text(
+                      '${totalAmount.toStringAsFixed(0)} FCFA',
+                      style: const TextStyle(
+                        color: Color(0xFF0B4F2A),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -1919,11 +2178,10 @@ class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
     return ValueListenableBuilder<List<ExpenseModel>>(
       valueListenable: expenseStore.expensesNotifier,
       builder: (context, expenses, _) {
-        final historicalExpenses = expenses
-            .where((e) => e.status != "En cours")
-            .toList();
+        final historicalReservations =
+            _CollectorReservationStore.historicalReservations;
 
-        if (historicalExpenses.isEmpty) {
+        if (historicalReservations.isEmpty) {
           return Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -1941,7 +2199,7 @@ class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
                 ),
                 SizedBox(height: 8),
                 Text(
-                  'Les dépenses validées apparaîtront ici.',
+                  'Les anciens trajets apparaîtront dès une nouvelle réservation.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Color(0xFF5F6B86),
@@ -1957,30 +2215,47 @@ class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
 
         return ListView.separated(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 86),
-          itemCount: historicalExpenses.length,
+          itemCount: historicalReservations.length,
           separatorBuilder: (_, __) => const SizedBox(height: 12),
           itemBuilder: (context, index) {
-            final expense = historicalExpenses[index];
-            return _buildHistoricalExpenseTile(expense);
+            final reservation = historicalReservations[index];
+            final routeExpenses =
+                expenses
+                    .where(
+                      (expense) =>
+                          expense.reservationReference == reservation.reference,
+                    )
+                    .toList()
+                  ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+            return _buildHistoricalReservationCard(reservation, routeExpenses);
           },
         );
       },
     );
   }
 
-  Widget _buildHistoricalExpenseTile(ExpenseModel expense) {
-    final totalAmount = expense.cost * expense.quantity;
-    final trajet = _expenseTrajet(expense);
-    final matricule = _expenseMatricule(expense);
+  Widget _buildHistoricalReservationCard(
+    _CollectorReservationRecord reservation,
+    List<ExpenseModel> expenses,
+  ) {
+    final trajet = _reservationRoute(reservation);
+    final totalAmount = expenses.fold<double>(
+      0,
+      (sum, expense) => sum + (expense.cost * expense.quantity),
+    );
 
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(20),
       child: InkWell(
         borderRadius: BorderRadius.circular(20),
-        onTap: () => _showExpenseDetail(expense),
+        onTap: () => _showReservationExpenseSheet(
+          reservation,
+          expenses,
+          allowAdd: false,
+        ),
         child: Container(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: const Color(0xFFE2E8F0)),
@@ -1992,76 +2267,125 @@ class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
               ),
             ],
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEAF7EF),
-                  borderRadius: BorderRadius.circular(15),
-                ),
-                child: const Icon(
-                  Icons.route_rounded,
-                  color: Color(0xFF16A34A),
-                ),
+              Row(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFEBEE),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Icon(
+                      Icons.directions_bus_filled_rounded,
+                      color: Color(0xFFEF4444),
+                      size: 26,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          trajet,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Color(0xFF0F172A),
+                            fontSize: 15,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Bus: ${reservation.busMatricule}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Color(0xFF64748B),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    color: Color(0xFF94A3B8),
+                    size: 24,
+                  ),
+                ],
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      trajet,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      '${expenses.length} dépense${expenses.length > 1 ? 's' : ''}',
                       style: const TextStyle(
                         color: Color(0xFF0F172A),
-                        fontSize: 14.5,
+                        fontSize: 13,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
-                    const SizedBox(height: 5),
                     Text(
-                      'Bus: $matricule',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      '${totalAmount.toStringAsFixed(0)} FCFA',
                       style: const TextStyle(
-                        color: Color(0xFF64748B),
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      _formatDate(expense.createdAt),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Color(0xFF94A3B8),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF0B4F2A),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: 10),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    '${totalAmount.toStringAsFixed(0)} FCFA',
+                    'Total du trajet',
                     style: const TextStyle(
-                      color: Color(0xFF0B4F2A),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF94A3B8),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  const Icon(
-                    Icons.chevron_right_rounded,
-                    color: Color(0xFF94A3B8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEAF7EF),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      expenses.isEmpty
+                          ? 'Ancien trajet'
+                          : '${expenses.where((e) => e.status == "Validé").length}/${expenses.length} validées',
+                      style: const TextStyle(
+                        color: Color(0xFF16A34A),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -2074,6 +2398,8 @@ class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
 
   void _showExpenseDetail(ExpenseModel expense) {
     final totalAmount = expense.cost * expense.quantity;
+    final trajet = _expenseTrajet(expense);
+    final matricule = _expenseMatricule(expense);
 
     showModalBottomSheet(
       context: context,
@@ -2132,15 +2458,11 @@ class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
                     ],
                   ),
                   const SizedBox(height: 14),
-                  _buildExpenseDetailRow(
-                    Icons.route_rounded,
-                    'Trajet',
-                    _expenseTrajet(expense),
-                  ),
+                  _buildExpenseDetailRow(Icons.route_rounded, 'Trajet', trajet),
                   _buildExpenseDetailRow(
                     Icons.directions_bus_rounded,
                     'Matricule du bus',
-                    _expenseMatricule(expense),
+                    matricule,
                   ),
                   _buildExpenseDetailRow(
                     Icons.label_rounded,
@@ -2195,6 +2517,321 @@ class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
     );
   }
 
+  void _showReservationExpenseSheet(
+    _CollectorReservationRecord reservation,
+    List<ExpenseModel> expenses, {
+    bool allowAdd = true,
+  }) {
+    final sortedExpenses = [...expenses]
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    final totalAmount = sortedExpenses.fold<double>(
+      0,
+      (sum, expense) => sum + (expense.cost * expense.quantity),
+    );
+    final trajet = _reservationRoute(reservation);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Container(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.85,
+              ),
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.16),
+                    blurRadius: 24,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFEBEE),
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                        child: const Icon(
+                          Icons.directions_bus_filled_rounded,
+                          color: Color(0xFFEF4444),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              trajet,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Color(0xFF0B4F2A),
+                                fontSize: 16,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Bus: ${reservation.busMatricule}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Color(0xFF64748B),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  if (allowAdd) ...[
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              Navigator.pop(context);
+                              _openScannerForReservation(reservation);
+                            },
+                            icon: const Icon(Icons.qr_code_scanner_rounded),
+                            label: const Text('Scanner'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF16A34A),
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              textStyle: const TextStyle(
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              Navigator.pop(context);
+                              _openManualExpenseForReservation(reservation);
+                            },
+                            icon: const Icon(Icons.edit_note_rounded),
+                            label: const Text('Saisie'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFF0B4F2A),
+                              side: const BorderSide(color: Color(0xFF16A34A)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              textStyle: const TextStyle(
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                  ],
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '${sortedExpenses.length} dépense${sortedExpenses.length > 1 ? 's' : ''}',
+                          style: const TextStyle(
+                            color: Color(0xFF0F172A),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        Text(
+                          '${totalAmount.toStringAsFixed(0)} FCFA',
+                          style: const TextStyle(
+                            color: Color(0xFF0B4F2A),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Expanded(
+                    child: sortedExpenses.isEmpty
+                        ? Center(
+                            child: Text(
+                              allowAdd
+                                  ? 'Aucune dépense saisie pour ce trajet.'
+                                  : 'Aucune dépense enregistrée pour cet ancien trajet.',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Color(0xFF64748B),
+                                fontWeight: FontWeight.w800,
+                                height: 1.35,
+                              ),
+                            ),
+                          )
+                        : ListView.separated(
+                            itemCount: sortedExpenses.length,
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(height: 8),
+                            itemBuilder: (context, index) {
+                              final expense = sortedExpenses[index];
+                              return _buildExpenseListTile(expense);
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildExpenseListTile(ExpenseModel expense) {
+    final expenseTotal = expense.cost * expense.quantity;
+
+    return Material(
+      color: const Color(0xFFF8FAFC),
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => _showExpenseDetail(expense),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      expense.libelle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Color(0xFF0F172A),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: expense.status == "Validé"
+                          ? const Color(0xFFEAF7EF)
+                          : const Color(0xFFFEF3C7),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      expense.status,
+                      style: TextStyle(
+                        color: expense.status == "Validé"
+                            ? const Color(0xFF16A34A)
+                            : const Color(0xFFB45309),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              if (expense.description.isNotEmpty) ...[
+                Text(
+                  expense.description,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF64748B),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 6),
+              ],
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '${expense.quantity}x ${expense.cost.toStringAsFixed(0)} FCFA',
+                    style: const TextStyle(
+                      color: Color(0xFF64748B),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  Text(
+                    '${expenseTotal.toStringAsFixed(0)} FCFA',
+                    style: const TextStyle(
+                      color: Color(0xFF0B4F2A),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                _formatDate(expense.createdAt),
+                style: const TextStyle(
+                  color: Color(0xFF94A3B8),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildExpenseDetailRow(IconData icon, String label, String value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
@@ -2242,12 +2879,16 @@ class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
   }
 
   String _expenseTrajet(ExpenseModel expense) {
+    final route = expense.tripRoute?.trim();
+    if (route != null && route.isNotEmpty) return route;
     final description = expense.description.trim();
     if (description.isNotEmpty) return description;
     return 'Trajet non renseigné';
   }
 
   String _expenseMatricule(ExpenseModel expense) {
+    final matricule = expense.busMatricule?.trim();
+    if (matricule != null && matricule.isNotEmpty) return matricule;
     final source = '${expense.libelle} ${expense.description} ${expense.note}';
     final match = RegExp(
       r'(?:matricule|bus)\s*[:\-]?\s*([A-Za-z0-9\- ]{3,})',
@@ -2258,285 +2899,234 @@ class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
     return 'Matricule non renseigné';
   }
 
+  _CollectorReservationRecord? _latestReservation() {
+    return _CollectorReservationStore.activeReservation;
+  }
+
+  _CollectorReservationRecord? _latestHistoricalReservation() {
+    final reservations = _CollectorReservationStore.historicalReservations;
+    if (reservations.isEmpty) return null;
+    return reservations.first;
+  }
+
+  String _reservationRoute(_CollectorReservationRecord reservation) {
+    return '${reservation.departure} -> ${reservation.destination}';
+  }
+
+  // ignore: unused_element
   Widget _buildModernExpenseCard(ExpenseModel expense) {
-    final totalAmount = expense.cost * expense.quantity;
     final statusColor = _getStatusColor(expense.status);
     final fromQr = expense.qrCode != null;
+    final trajet = _expenseTrajet(expense);
+    final matricule = _expenseMatricule(expense);
 
-    return Container(
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: Colors.white,
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(22),
+      child: InkWell(
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: statusColor.withValues(alpha: 0.14)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.045),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
+        onTap: () => _showExpenseDetail(expense),
+        child: Container(
+          padding: const EdgeInsets.all(15),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: statusColor.withValues(alpha: 0.14)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.045),
+                blurRadius: 16,
+                offset: const Offset(0, 8),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Icon(
-                  fromQr ? Icons.qr_code_2_rounded : Icons.receipt_long_rounded,
-                  color: statusColor,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      expense.libelle,
-                      style: const TextStyle(
-                        color: Color(0xFF0F172A),
-                        fontSize: 16,
-                        fontWeight: FontWeight.w900,
-                        height: 1.2,
-                      ),
-                    ),
-                    if (expense.description.isNotEmpty) ...[
-                      const SizedBox(height: 5),
-                      Text(
-                        expense.description,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Color(0xFF64748B),
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              const SizedBox(width: 10),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  vertical: 7,
-                  horizontal: 10,
-                ),
-                decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Text(
-                  expense.status,
-                  style: TextStyle(
-                    color: statusColor,
-                    fontSize: 11.2,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-            ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.account_balance_wallet_rounded,
-                  color: Color(0xFF16A34A),
-                  size: 22,
-                ),
-                const SizedBox(width: 10),
-                const Expanded(
-                  child: Text(
-                    'Montant total',
-                    style: TextStyle(
-                      color: Color(0xFF64748B),
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-                Text(
-                  '${totalAmount.toStringAsFixed(0)} FCFA',
-                  style: const TextStyle(
-                    color: Color(0xFF0B4F2A),
-                    fontSize: 17,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              _buildExpenseChip(
-                icon: Icons.sell_rounded,
-                label: 'Unité',
-                value: '${expense.cost.toStringAsFixed(0)} FCFA',
-                color: const Color(0xFF16A34A),
-              ),
-              const SizedBox(width: 10),
-              _buildExpenseChip(
-                icon: Icons.inventory_2_rounded,
-                label: 'Quantité',
-                value: '${expense.quantity}',
-                color: const Color(0xFFFF9500),
-              ),
-            ],
-          ),
-          if (expense.note.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFF9F5),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: const Color(0xFFFF9500).withValues(alpha: 0.18),
-                ),
-              ),
-              child: Row(
+              Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(
-                    Icons.sticky_note_2_rounded,
-                    color: Color(0xFFFF9500),
-                    size: 18,
+                  Container(
+                    width: 46,
+                    height: 46,
+                    decoration: BoxDecoration(
+                      color: statusColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Icon(
+                      fromQr
+                          ? Icons.qr_code_2_rounded
+                          : Icons.receipt_long_rounded,
+                      color: statusColor,
+                    ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 12),
                   Expanded(
-                    child: Text(
-                      expense.note,
-                      style: const TextStyle(
-                        color: Color(0xFF64748B),
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w700,
-                        height: 1.35,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          expense.libelle,
+                          style: const TextStyle(
+                            color: Color(0xFF0F172A),
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                            height: 1.2,
+                          ),
+                        ),
+                        if (expense.description.isNotEmpty) ...[
+                          const SizedBox(height: 5),
+                          Text(
+                            expense.description,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Color(0xFF64748B),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFEBEE),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.route_rounded,
+                                    color: Color(0xFFE53935),
+                                    size: 15,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      trajet,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: Color(0xFF0F172A),
+                                        fontSize: 11.5,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.directions_bus_rounded,
+                                    color: Color(0xFFE53935),
+                                    size: 15,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      'Bus: $matricule',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: Color(0xFF64748B),
+                                        fontSize: 11.5,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  // n'affiche pas le label 'En cours' sur la carte
+                  if (expense.status != 'En cours')
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 7,
+                        horizontal: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: statusColor.withValues(alpha: 0.10),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Text(
+                        expense.status,
+                        style: TextStyle(
+                          color: statusColor,
+                          fontSize: 11.2,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
                     ),
-                  ),
                 ],
               ),
-            ),
-          ],
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.schedule_rounded,
-                      color: Color(0xFF94A3B8),
-                      size: 16,
-                    ),
-                    const SizedBox(width: 6),
-                    Flexible(
-                      child: Text(
-                        _formatDate(expense.createdAt),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.schedule_rounded,
                           color: Color(0xFF94A3B8),
+                          size: 16,
+                        ),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            _formatDate(expense.createdAt),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Color(0xFF94A3B8),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        fromQr
+                            ? Icons.qr_code_rounded
+                            : Icons.edit_note_rounded,
+                        color: const Color(0xFF64748B),
+                        size: 16,
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        fromQr ? 'QR' : 'Manuel',
+                        style: const TextStyle(
+                          color: Color(0xFF64748B),
                           fontSize: 12,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    fromQr ? Icons.qr_code_rounded : Icons.edit_note_rounded,
-                    color: const Color(0xFF64748B),
-                    size: 16,
-                  ),
-                  const SizedBox(width: 5),
-                  Text(
-                    fromQr ? 'QR' : 'Manuel',
-                    style: const TextStyle(
-                      color: Color(0xFF64748B),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                    ),
+                    ],
                   ),
                 ],
               ),
             ],
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildExpenseChip({
-    required IconData icon,
-    required String label,
-    required String value,
-    required Color color,
-  }) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.09),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, color: color, size: 18),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    value,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: color,
-                      fontSize: 12.8,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Color(0xFF64748B),
-                      fontSize: 10.8,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
         ),
       ),
     );
@@ -6013,6 +6603,7 @@ class _CollectorReservationRecord {
   final String passengerName;
   final String phone;
   final String price;
+  final String busMatricule;
   final String status;
 
   const _CollectorReservationRecord({
@@ -6025,10 +6616,11 @@ class _CollectorReservationRecord {
     required this.passengerName,
     required this.phone,
     required this.price,
+    required this.busMatricule,
     required this.status,
   });
 
-  _CollectorReservationRecord copyWith({String? status}) {
+  _CollectorReservationRecord copyWith({String? status, String? busMatricule}) {
     return _CollectorReservationRecord(
       reference: reference,
       departure: departure,
@@ -6039,6 +6631,7 @@ class _CollectorReservationRecord {
       passengerName: passengerName,
       phone: phone,
       price: price,
+      busMatricule: busMatricule ?? this.busMatricule,
       status: status ?? this.status,
     );
   }
@@ -6046,9 +6639,21 @@ class _CollectorReservationRecord {
 
 class _CollectorReservationStore {
   static final List<_CollectorReservationRecord> reservations = [];
+  static final ValueNotifier<int> version = ValueNotifier<int>(0);
+
+  static _CollectorReservationRecord? get activeReservation {
+    if (reservations.isEmpty) return null;
+    return reservations.first;
+  }
+
+  static List<_CollectorReservationRecord> get historicalReservations {
+    if (reservations.length <= 1) return [];
+    return reservations.skip(1).toList();
+  }
 
   static void add(_CollectorReservationRecord reservation) {
     reservations.insert(0, reservation);
+    version.value += 1;
   }
 }
 
@@ -7024,8 +7629,19 @@ class _CollectorPaymentDetailsPageState
       passengerName: passengerName,
       phone: phone,
       price: '${_formatAmount(widget.priceAmount)} CFA',
+      busMatricule: _generateBusMatricule(widget.departure, widget.destination),
       status: status,
     );
+  }
+
+  String _generateBusMatricule(String departure, String destination) {
+    final routeKey =
+        '${departure.trim().replaceAll(RegExp(r"[^A-Za-z0-9]"), '').toUpperCase()}_${destination.trim().replaceAll(RegExp(r"[^A-Za-z0-9]"), '').toUpperCase()}';
+    final hash = routeKey.hashCode.abs() % 9000 + 1000;
+    final suffix = routeKey.length >= 2
+        ? routeKey.substring(0, 2)
+        : routeKey.padRight(2, 'X');
+    return 'BJ-$hash-$suffix';
   }
 
   String _formatAmount(int amount) {

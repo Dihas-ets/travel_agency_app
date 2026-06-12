@@ -5,7 +5,16 @@ import 'expense_store.dart';
 import 'manual_expense_page.dart';
 
 class QRScannerPage extends StatefulWidget {
-  const QRScannerPage({super.key});
+  final String? reservationReference;
+  final String? tripRoute;
+  final String? busMatricule;
+
+  const QRScannerPage({
+    super.key,
+    this.reservationReference,
+    this.tripRoute,
+    this.busMatricule,
+  });
 
   @override
   State<QRScannerPage> createState() => _QRScannerPageState();
@@ -54,6 +63,9 @@ class _QRScannerPageState extends State<QRScannerPage> {
             initialQuantity: int.tryParse(parts[3]) ?? 1,
             initialNote: parts.length > 4 ? parts[4] : '',
             qrCode: qrData,
+            reservationReference: widget.reservationReference,
+            tripRoute: widget.tripRoute,
+            busMatricule: widget.busMatricule,
           ),
         ),
       );
@@ -254,7 +266,11 @@ class _QRScannerPageState extends State<QRScannerPage> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => const ManualExpensePage(),
+                      builder: (context) => ManualExpensePage(
+                        reservationReference: widget.reservationReference,
+                        tripRoute: widget.tripRoute,
+                        busMatricule: widget.busMatricule,
+                      ),
                     ),
                   );
                 },

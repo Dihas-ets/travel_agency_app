@@ -8,6 +8,9 @@ class ExpenseModel {
   final DateTime createdAt;
   final String status; // "En cours", "Validé", "Rejeté"
   final String? qrCode;
+  final String? reservationReference;
+  final String? tripRoute;
+  final String? busMatricule;
 
   ExpenseModel({
     required this.id,
@@ -19,9 +22,12 @@ class ExpenseModel {
     required this.createdAt,
     this.status = "En cours",
     this.qrCode,
+    this.reservationReference,
+    this.tripRoute,
+    this.busMatricule,
   });
 
-  // Create copy with modifications
+  /// Crée une copie en conservant les valeurs non modifiées.
   ExpenseModel copyWith({
     String? id,
     String? libelle,
@@ -32,6 +38,9 @@ class ExpenseModel {
     DateTime? createdAt,
     String? status,
     String? qrCode,
+    String? reservationReference,
+    String? tripRoute,
+    String? busMatricule,
   }) {
     return ExpenseModel(
       id: id ?? this.id,
@@ -43,10 +52,13 @@ class ExpenseModel {
       createdAt: createdAt ?? this.createdAt,
       status: status ?? this.status,
       qrCode: qrCode ?? this.qrCode,
+      reservationReference: reservationReference ?? this.reservationReference,
+      tripRoute: tripRoute ?? this.tripRoute,
+      busMatricule: busMatricule ?? this.busMatricule,
     );
   }
 
-  // Convert to JSON
+  /// Convertit la dépense en JSON pour une sauvegarde future.
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -58,10 +70,13 @@ class ExpenseModel {
       'createdAt': createdAt.toIso8601String(),
       'status': status,
       'qrCode': qrCode,
+      'reservationReference': reservationReference,
+      'tripRoute': tripRoute,
+      'busMatricule': busMatricule,
     };
   }
 
-  // Create from JSON
+  /// Reconstruit une dépense depuis le JSON, avec compatibilité anciennes données.
   factory ExpenseModel.fromJson(Map<String, dynamic> json) {
     return ExpenseModel(
       id: json['id'] as String,
@@ -73,6 +88,9 @@ class ExpenseModel {
       createdAt: DateTime.parse(json['createdAt'] as String),
       status: json['status'] as String? ?? "En cours",
       qrCode: json['qrCode'] as String?,
+      reservationReference: json['reservationReference'] as String?,
+      tripRoute: json['tripRoute'] as String?,
+      busMatricule: json['busMatricule'] as String?,
     );
   }
 }

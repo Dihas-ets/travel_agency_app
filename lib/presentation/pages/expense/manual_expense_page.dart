@@ -9,6 +9,9 @@ class ManualExpensePage extends StatefulWidget {
   final int? initialQuantity;
   final String? initialNote;
   final String? qrCode;
+  final String? reservationReference;
+  final String? tripRoute;
+  final String? busMatricule;
 
   const ManualExpensePage({
     super.key,
@@ -18,6 +21,9 @@ class ManualExpensePage extends StatefulWidget {
     this.initialQuantity,
     this.initialNote,
     this.qrCode,
+    this.reservationReference,
+    this.tripRoute,
+    this.busMatricule,
   });
 
   @override
@@ -80,6 +86,9 @@ class _ManualExpensePageState extends State<ManualExpensePage> {
         createdAt: DateTime.now(),
         status: 'En cours',
         qrCode: widget.qrCode,
+        reservationReference: widget.reservationReference,
+        tripRoute: widget.tripRoute,
+        busMatricule: widget.busMatricule,
       );
 
       ExpenseStore().addExpense(expense);
@@ -126,6 +135,10 @@ class _ManualExpensePageState extends State<ManualExpensePage> {
             padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
             children: [
               _buildHero(),
+              if (widget.tripRoute != null || widget.busMatricule != null) ...[
+                const SizedBox(height: 14),
+                _buildTripContextCard(),
+              ],
               const SizedBox(height: 18),
               _buildSectionCard(
                 title: 'Informations',
@@ -247,6 +260,56 @@ class _ManualExpensePageState extends State<ManualExpensePage> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildTripContextCard() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFEBEE),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: const Color(0xFFE53935).withValues(alpha: 0.18),
+        ),
+      ),
+      child: Row(
+        children: [
+          const _FieldIcon(
+            icon: Icons.directions_bus_filled_rounded,
+            color: Color(0xFFE53935),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.tripRoute ?? 'Trajet non renseigné',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: _darkGreen,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Bus: ${widget.busMatricule ?? 'Matricule non renseigné'}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: _textMuted,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
