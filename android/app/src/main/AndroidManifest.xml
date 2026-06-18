@@ -4,7 +4,7 @@
     <uses-permission android:name="android.permission.CAMERA" />
 
     <application
-        android:label="Fofana Voyage"
+        android:label="Fofana Voyage Dev"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

@@ -1,0 +1,92 @@
+Structure du dossier
+Le num�ro de s�rie du volume est 000001BA D013:404B
+C:\USERS\HOUES\DESKTOP\TRAVEL_AGENCY_APP-MAIN\TRAVEL_AGENCY_APP-MAIN\LIB
+�   main.dart
+�   navigation.dart
+�   
++---data
+�   +---cache
+�   �       local_storage.dart
+�   �       
+�   +---local
+�   �       auth_local_store.dart
+�   �       session_store.dart
+�   �       
+�   +---repo
+�           user_repo.dart
+�           
++---domain
+�   +---models
+�           user.dart
+�           
++---models
+�       expense_model.dart
+�       onboarding_data_model.dart
+�       
++---presentation
+�   +---pages
+�       +---collector
+�       �       collector_home_page.dart
+�       �       collector_service.dart
+�       �       
+�       +---expense
+�       �       expense_store.dart
+�       �       manual_expense_page.dart
+�       �       qr_scanner_page.dart
+�       �       
+�       +---forgot_password
+�       �       forgot_password_page.dart
+�       �       
+�       +---home
+�       �       home_page.dart
+�       �       
+�       +---login
+�       �       collector_password_page.dart
+�       �       login_page.dart
+�       �       
+�       +---onboarding
+�       �       onboarding_page.dart
+�       �       onboarding_placeholder.dart
+�       �       onboarding_slide.dart
+�       �       
+�       +---parcel
+�       �       billet_page.dart
+�       �       colis_attente_page.dart
+�       �       envois_effectues_page.dart
+�       �       parcel_pages.dart
+�       �       parcel_store.dart
+�       �       
+�       +---register
+�       �       register_page.dart
+�       �       
+�       +---tarifs
+�       �       tarifs_page.dart
+�       �       
+�       +---verify_code
+�       �       verify_code_page.dart
+�       �       
+�       +---welcome
+�               welcome_page.dart
+�               
++---utils
+�       app_colors.dart
+�       
++---widgets
+    +---common
+    �       african_phone_field.dart
+    �       
+    +---login
+    �       login_widgets.dart
+    �       
+    +---onboarding
+    �       onboarding_dot_indicator.dart
+    �       
+    +---register
+    �       register_widgets.dart
+    �       
+    +---tarifs
+    �       tarifs_widgets.dart
+    �       
+    +---welcome
+            welcome_widgets.dart
+            

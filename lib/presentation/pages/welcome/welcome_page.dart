@@ -20,28 +20,57 @@ class _WelcomePageState extends State<WelcomePage> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text(
-            'Activez votre localisation pour voir les agences Fofana proches.',
-          ),
-          action: SnackBarAction(
-            label: 'Activer',
-            textColor: Colors.white,
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Demande de localisation à connecter'),
-                ),
-              );
-            },
-          ),
-          backgroundColor: const Color(0xFF0B4F2A),
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 5),
-        ),
-      );
+      _showLocationPrompt();
     });
+  }
+
+  void _showLocationPrompt() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: const Color(0xFFDC2626),
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 18),
+        duration: const Duration(seconds: 6),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        content: const Row(
+          children: [
+            Icon(Icons.location_on_rounded, color: Colors.white),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Activez votre localisation pour voir les agences Fofana proches de vous.',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                  height: 1.25,
+                ),
+              ),
+            ),
+          ],
+        ),
+        action: SnackBarAction(
+          label: 'Activer',
+          textColor: Colors.white,
+          onPressed: _requestLocationActivation,
+        ),
+      ),
+    );
+  }
+
+  void _requestLocationActivation() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: const Color(0xFFDC2626),
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 18),
+        duration: const Duration(seconds: 3),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        content: const Text(
+          'Demande d\'activation de la localisation envoyée.',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
+        ),
+      ),
+    );
   }
 
   @override
@@ -88,10 +117,10 @@ class _WelcomePageState extends State<WelcomePage> {
                           Align(
                             alignment: Alignment.center,
                             child: Image.asset(
-                                'assets/images/logo_fofana_black.png',
-                                height: compact ? 68 : 82,
-                                fit: BoxFit.contain,
-                              ),
+                              'assets/images/logo_fofana_black.png',
+                              height: compact ? 68 : 82,
+                              fit: BoxFit.contain,
+                            ),
                           ),
                           SizedBox(height: compact ? 18 : 28),
                           const Text(

@@ -1,4 +1,4 @@
-package com.example.code_initial
+package com.fofanavoyage.debug
 
 import io.flutter.embedding.android.FlutterActivity
 
