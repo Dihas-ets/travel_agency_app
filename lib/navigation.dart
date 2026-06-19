@@ -9,6 +9,7 @@ import 'package:code_initial/presentation/pages/login/collector_password_page.da
 import 'package:code_initial/presentation/pages/verify_code/verify_code_page.dart';
 import 'package:code_initial/presentation/pages/home/home_page.dart';
 import 'package:code_initial/presentation/pages/collector/collector_home_page.dart';
+import 'package:code_initial/presentation/pages/controller/controller_password_page.dart';
 import 'package:code_initial/presentation/pages/forgot_password/forgot_password_page.dart';
 import 'package:code_initial/presentation/pages/parcel/envois_effectues_page.dart';
 
@@ -29,6 +30,11 @@ class Nav {
     ),
 
     GetPage(
+      name: Routes.CONTROLLER_PASSWORD,
+      page: () => const ControllerPasswordPage(),
+    ),
+
+    GetPage(
       name: Routes.FORGOT_PASSWORD,
       page: () => const ForgotPasswordPage(),
     ),
@@ -40,6 +46,11 @@ class Nav {
     GetPage(name: Routes.HOME, page: () => const HomePage()),
 
     GetPage(name: Routes.COLLECTOR_HOME, page: () => const CollectorHomePage()),
+
+    GetPage(
+      name: Routes.CONTROLLER_HOME,
+      page: () => const ControllerHomePage(),
+    ),
     GetPage(
       name: Routes.ENVOIS_EFFECTUES,
       page: () => const EnvoisEffectuesPage(),
@@ -68,6 +79,9 @@ class Routes {
   /// Saisie du mot de passe percepteur après le numéro.
   static const COLLECTOR_PASSWORD = '/collector-password';
 
+  /// Saisie du mot de passe controleur.
+  static const CONTROLLER_PASSWORD = '/controller-password';
+
   /// Page de réinitialisation du mot de passe.
   static const FORGOT_PASSWORD = '/forgot-password';
 
@@ -85,6 +99,9 @@ class Routes {
 
   /// Interface principale du percepteur.
   static const COLLECTOR_HOME = '/collector-home';
+
+  /// Interface principale du controleur.
+  static const CONTROLLER_HOME = '/controller-home';
 
   /// Liste des envois effectués.
   static const ENVOIS_EFFECTUES = '/envois-effectues';

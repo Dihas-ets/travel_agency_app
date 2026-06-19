@@ -14,10 +14,12 @@ class _TicketValidationPageState extends State<_TicketValidationPage> {
   bool _ticketVisible = false;
 
   void _showTicket() {
+    final validatedCode = _scannedCode ?? 'TK-2026-0487';
     setState(() {
-      _scannedCode ??= 'TK-2026-0487';
+      _scannedCode = validatedCode;
       _ticketVisible = true;
     });
+    _ControllerScannedTicketStore.add(validatedCode);
   }
 
   @override
@@ -262,4 +264,3 @@ const List<String> _collectorBeninCities = [
   'Sèmè-Kpodji',
   'Tchaourou',
 ];
-

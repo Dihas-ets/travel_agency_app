@@ -27,6 +27,10 @@ part 'parts/assignments_section.dart';
 part 'parts/ticket_validation_section.dart';
 part 'parts/reservation_flow.dart';
 part 'parts/history_news_section.dart';
+part '../controller/controller_models.dart';
+part '../controller/controller_home_page.dart';
+part '../controller/controller_history_section.dart';
+part '../controller/controller_profile_section.dart';
 
 // Page racine de l espace percepteur: garde le shell Scaffold et delegue les sections aux fichiers part.
 
@@ -208,4 +212,3 @@ class _CollectorHomePageState extends State<CollectorHomePage> {
     );
   }
 }
-

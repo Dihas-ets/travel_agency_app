@@ -12,6 +12,7 @@ class CollectorPasswordPage extends StatefulWidget {
 
 class _CollectorPasswordPageState extends State<CollectorPasswordPage> {
   static const String _defaultCollectorPassword = '1234';
+  static const String _defaultControllerPassword = '0000';
 
   final TextEditingController _passwordController = TextEditingController();
 
@@ -22,17 +23,24 @@ class _CollectorPasswordPageState extends State<CollectorPasswordPage> {
   }
 
   void _seConnecter() {
-    if (_passwordController.text.trim() != _defaultCollectorPassword) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Mot de passe percepteur incorrect.'),
-          backgroundColor: Color(0xFF16A34A),
-        ),
-      );
+    final password = _passwordController.text.trim();
+
+    if (password == _defaultCollectorPassword) {
+      Get.offAllNamed(Routes.COLLECTOR_HOME);
       return;
     }
 
-    Get.offAllNamed(Routes.COLLECTOR_HOME);
+    if (password == _defaultControllerPassword) {
+      Get.offAllNamed(Routes.CONTROLLER_HOME);
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Mot de passe incorrect.'),
+        backgroundColor: Color(0xFF16A34A),
+      ),
+    );
   }
 
   @override
@@ -62,7 +70,7 @@ class _CollectorPasswordPageState extends State<CollectorPasswordPage> {
                   child: Column(
                     children: [
                       Text(
-                        'Connexion percepteur',
+                        'Connexion equipe',
                         style: TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.w900,
@@ -71,7 +79,7 @@ class _CollectorPasswordPageState extends State<CollectorPasswordPage> {
                       ),
                       SizedBox(height: 8),
                       Text(
-                        'Entrez le mot de passe percepteur pour accéder à votre espace.',
+                        'Entrez votre mot de passe pour acceder a votre espace.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 14,
@@ -106,7 +114,7 @@ class _CollectorPasswordPageState extends State<CollectorPasswordPage> {
                     children: [
                       if (phone.isNotEmpty) ...[
                         const Text(
-                          'Numéro percepteur',
+                          'Numero de telephone',
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w800,
