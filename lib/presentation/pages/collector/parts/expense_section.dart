@@ -14,6 +14,8 @@ class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final expenseStore = ExpenseStore();
+  bool _showCollectorBalance = false;
+  static const double _collectorBalance = 185000;
 
   @override
   void initState() {
@@ -56,9 +58,11 @@ class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
                 builder: (context, expenses, _) => Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildExpenseMenu(expenses),
+                    _buildWalletCard(),
                     const SizedBox(height: 8),
-                    _buildTripHeader(expenses),
+                    _buildExpenseMenu(expenses),
+                    const SizedBox(height: 10),
+                    _buildAssignmentHeader(),
                   ],
                 ),
               ),
@@ -90,27 +94,40 @@ class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
     );
   }
 
-  List<ExpenseModel> _activeReservationExpenses(List<ExpenseModel> expenses) {
-    final reservation = _latestReservation();
-    if (reservation == null) return [];
-    return expenses
-        .where(
-          (expense) => expense.reservationReference == reservation.reference,
-        )
-        .toList();
+  List<ExpenseModel> _ongoingExpenses(List<ExpenseModel> expenses) {
+    return expenses.where((expense) => expense.status == 'En cours').toList();
   }
 
-  List<ExpenseModel> _historicalReservationExpenses(
-    List<ExpenseModel> expenses,
-  ) {
-    final historicalReferences = _CollectorReservationStore
-        .historicalReservations
-        .map((reservation) => reservation.reference)
-        .toSet();
-    return expenses.where((expense) {
-      final reference = expense.reservationReference;
-      return reference != null && historicalReferences.contains(reference);
-    }).toList();
+  List<ExpenseModel> _historicalExpenses(List<ExpenseModel> expenses) {
+    return expenses.where((expense) => expense.status != 'En cours').toList();
+  }
+
+  void _openManualExpense() {
+    final assignment = _currentAssignmentContext();
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ManualExpensePage(
+          assignmentReference: assignment?.reference,
+          tripRoute: assignment?.route,
+          busMatricule: assignment?.busMatricule,
+        ),
+      ),
+    );
+  }
+
+  void _openScanner() {
+    final assignment = _currentAssignmentContext();
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => QRScannerPage(
+          assignmentReference: assignment?.reference,
+          tripRoute: assignment?.route,
+          busMatricule: assignment?.busMatricule,
+        ),
+      ),
+    );
   }
 
   void _openManualExpenseForReservation(
@@ -121,6 +138,10 @@ class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
       MaterialPageRoute(
         builder: (context) => ManualExpensePage(
           reservationReference: reservation.reference,
+          assignmentReference: _assignmentReferenceFromRoute(
+            _reservationRoute(reservation),
+            reservation.busMatricule,
+          ),
           tripRoute: _reservationRoute(reservation),
           busMatricule: reservation.busMatricule,
         ),
@@ -134,6 +155,10 @@ class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
       MaterialPageRoute(
         builder: (context) => QRScannerPage(
           reservationReference: reservation.reference,
+          assignmentReference: _assignmentReferenceFromRoute(
+            _reservationRoute(reservation),
+            reservation.busMatricule,
+          ),
           tripRoute: _reservationRoute(reservation),
           busMatricule: reservation.busMatricule,
         ),
@@ -141,21 +166,17 @@ class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
     );
   }
 
-  void _showNoActiveReservationMessage() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Créez d’abord une réservation pour saisir une dépense.'),
-        backgroundColor: Color(0xFF0B4F2A),
+  void _openRechargePage() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const _CollectorWalletRechargePage(),
       ),
     );
   }
 
   void _showAddExpenseSheet() {
-    final reservation = _latestReservation();
-    if (reservation == null) {
-      _showNoActiveReservationMessage();
-      return;
-    }
+    final assignment = _currentAssignmentContext();
 
     showModalBottomSheet(
       context: context,
@@ -203,7 +224,7 @@ class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
                       const SizedBox(width: 12),
                       const Expanded(
                         child: Text(
-                          'Ajouter dépense',
+                          'Ajouter une dépense',
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 20,
@@ -213,6 +234,19 @@ class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
                       ),
                     ],
                   ),
+                  if (assignment != null) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      '${assignment.route} - ${assignment.busMatricule}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.82),
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 16),
                   Row(
                     children: [
@@ -220,7 +254,7 @@ class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
                         child: ElevatedButton.icon(
                           onPressed: () {
                             Navigator.pop(context);
-                            _openScannerForReservation(reservation);
+                            _openScanner();
                           },
                           icon: const Icon(Icons.qr_code_scanner_rounded),
                           label: const Text('Scanner'),
@@ -243,7 +277,7 @@ class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
                         child: OutlinedButton.icon(
                           onPressed: () {
                             Navigator.pop(context);
-                            _openManualExpenseForReservation(reservation);
+                            _openManualExpense();
                           },
                           icon: const Icon(Icons.edit_note_rounded),
                           label: const Text('Saisie'),
@@ -458,13 +492,9 @@ class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
   }
 
   Widget _buildExpenseMenu(List<ExpenseModel> expenses) {
-    final ongoingExpenses = _activeReservationExpenses(expenses);
-    final historicalExpenses = _historicalReservationExpenses(expenses);
+    final ongoingExpenses = _ongoingExpenses(expenses);
+    final historicalExpenses = _historicalExpenses(expenses);
     final ongoingTotal = ongoingExpenses.fold<double>(
-      0,
-      (sum, expense) => sum + (expense.cost * expense.quantity),
-    );
-    final historyTotal = historicalExpenses.fold<double>(
       0,
       (sum, expense) => sum + (expense.cost * expense.quantity),
     );
@@ -485,7 +515,8 @@ class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
             selected: _tabController.index == 1,
             icon: Icons.history_rounded,
             title: 'Historique',
-            detail: '${historyTotal.toStringAsFixed(0)} FCFA',
+            detail:
+                '${historicalExpenses.length} dépense${historicalExpenses.length > 1 ? 's' : ''}',
             onTap: () => _tabController.animateTo(1),
           ),
         ],
@@ -493,6 +524,167 @@ class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
     );
   }
 
+  Widget _buildWalletCard() {
+    final balanceText = _showCollectorBalance
+        ? '${_collectorBalance.toStringAsFixed(0)} FCFA'
+        : '****** FCFA';
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF0B4F2A), Color(0xFF168A43)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF0B4F2A).withValues(alpha: 0.16),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: const Icon(
+                Icons.account_balance_wallet_rounded,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Solde percepteur',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.78),
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    balanceText,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              tooltip: _showCollectorBalance ? 'Cacher' : 'Afficher',
+              onPressed: () => setState(
+                () => _showCollectorBalance = !_showCollectorBalance,
+              ),
+              icon: Icon(
+                _showCollectorBalance
+                    ? Icons.visibility_off_rounded
+                    : Icons.visibility_rounded,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(width: 4),
+            SizedBox(
+              width: 42,
+              height: 42,
+              child: ElevatedButton(
+                onPressed: _openRechargePage,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: const Color(0xFF0B4F2A),
+                  elevation: 0,
+                  padding: EdgeInsets.zero,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                child: const Icon(Icons.add_rounded),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAssignmentHeader() {
+    final assignment = _currentAssignmentContext();
+    if (assignment == null) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 14),
+        child: SizedBox.shrink(),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 0, 14, 6),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFEBEE),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.assignment_turned_in_rounded,
+              color: Color(0xFFEF4444),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  assignment.route,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF0F172A),
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Affectation: ${assignment.busMatricule}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF64748B),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ignore: unused_element
   Widget _buildTripHeader(List<ExpenseModel> expenses) {
     final isOngoing = _tabController.index == 0;
     final reservation = isOngoing
@@ -683,9 +875,10 @@ class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
     return ValueListenableBuilder<List<ExpenseModel>>(
       valueListenable: expenseStore.expensesNotifier,
       builder: (context, expenses, _) {
-        final reservation = _CollectorReservationStore.activeReservation;
+        final ongoingExpenses = _ongoingExpenses(expenses)
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
-        if (reservation == null) {
+        if (ongoingExpenses.isEmpty) {
           return Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -697,7 +890,7 @@ class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
                 ),
                 SizedBox(height: 14),
                 Text(
-                  'Aucune réservation en cours',
+                  'Aucune dépense en cours',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Color(0xFF0B4F2A),
@@ -707,7 +900,7 @@ class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
                 ),
                 SizedBox(height: 8),
                 Text(
-                  'Créez une réservation pour saisir les dépenses du trajet.',
+                  'Ajoutez une dépense manuelle ou scannez un justificatif.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Color(0xFF5F6B86),
@@ -721,17 +914,19 @@ class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
           );
         }
 
-        final ongoingExpenses = _activeReservationExpenses(expenses)
-          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-
-        return ListView(
+        return ListView.separated(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 86),
-          children: [_buildOngoingTripCard(reservation, ongoingExpenses)],
+          itemCount: ongoingExpenses.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 12),
+          itemBuilder: (context, index) {
+            return _buildModernExpenseCard(ongoingExpenses[index]);
+          },
         );
       },
     );
   }
 
+  // ignore: unused_element
   Widget _buildOngoingTripCard(
     _CollectorReservationRecord reservation,
     List<ExpenseModel> expenses,
@@ -858,10 +1053,10 @@ class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
     return ValueListenableBuilder<List<ExpenseModel>>(
       valueListenable: expenseStore.expensesNotifier,
       builder: (context, expenses, _) {
-        final historicalReservations =
-            _CollectorReservationStore.historicalReservations;
+        final historicalExpenses = _historicalExpenses(expenses)
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
-        if (historicalReservations.isEmpty) {
+        if (historicalExpenses.isEmpty) {
           return Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -879,7 +1074,7 @@ class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
                 ),
                 SizedBox(height: 8),
                 Text(
-                  'Les anciens trajets apparaîtront dès une nouvelle réservation.',
+                  'Les dépenses validées ou rejetées apparaîtront ici.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Color(0xFF5F6B86),
@@ -895,25 +1090,17 @@ class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
 
         return ListView.separated(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 86),
-          itemCount: historicalReservations.length,
+          itemCount: historicalExpenses.length,
           separatorBuilder: (_, __) => const SizedBox(height: 12),
           itemBuilder: (context, index) {
-            final reservation = historicalReservations[index];
-            final routeExpenses =
-                expenses
-                    .where(
-                      (expense) =>
-                          expense.reservationReference == reservation.reference,
-                    )
-                    .toList()
-                  ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-            return _buildHistoricalReservationCard(reservation, routeExpenses);
+            return _buildModernExpenseCard(historicalExpenses[index]);
           },
         );
       },
     );
   }
 
+  // ignore: unused_element
   Widget _buildHistoricalReservationCard(
     _CollectorReservationRecord reservation,
     List<ExpenseModel> expenses,
@@ -1161,10 +1348,16 @@ class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
                     'Coût',
                     '${expense.cost.toStringAsFixed(0)} FCFA',
                   ),
+                  if (expense.costInWords.isNotEmpty)
+                    _buildExpenseDetailRow(
+                      Icons.text_fields_rounded,
+                      'Coût en lettres',
+                      expense.costInWords,
+                    ),
                   _buildExpenseDetailRow(
                     Icons.numbers_rounded,
                     'Quantité',
-                    '${expense.quantity}',
+                    _quantityLabel(expense),
                   ),
                   _buildExpenseDetailRow(
                     Icons.account_balance_wallet_rounded,
@@ -1479,7 +1672,7 @@ class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    '${expense.quantity}x ${expense.cost.toStringAsFixed(0)} FCFA',
+                    '${_quantityLabel(expense)} x ${expense.cost.toStringAsFixed(0)} FCFA',
                     style: const TextStyle(
                       color: Color(0xFF64748B),
                       fontSize: 11,
@@ -1579,6 +1772,12 @@ class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
     return 'Matricule non renseigné';
   }
 
+  String _quantityLabel(ExpenseModel expense) {
+    final unit = expense.quantityUnit.trim();
+    if (unit.isEmpty) return '${expense.quantity}';
+    return '${expense.quantity} $unit';
+  }
+
   _CollectorReservationRecord? _latestReservation() {
     return _CollectorReservationStore.activeReservation;
   }
@@ -1587,6 +1786,20 @@ class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
     final reservations = _CollectorReservationStore.historicalReservations;
     if (reservations.isEmpty) return null;
     return reservations.first;
+  }
+
+  _CollectorExpenseAssignmentContext? _currentAssignmentContext() {
+    return const _CollectorExpenseAssignmentContext(
+      route: 'Cotonou -> Parakou',
+      busMatricule: 'BJ-6248-RB',
+      date: '29 mai 2026',
+      time: '08:30',
+      status: 'Session ouverte',
+    );
+  }
+
+  String _assignmentReferenceFromRoute(String route, String busMatricule) {
+    return '$route|$busMatricule';
   }
 
   String _reservationRoute(_CollectorReservationRecord reservation) {
@@ -1929,7 +2142,7 @@ class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
                   child: Column(
                     children: [
                       Text(
-                        '${expense.quantity}',
+                        _quantityLabel(expense),
                         style: const TextStyle(
                           color: Color(0xFFFF9500),
                           fontSize: 12,
@@ -2092,3 +2305,205 @@ class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
   }
 }
 
+class _CollectorExpenseAssignmentContext {
+  final String route;
+  final String busMatricule;
+  final String date;
+  final String time;
+  final String status;
+
+  const _CollectorExpenseAssignmentContext({
+    required this.route,
+    required this.busMatricule,
+    required this.date,
+    required this.time,
+    required this.status,
+  });
+
+  String get reference => '$date|$time|$busMatricule';
+}
+
+class _CollectorWalletRechargePage extends StatefulWidget {
+  const _CollectorWalletRechargePage();
+
+  @override
+  State<_CollectorWalletRechargePage> createState() =>
+      _CollectorWalletRechargePageState();
+}
+
+class _CollectorWalletRechargePageState
+    extends State<_CollectorWalletRechargePage> {
+  final _amountController = TextEditingController();
+  static final Uri _feexPayApiUri = Uri.parse('https://api.feexpay.me');
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _openFeexPay() async {
+    final opened = await launchUrl(
+      _feexPayApiUri,
+      mode: LaunchMode.externalApplication,
+    );
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Impossible d'ouvrir la page FeexPay."),
+          backgroundColor: Color(0xFFE53935),
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const deepGreen = Color(0xFF0B4F2A);
+    const green = Color(0xFF16A34A);
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF7FAF8),
+      appBar: AppBar(
+        backgroundColor: deepGreen,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        title: const Text(
+          'Recharge portefeuille',
+          style: TextStyle(fontWeight: FontWeight.w900),
+        ),
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
+          children: [
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: deepGreen,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: deepGreen.withValues(alpha: 0.16),
+                    blurRadius: 22,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.13),
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: const Icon(
+                      Icons.add_card_rounded,
+                      color: Colors.white,
+                      size: 30,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Recharger le solde',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 21,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        SizedBox(height: 6),
+                        Text(
+                          'Le paiement est finalisé sur la page FeexPay.',
+                          style: TextStyle(
+                            color: Color(0xFFD8F3E2),
+                            fontSize: 13.4,
+                            height: 1.35,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 18),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(color: const Color(0xFFE5E7EB)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 18,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: TextField(
+                controller: _amountController,
+                keyboardType: TextInputType.number,
+                style: const TextStyle(
+                  color: Color(0xFF0F172A),
+                  fontWeight: FontWeight.w900,
+                ),
+                decoration: InputDecoration(
+                  labelText: 'Montant a recharger',
+                  hintText: 'Ex: 50000',
+                  suffixText: 'FCFA',
+                  filled: true,
+                  fillColor: const Color(0xFFF8FAFC),
+                  prefixIcon: const Icon(Icons.payments_rounded, color: green),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(18),
+                    borderSide: BorderSide.none,
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(18),
+                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(18),
+                    borderSide: const BorderSide(color: green, width: 1.4),
+                  ),
+                  labelStyle: const TextStyle(
+                    color: Color(0xFF64748B),
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 22),
+            ElevatedButton.icon(
+              onPressed: _openFeexPay,
+              icon: const Icon(Icons.open_in_new_rounded),
+              label: const Text('Recharger'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: green,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                textStyle: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

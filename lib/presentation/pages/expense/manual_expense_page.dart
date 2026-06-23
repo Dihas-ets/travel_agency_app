@@ -7,9 +7,12 @@ class ManualExpensePage extends StatefulWidget {
   final String? initialDescription;
   final double? initialCost;
   final int? initialQuantity;
+  final String? initialQuantityUnit;
+  final String? initialCostInWords;
   final String? initialNote;
   final String? qrCode;
   final String? reservationReference;
+  final String? assignmentReference;
   final String? tripRoute;
   final String? busMatricule;
 
@@ -19,9 +22,12 @@ class ManualExpensePage extends StatefulWidget {
     this.initialDescription,
     this.initialCost,
     this.initialQuantity,
+    this.initialQuantityUnit,
+    this.initialCostInWords,
     this.initialNote,
     this.qrCode,
     this.reservationReference,
+    this.assignmentReference,
     this.tripRoute,
     this.busMatricule,
   });
@@ -35,6 +41,7 @@ class _ManualExpensePageState extends State<ManualExpensePage> {
   late TextEditingController descriptionController;
   late TextEditingController costController;
   late TextEditingController quantityController;
+  late TextEditingController quantityUnitController;
   late TextEditingController noteController;
 
   final _formKey = GlobalKey<FormState>();
@@ -59,6 +66,9 @@ class _ManualExpensePageState extends State<ManualExpensePage> {
     quantityController = TextEditingController(
       text: (widget.initialQuantity ?? 1).toString(),
     );
+    quantityUnitController = TextEditingController(
+      text: widget.initialQuantityUnit,
+    );
     noteController = TextEditingController(text: widget.initialNote);
   }
 
@@ -68,6 +78,7 @@ class _ManualExpensePageState extends State<ManualExpensePage> {
     descriptionController.dispose();
     costController.dispose();
     quantityController.dispose();
+    quantityUnitController.dispose();
     noteController.dispose();
     super.dispose();
   }
@@ -82,11 +93,14 @@ class _ManualExpensePageState extends State<ManualExpensePage> {
         description: descriptionController.text.trim(),
         cost: double.parse(costController.text.trim()),
         quantity: int.parse(quantityController.text.trim()),
+        quantityUnit: quantityUnitController.text.trim(),
+        costInWords: widget.initialCostInWords?.trim() ?? '',
         note: noteController.text.trim(),
         createdAt: DateTime.now(),
         status: 'En cours',
         qrCode: widget.qrCode,
         reservationReference: widget.reservationReference,
+        assignmentReference: widget.assignmentReference,
         tripRoute: widget.tripRoute,
         busMatricule: widget.busMatricule,
       );
@@ -193,7 +207,7 @@ class _ManualExpensePageState extends State<ManualExpensePage> {
                   _buildTextField(
                     controller: quantityController,
                     label: 'Quantité',
-                    hintText: '1',
+                    hintText: 'Ex: 20',
                     icon: Icons.numbers_rounded,
                     keyboardType: TextInputType.number,
                     validator: (value) {
@@ -206,6 +220,13 @@ class _ManualExpensePageState extends State<ManualExpensePage> {
                       }
                       return null;
                     },
+                  ),
+                  const SizedBox(height: 14),
+                  _buildTextField(
+                    controller: quantityUnitController,
+                    label: 'Unité',
+                    hintText: 'Ex: litre, sac, pièce',
+                    icon: Icons.straighten_rounded,
                   ),
                 ],
               ),

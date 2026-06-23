@@ -6,12 +6,14 @@ import 'manual_expense_page.dart';
 
 class QRScannerPage extends StatefulWidget {
   final String? reservationReference;
+  final String? assignmentReference;
   final String? tripRoute;
   final String? busMatricule;
 
   const QRScannerPage({
     super.key,
     this.reservationReference,
+    this.assignmentReference,
     this.tripRoute,
     this.busMatricule,
   });
@@ -61,9 +63,12 @@ class _QRScannerPageState extends State<QRScannerPage> {
             initialDescription: parts.length > 1 ? parts[1] : '',
             initialCost: double.tryParse(parts[2]) ?? 0,
             initialQuantity: int.tryParse(parts[3]) ?? 1,
-            initialNote: parts.length > 4 ? parts[4] : '',
+            initialQuantityUnit: parts.length > 4 ? parts[4] : '',
+            initialCostInWords: parts.length > 5 ? parts[5] : '',
+            initialNote: parts.length > 6 ? parts[6] : '',
             qrCode: qrData,
             reservationReference: widget.reservationReference,
+            assignmentReference: widget.assignmentReference,
             tripRoute: widget.tripRoute,
             busMatricule: widget.busMatricule,
           ),
@@ -71,7 +76,7 @@ class _QRScannerPageState extends State<QRScannerPage> {
       );
     } else {
       _showScanError(
-        'Format QR invalide. Utilisez libelle|description|cost|quantity|note',
+        'Format QR invalide. Utilisez libelle|description|cost|quantity|unite|cout en lettres|note',
       );
     }
   }
@@ -268,6 +273,7 @@ class _QRScannerPageState extends State<QRScannerPage> {
                     MaterialPageRoute(
                       builder: (context) => ManualExpensePage(
                         reservationReference: widget.reservationReference,
+                        assignmentReference: widget.assignmentReference,
                         tripRoute: widget.tripRoute,
                         busMatricule: widget.busMatricule,
                       ),
@@ -364,7 +370,7 @@ class _QRScannerPageState extends State<QRScannerPage> {
           ),
           _buildInfoRow(
             'Quantité',
-            '${expense.quantity}',
+            _quantityLabel(expense),
             Icons.numbers_rounded,
           ),
           if (expense.description.isNotEmpty)
@@ -455,6 +461,12 @@ class _QRScannerPageState extends State<QRScannerPage> {
         ],
       ),
     );
+  }
+
+  String _quantityLabel(ExpenseModel expense) {
+    final unit = expense.quantityUnit.trim();
+    if (unit.isEmpty) return '${expense.quantity}';
+    return '${expense.quantity} $unit';
   }
 }
 
