@@ -581,9 +581,6 @@ class _ReservationTicketPageState extends State<_ReservationTicketPage> {
   @override
   Widget build(BuildContext context) {
     const deepBlue = Color(0xFF0B4F2A);
-    final tickets = List.generate(_reservation.passengerCount, (index) {
-      return index + 1;
-    });
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F9FF),
@@ -624,28 +621,23 @@ class _ReservationTicketPageState extends State<_ReservationTicketPage> {
                 padding: const EdgeInsets.fromLTRB(18, 18, 18, 26),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: tickets
-                      .map(
-                        (ticketNumber) => Padding(
-                          padding: const EdgeInsets.only(bottom: 18),
-                          child: _TicketVisual(
-                            departure: _reservation.departure,
-                            destination: _reservation.destination,
-                            date: _reservation.date,
-                            time: _reservation.time,
-                            passengerCount: _reservation.passengerCount,
-                            ticketIndex: ticketNumber,
-                            beneficiaryName: _reservation.beneficiaryName,
-                            total: _reservation.price,
-                            reference: '${_reservation.reference}$ticketNumber',
-                            primaryActionLabel: 'Effectuer le règlement',
-                            onPrimaryAction: _showPaymentSheet,
-                            onEdit: _editReservation,
-                            onCancel: _confirmCancel,
-                          ),
-                        ),
-                      )
-                      .toList(),
+                  children: [
+                    _TicketVisual(
+                      departure: _reservation.departure,
+                      destination: _reservation.destination,
+                      date: _reservation.date,
+                      time: _reservation.time,
+                      passengerCount: _reservation.passengerCount,
+                      ticketIndex: 1,
+                      beneficiaryName: _reservation.beneficiaryName,
+                      total: _reservation.price,
+                      reference: _reservation.reference,
+                      primaryActionLabel: 'Effectuer le règlement',
+                      onPrimaryAction: _showPaymentSheet,
+                      onEdit: _editReservation,
+                      onCancel: _confirmCancel,
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -916,8 +908,7 @@ class _ReprogramPageState extends State<_ReprogramPage> {
                         ticketIndex: _foundTicket!.ticketIndex,
                         beneficiaryName: _foundTicket!.passenger,
                         total: _foundTicket!.price,
-                        reference:
-                            '${_foundTicket!.reference}${_foundTicket!.ticketIndex}',
+                        reference: _foundTicket!.reference,
                         primaryActionLabel: '',
                         onEdit: _editFoundTicket,
                         showPrimaryAction: false,
@@ -1017,7 +1008,7 @@ class _TicketCard extends StatelessWidget {
         ticketIndex: item.ticketIndex,
         beneficiaryName: item.passenger,
         total: item.price,
-        reference: '${item.reference}${item.ticketIndex}',
+        reference: item.reference,
         primaryActionLabel: '',
         onEdit: () => _editReservation(context),
         compact: true,

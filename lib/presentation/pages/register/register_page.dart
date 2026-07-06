@@ -50,6 +50,11 @@ class _RegisterPageState extends State<RegisterPage> {
     }
 
     await AuthLocalStore.saveClientPhone(telephone);
+    await AuthLocalStore.saveClientProfile(
+      phone: telephone,
+      nom: nom,
+      prenom: prenom,
+    );
 
     Get.toNamed(
       Routes.VERIFY_CODE,

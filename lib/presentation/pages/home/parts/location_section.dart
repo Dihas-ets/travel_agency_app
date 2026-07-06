@@ -464,14 +464,6 @@ class _AgencyMapCardState extends State<_AgencyMapCard> {
                   ),
                 ),
               ),
-              const Text(
-                'Google Maps',
-                style: TextStyle(
-                  color: Color(0xFF4285F4),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
             ],
           ),
           const SizedBox(height: 12),

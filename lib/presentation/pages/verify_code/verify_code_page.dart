@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:code_initial/data/local/auth_local_store.dart';
 import 'package:code_initial/data/local/session_store.dart';
 import 'package:code_initial/navigation.dart';
 
@@ -23,10 +26,19 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
 
   // Un FocusNode par case pour déplacer automatiquement le curseur.
   final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
+  Timer? _resendTimer;
+  int _resendRemaining = 90;
+
+  @override
+  void initState() {
+    super.initState();
+    _startResendTimer();
+  }
 
   /// Nettoie les contrôleurs et les focus nodes quand la page est détruite.
   @override
   void dispose() {
+    _resendTimer?.cancel();
     for (final controller in _controllers) {
       controller.dispose();
     }
@@ -34,6 +46,29 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
       focusNode.dispose();
     }
     super.dispose();
+  }
+
+  void _startResendTimer() {
+    _resendTimer?.cancel();
+    setState(() => _resendRemaining = 90);
+    _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_resendRemaining <= 1) {
+        timer.cancel();
+        if (mounted) setState(() => _resendRemaining = 0);
+        return;
+      }
+      if (mounted) setState(() => _resendRemaining--);
+    });
+  }
+
+  void _renvoyerCode() {
+    _startResendTimer();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Code renvoyé.'),
+        backgroundColor: Color(0xFF16A34A),
+      ),
+    );
   }
 
   /// Gère le passage automatique d'une case à l'autre.
@@ -49,7 +84,7 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
     }
   }
 
-  void _validerCode() {
+  Future<void> _validerCode() async {
     final code = _controllers.map((controller) => controller.text).join();
     if (code.length != 6) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -66,6 +101,18 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
     final flow = arguments?['flow']?.toString() ?? '';
     if (phone.isNotEmpty && (flow == 'login' || flow == 'register')) {
       SessionStore.setCurrentClientPhone(phone);
+    }
+    if (flow == 'register') {
+      final nom = arguments?['nom']?.toString() ?? '';
+      final prenom = arguments?['prenom']?.toString() ?? '';
+      if (nom.trim().isNotEmpty || prenom.trim().isNotEmpty) {
+        SessionStore.setCurrentClientName(nom: nom, prenom: prenom);
+      }
+    } else if (phone.isNotEmpty && flow == 'login') {
+      final fullName = await AuthLocalStore.getClientFullName(phone);
+      if (fullName != null && fullName.isNotEmpty) {
+        SessionStore.currentClientFullName = fullName;
+      }
     }
 
     Get.offAllNamed(Routes.HOME);
@@ -289,13 +336,34 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
 
                       const SizedBox(height: 14),
 
-                      const Text(
-                        'Format du code : 000-000',
-                        style: TextStyle(
-                          color: Color(0xFF7B849B),
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 200),
+                        child: _resendRemaining > 0
+                            ? Text(
+                                'Renvoyez le code dans $_resendRemaining seconde${_resendRemaining > 1 ? 's' : ''}',
+                                key: const ValueKey('resend-countdown'),
+                                style: const TextStyle(
+                                  color: Color(0xFF7B849B),
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              )
+                            : TextButton.icon(
+                                key: const ValueKey('resend-button'),
+                                onPressed: _renvoyerCode,
+                                icon: const Icon(
+                                  Icons.refresh_rounded,
+                                  size: 18,
+                                ),
+                                label: const Text('Renvoyer'),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: const Color(0xFF16A34A),
+                                  textStyle: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                              ),
                       ),
                     ],
                   ),

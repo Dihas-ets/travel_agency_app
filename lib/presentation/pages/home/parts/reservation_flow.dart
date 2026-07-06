@@ -105,16 +105,16 @@ class _VoyageTabContent extends StatelessWidget {
                 Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => TarifsPage(
-                      onReserve: (context, selection) {
+                      onCreateReservation: (context, selection) {
                         Navigator.of(context).push(
                           MaterialPageRoute(
-                            builder: (_) => _PaymentDetailsPage(
-                              departure: selection.departure,
-                              destination: selection.destination,
-                              date: selection.date,
-                              priceAmount: selection.priceAmount,
-                              passengers: selection.passengerCount,
-                              time: selection.time,
+                            builder: (_) => _ReservationPage(
+                              initialDeparture: selection.departure,
+                              initialDestination: selection.destination,
+                              initialDateLabel: selection.date,
+                              initialTime: selection.time,
+                              initialPassengerCount: selection.passengerCount,
+                              initialPriceAmount: selection.priceAmount,
                             ),
                           ),
                         );
@@ -266,7 +266,21 @@ class _VoyageActionsCard extends StatelessWidget {
 }
 
 class _ReservationPage extends StatefulWidget {
-  const _ReservationPage();
+  final String? initialDeparture;
+  final String? initialDestination;
+  final String? initialDateLabel;
+  final String? initialTime;
+  final int initialPassengerCount;
+  final int initialPriceAmount;
+
+  const _ReservationPage({
+    this.initialDeparture,
+    this.initialDestination,
+    this.initialDateLabel,
+    this.initialTime,
+    this.initialPassengerCount = 1,
+    this.initialPriceAmount = 0,
+  });
 
   @override
   State<_ReservationPage> createState() => _ReservationPageState();
@@ -281,17 +295,26 @@ class _ReservationPageState extends State<_ReservationPage> {
   final TextEditingController _dateController = TextEditingController();
   int _passengerCount = 1;
   DateTime? _travelDate;
+  String _selectedTime = '6h20';
 
   final List<String> _cities = _beninCities;
-
-  List<_ReservationItem> get _confirmedReservations =>
-      _HistoryRepository.reservations;
+  static const List<String> _departureTimes = ['6h20', '15h10', '20h'];
 
   @override
   void initState() {
     super.initState();
-    _departController.text = 'Cotonou';
-    _destinationController.text = 'Porto-Novo';
+    _departController.text = widget.initialDeparture ?? 'Cotonou';
+    _destinationController.text = widget.initialDestination ?? 'Porto-Novo';
+    _passengerCount = widget.initialPassengerCount.clamp(1, 8).toInt();
+    if (_departureTimes.contains(widget.initialTime)) {
+      _selectedTime = widget.initialTime!;
+    }
+    final initialDate = _dateFromTarifLabel(widget.initialDateLabel);
+    if (initialDate != null) {
+      _travelDate = initialDate;
+      _dateController.text =
+          '${initialDate.day.toString().padLeft(2, '0')} ${_getMonthName(initialDate.month)} ${initialDate.year}';
+    }
   }
 
   @override
@@ -419,6 +442,9 @@ class _ReservationPageState extends State<_ReservationPage> {
   }
 
   int get _fare {
+    if (widget.initialPriceAmount > 0) {
+      return widget.initialPriceAmount * _passengerCount;
+    }
     if (_departController.text.isEmpty || _destinationController.text.isEmpty) {
       return 0;
     }
@@ -457,6 +483,7 @@ class _ReservationPageState extends State<_ReservationPage> {
               '${_travelDate!.day.toString().padLeft(2, '0')} ${_getMonthName(_travelDate!.month)} ${_travelDate!.year}',
           priceAmount: _fare,
           passengers: _passengerCount,
+          time: _selectedTime,
         ),
       ),
     );
@@ -479,6 +506,22 @@ class _ReservationPageState extends State<_ReservationPage> {
       'décembre',
     ];
     return months[month - 1];
+  }
+
+  DateTime? _dateFromTarifLabel(String? label) {
+    if (label == null || label.trim().isEmpty) return null;
+    final now = DateTime.now();
+    switch (label.trim()) {
+      case 'Aujourd’hui':
+      case "Aujourd'hui":
+        return now;
+      case 'Demain':
+        return now.add(const Duration(days: 1));
+      case 'Après-demain':
+      case 'Apres-demain':
+        return now.add(const Duration(days: 2));
+    }
+    return null;
   }
 
   @override
@@ -559,7 +602,7 @@ class _ReservationPageState extends State<_ReservationPage> {
                           ),
                         ),
                         child: const Text(
-                          'Mes réservations',
+                          'Nouvelle réservation',
                           style: TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.w900,
@@ -587,25 +630,6 @@ class _ReservationPageState extends State<_ReservationPage> {
                     children: [
                       const SizedBox(height: 8),
                       _buildReservationForm(),
-                      const SizedBox(height: 18),
-                      if (_confirmedReservations.isNotEmpty)
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Text(
-                              'Mes réservations',
-                              style: TextStyle(
-                                color: _deepBlue,
-                                fontSize: 17,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                            const SizedBox(height: 14),
-                            ..._confirmedReservations.map(
-                              (item) => _ReservationCard(item: item),
-                            ),
-                          ],
-                        ),
                     ],
                   ),
                 ),
@@ -724,11 +748,10 @@ class _ReservationPageState extends State<_ReservationPage> {
               const SizedBox(width: 10),
               Expanded(
                 child: _buildSmallField(
-                  label: 'Retour',
-                  value: 'Ajouter un retour',
-                  icon: Icons.sync_alt_rounded,
-                  disabled: true,
-                  onTap: () {},
+                  label: 'Heure',
+                  value: _selectedTime,
+                  icon: Icons.schedule_rounded,
+                  onTap: _showTimePicker,
                 ),
               ),
             ],
@@ -767,6 +790,71 @@ class _ReservationPageState extends State<_ReservationPage> {
     _departController.text = _destinationController.text;
     _destinationController.text = first;
     setState(() {});
+  }
+
+  void _showTimePicker() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => SafeArea(
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
+          decoration: const BoxDecoration(
+            color: Color(0xFFF8FBFF),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                'Choisir l’heure de départ',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: _deepBlue,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 14),
+              ..._departureTimes.map(
+                (time) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: ListTile(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                      side: BorderSide(
+                        color: time == _selectedTime
+                            ? _fofanaGreen
+                            : _deepBlue.withValues(alpha: 0.10),
+                      ),
+                    ),
+                    tileColor: Colors.white,
+                    leading: Icon(
+                      time == _selectedTime
+                          ? Icons.check_circle_rounded
+                          : Icons.schedule_rounded,
+                      color: time == _selectedTime ? _fofanaGreen : _deepBlue,
+                    ),
+                    title: Text(
+                      time,
+                      style: const TextStyle(
+                        color: _deepBlue,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    onTap: () {
+                      setState(() => _selectedTime = time);
+                      Navigator.of(context).pop();
+                    },
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildSmallField({
@@ -974,6 +1062,12 @@ class _PaymentDetailsPageState extends State<_PaymentDetailsPage> {
   bool _isForSomeoneElse = false;
 
   @override
+  void initState() {
+    super.initState();
+    _requesterPhoneController.text = SessionStore.currentClientPhone ?? '';
+  }
+
+  @override
   void dispose() {
     _requesterPhoneController.dispose();
     _beneficiaryFirstNameController.dispose();
@@ -1007,7 +1101,11 @@ class _PaymentDetailsPageState extends State<_PaymentDetailsPage> {
       return;
     }
 
-    final beneficiaryName = _isForSomeoneElse
+    final registeredClientName = SessionStore.currentClientFullName?.trim();
+    final beneficiaryName =
+        registeredClientName != null && registeredClientName.isNotEmpty
+        ? registeredClientName
+        : _isForSomeoneElse
         ? '$beneficiaryFirstName $beneficiaryLastName'
         : 'Moi-même';
     final reservation = _ReservationItem(
@@ -1329,10 +1427,6 @@ class _GeneratedTicketPageState extends State<_GeneratedTicketPage> {
   @override
   Widget build(BuildContext context) {
     const deepBlue = Color(0xFF0B4F2A);
-    final tickets = List.generate(_reservation.passengerCount, (index) {
-      return index + 1;
-    });
-
     return Scaffold(
       backgroundColor: const Color(0xFFF7F9FF),
       body: SafeArea(
@@ -1374,7 +1468,7 @@ class _GeneratedTicketPageState extends State<_GeneratedTicketPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '${_reservation.passengerCount} réservation${_reservation.passengerCount > 1 ? 's' : ''} enregistrée${_reservation.passengerCount > 1 ? 's' : ''}',
+                      '1 ticket pour ${_reservation.passengerCount} place${_reservation.passengerCount > 1 ? 's' : ''}',
                       style: const TextStyle(
                         color: deepBlue,
                         fontSize: 20,
@@ -1382,25 +1476,20 @@ class _GeneratedTicketPageState extends State<_GeneratedTicketPage> {
                       ),
                     ),
                     const SizedBox(height: 18),
-                    ...tickets.map(
-                      (ticketNumber) => Padding(
-                        padding: const EdgeInsets.only(bottom: 18),
-                        child: _TicketVisual(
-                          departure: _reservation.departure,
-                          destination: _reservation.destination,
-                          date: _reservation.date,
-                          time: _reservation.time,
-                          passengerCount: _reservation.passengerCount,
-                          ticketIndex: ticketNumber,
-                          beneficiaryName: _reservation.beneficiaryName,
-                          total: _reservation.price,
-                          reference: '${_reservation.reference}$ticketNumber',
-                          primaryActionLabel: 'Effectuer le règlement',
-                          onPrimaryAction: _showPaymentSheet,
-                          onEdit: _editReservation,
-                          onCancel: _confirmCancel,
-                        ),
-                      ),
+                    _TicketVisual(
+                      departure: _reservation.departure,
+                      destination: _reservation.destination,
+                      date: _reservation.date,
+                      time: _reservation.time,
+                      passengerCount: _reservation.passengerCount,
+                      ticketIndex: 1,
+                      beneficiaryName: _reservation.beneficiaryName,
+                      total: _reservation.price,
+                      reference: _reservation.reference,
+                      primaryActionLabel: 'Effectuer le règlement',
+                      onPrimaryAction: _showPaymentSheet,
+                      onEdit: _editReservation,
+                      onCancel: _confirmCancel,
                     ),
                   ],
                 ),
@@ -1981,4 +2070,3 @@ Future<bool?> _showCancelReservationDialog(BuildContext context) {
     ),
   );
 }
-

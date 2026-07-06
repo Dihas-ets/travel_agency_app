@@ -15,12 +15,18 @@ class TarifsPage extends StatefulWidget {
     TarifReservationSelection selection,
   )?
   onReserve;
+  final void Function(
+    BuildContext context,
+    TarifReservationSelection selection,
+  )?
+  onCreateReservation;
 
   const TarifsPage({
     super.key,
     this.initialDepart,
     this.initialDestination,
     this.onReserve,
+    this.onCreateReservation,
   });
 
   @override
@@ -51,6 +57,7 @@ class _TarifResult {
   final String dateDepart;
   final String heureDepart;
   final int places;
+  final int capacity;
   final int fraisCfa;
 
   const _TarifResult({
@@ -59,6 +66,7 @@ class _TarifResult {
     required this.dateDepart,
     required this.heureDepart,
     required this.places,
+    required this.capacity,
     required this.fraisCfa,
   });
 }
@@ -186,15 +194,16 @@ class _TarifsPageState extends State<TarifsPage> {
 
     final List<_TarifResult> res = <_TarifResult>[];
     for (int i = 0; i < 3; i++) {
-      final places = 1 + ((seed + i) % 4); // 1..4
+      final places = 4 + ((seed + i * 3) % 9); // 4..12
       final frais = base + (i * 2500) + (places * 300);
       res.add(
         _TarifResult(
           from: depart,
           to: destination,
-          dateDepart: '11 May 2026',
-          heureDepart: i == 0 ? '12:00' : (i == 1 ? '15:30' : '18:10'),
+          dateDepart: i == 0 ? 'Aujourd’hui' : (i == 1 ? 'Demain' : 'Après-demain'),
+          heureDepart: i == 0 ? '6h20' : (i == 1 ? '15h10' : '20h'),
           places: places,
+          capacity: 30,
           fraisCfa: frais,
         ),
       );
@@ -210,9 +219,15 @@ class _TarifsPageState extends State<TarifsPage> {
       destination: result.to,
       date: result.dateDepart,
       time: result.heureDepart,
-      passengerCount: result.places,
+      passengerCount: 1,
       priceAmount: result.fraisCfa,
     );
+
+    final createReservation = widget.onCreateReservation;
+    if (createReservation != null) {
+      createReservation(context, selection);
+      return;
+    }
 
     final handler = widget.onReserve;
     if (handler != null) {
@@ -227,6 +242,34 @@ class _TarifsPageState extends State<TarifsPage> {
         content: Text('Réservation : ${result.from} → ${result.to}'),
       ),
     );
+  }
+
+  void _openReservationFromInput() {
+    final depart = _departController.text.trim().isEmpty
+        ? 'Cotonou'
+        : _departController.text.trim();
+    final destination = _destinationController.text.trim().isEmpty
+        ? 'Porto-Novo'
+        : _destinationController.text.trim();
+    final selection = TarifReservationSelection(
+      departure: depart,
+      destination: destination,
+      date: 'Aujourd’hui',
+      time: '6h20',
+      passengerCount: 1,
+      priceAmount: 0,
+    );
+
+    final createReservation = widget.onCreateReservation;
+    if (createReservation != null) {
+      createReservation(context, selection);
+      return;
+    }
+
+    final reserve = widget.onReserve;
+    if (reserve != null) {
+      reserve(context, selection);
+    }
   }
 
   /// Ouvre une liste de villes en bas de l'écran.
@@ -520,7 +563,7 @@ class _TarifsPageState extends State<TarifsPage> {
           const SizedBox(height: 8),
           _buildIconLine(
             icon: Icons.event_seat_rounded,
-            label: 'Nbr de places : ${result.places}',
+            label: 'Nbr de places : ${result.places}/${result.capacity}',
           ),
           const SizedBox(height: 8),
 
@@ -797,7 +840,7 @@ class _TarifsPageState extends State<TarifsPage> {
                           ),
                         ),
                         child: const Text(
-                          'Recherche',
+                          'Rechercher',
                           style: TextStyle(
                             fontSize: 17,
                             fontWeight: FontWeight.bold,
@@ -873,7 +916,7 @@ class _TarifsPageState extends State<TarifsPage> {
       ),
 
       floatingActionButton: FloatingActionButton(
-        onPressed: () {},
+        onPressed: _openReservationFromInput,
         backgroundColor: _fofanaGreen,
         foregroundColor: Colors.white,
         elevation: 6,

@@ -65,16 +65,16 @@ const List<String> _beninCities = [
 class _HistoryRepository {
   static final List<_ReservationItem> reservations = [];
 
-  static List<_TicketItem> get tickets => reservations.expand((reservation) {
-    return List.generate(reservation.passengerCount, (index) {
-      final ticketSeat = '${index + 1}A';
+  static List<_TicketItem> get tickets {
+    return reservations.map((reservation) {
+      final ticketSeat = reservation.seat;
       return _TicketItem(
         code: reservation.reference.replaceFirst('TB', 'TK'),
         departure: reservation.departure,
         destination: reservation.destination,
         passenger: reservation.beneficiaryName,
         passengerCount: reservation.passengerCount,
-        ticketIndex: index + 1,
+        ticketIndex: 1,
         date: reservation.date,
         time: reservation.time,
         seat: ticketSeat,
@@ -83,8 +83,8 @@ class _HistoryRepository {
         gate:
             'A${ticketSeat.replaceAll(RegExp(r'[^0-9]'), '').padLeft(2, '0')}',
       );
-    });
-  }).toList();
+    }).toList();
+  }
 
   static void addReservation(_ReservationItem reservation) {
     reservations.insert(0, reservation);
@@ -583,25 +583,25 @@ class _ConnectedHomeContentState extends State<_ConnectedHomeContent> {
         builder: (_) => TarifsPage(
           initialDepart: _departureController.text,
           initialDestination: _destinationController.text,
-          onReserve: _openTarifConfirmation,
+          onCreateReservation: _openReservationFromTarif,
         ),
       ),
     );
   }
 
-  void _openTarifConfirmation(
+  void _openReservationFromTarif(
     BuildContext context,
     TarifReservationSelection selection,
   ) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => _PaymentDetailsPage(
-          departure: selection.departure,
-          destination: selection.destination,
-          date: selection.date,
-          priceAmount: selection.priceAmount,
-          passengers: selection.passengerCount,
-          time: selection.time,
+        builder: (_) => _ReservationPage(
+          initialDeparture: selection.departure,
+          initialDestination: selection.destination,
+          initialDateLabel: selection.date,
+          initialTime: selection.time,
+          initialPassengerCount: selection.passengerCount,
+          initialPriceAmount: selection.priceAmount,
         ),
       ),
     );
@@ -764,4 +764,5 @@ class _ConnectedHomeContentState extends State<_ConnectedHomeContent> {
     );
   }
 }
+
 

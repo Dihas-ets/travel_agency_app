@@ -142,6 +142,28 @@ const List<String> _parcelNatures = [
   'Vélo',
 ];
 
+class _ParcelDraft {
+  String? nature;
+  final TextEditingController valueController = TextEditingController();
+  XFile? attachment;
+
+  bool get isComplete {
+    return nature != null &&
+        nature!.trim().isNotEmpty &&
+        valueController.text.trim().isNotEmpty &&
+        attachment != null;
+  }
+
+  String get summary {
+    final value = valueController.text.trim();
+    return '${nature ?? ''} - valeur ${value.isEmpty ? '--' : value} CFA';
+  }
+
+  void dispose() {
+    valueController.dispose();
+  }
+}
+
 class ParcelMenuContent extends StatelessWidget {
   const ParcelMenuContent({super.key});
 
@@ -291,16 +313,12 @@ class _SendParcelPageState extends State<SendParcelPage>
   late TabController _tabController;
   final TextEditingController _departureController = TextEditingController();
   final TextEditingController _destinationController = TextEditingController();
-  final TextEditingController _valueController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
-  final TextEditingController _deliveryFeeController = TextEditingController();
   final ImagePicker _imagePicker = ImagePicker();
 
-  String? _selectedNature;
-  XFile? _pickedAttachment;
-  int _parcelCount = 1;
+  final List<_ParcelDraft> _parcels = [_ParcelDraft()];
   int _currentStep = 1;
 
   @override
@@ -314,11 +332,12 @@ class _SendParcelPageState extends State<SendParcelPage>
     _tabController.dispose();
     _departureController.dispose();
     _destinationController.dispose();
-    _valueController.dispose();
     _lastNameController.dispose();
     _firstNameController.dispose();
     _phoneController.dispose();
-    _deliveryFeeController.dispose();
+    for (final parcel in _parcels) {
+      parcel.dispose();
+    }
     super.dispose();
   }
 
@@ -335,13 +354,38 @@ class _SendParcelPageState extends State<SendParcelPage>
     );
   }
 
-  void _showNaturePicker() {
+  int get _parcelCount => _parcels.length;
+
+  String get _parcelNatureSummary => _parcels
+      .where((parcel) => parcel.nature != null)
+      .map((parcel) => parcel.summary.trim())
+      .where((summary) => summary.isNotEmpty)
+      .join(', ');
+
+  XFile? get _firstPickedAttachment {
+    for (final parcel in _parcels) {
+      if (parcel.attachment != null) return parcel.attachment;
+    }
+    return null;
+  }
+
+  String? get _attachmentNameSummary {
+    final names = _parcels
+        .map((parcel) => parcel.attachment?.name.trim())
+        .whereType<String>()
+        .where((name) => name.isNotEmpty)
+        .toList();
+    if (names.isEmpty) return null;
+    return names.join(', ');
+  }
+
+  void _showNaturePicker(int index) {
     _showChoiceSheet(
       title: 'Nature du colis',
       items: _parcelNatures,
-      selectedValue: _selectedNature,
+      selectedValue: _parcels[index].nature,
       icon: Icons.inventory_2_outlined,
-      onSelected: (nature) => setState(() => _selectedNature = nature),
+      onSelected: (nature) => setState(() => _parcels[index].nature = nature),
     );
   }
 
@@ -475,24 +519,36 @@ class _SendParcelPageState extends State<SendParcelPage>
     );
   }
 
-  void _changeParcelCount(int delta) {
+  void _addParcelInfo() {
     setState(() {
-      _parcelCount = (_parcelCount + delta).clamp(1, 99);
+      if (_parcels.length < 99) {
+        _parcels.add(_ParcelDraft());
+      }
+    });
+  }
+
+  void _removeParcelInfo(int index) {
+    if (_parcels.length == 1) return;
+
+    setState(() {
+      final removed = _parcels.removeAt(index);
+      removed.dispose();
     });
   }
 
   void _goToStepTwo() {
     if (_departureController.text.trim().isEmpty ||
-        _selectedNature == null ||
-        _valueController.text.trim().isEmpty) {
-      _showRequiredMessage('Remplissez tous les champs avant de continuer');
+        _parcels.any((parcel) => !parcel.isComplete)) {
+      _showRequiredMessage(
+        "Remplissez la nature, la valeur et l'image de chaque colis avant de continuer",
+      );
       return;
     }
 
     setState(() => _currentStep = 2);
   }
 
-  Future<void> _pickAttachment() async {
+  Future<void> _pickAttachment(int index) async {
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
       builder: (_) => Container(
@@ -527,7 +583,7 @@ class _SendParcelPageState extends State<SendParcelPage>
     final file = await _imagePicker.pickImage(source: source);
     if (file == null) return;
 
-    setState(() => _pickedAttachment = file);
+    setState(() => _parcels[index].attachment = file);
   }
 
   void _previewTicket() {
@@ -535,13 +591,10 @@ class _SendParcelPageState extends State<SendParcelPage>
         _lastNameController.text.trim().isEmpty ||
         _firstNameController.text.trim().isEmpty ||
         _phoneController.text.trim().isEmpty ||
-        _deliveryFeeController.text.trim().isEmpty ||
-        _pickedAttachment == null ||
-        _selectedNature == null ||
         _departureController.text.trim().isEmpty ||
-        _valueController.text.trim().isEmpty) {
+        _parcels.any((parcel) => !parcel.isComplete)) {
       _showRequiredMessage(
-        "Remplissez tous les champs et importez l'image du colis avant l'aperçu",
+        "Remplissez tous les champs de chaque colis avant l'aperçu",
       );
       return;
     }
@@ -566,11 +619,11 @@ class _SendParcelPageState extends State<SendParcelPage>
           recipientLastName: _lastNameController.text.trim(),
           recipientFirstName: _firstNameController.text.trim(),
           recipientPhone: _phoneController.text.trim(),
-          parcelNature: _selectedNature!,
+          parcelNature: _parcelNatureSummary,
           parcelCount: _parcelCount,
-          attachmentPath: _pickedAttachment?.path,
-          attachmentName: _pickedAttachment?.name,
-          deliveryFee: _deliveryFeeController.text.trim(),
+          attachmentPath: _firstPickedAttachment?.path,
+          attachmentName: _attachmentNameSummary,
+          deliveryFee: '',
           showValidation: false,
         ),
       ),
@@ -632,16 +685,15 @@ class _SendParcelPageState extends State<SendParcelPage>
                 ? _StepOneForm(
                     key: const ValueKey('parcel-step-one'),
                     departureController: _departureController,
-                    valueController: _valueController,
-                    selectedNature: _selectedNature,
-                    parcelCount: _parcelCount,
+                    parcels: _parcels,
                     onDepartureTap: () => _showCityPicker(
                       title: 'Point de départ',
                       controller: _departureController,
                     ),
                     onNatureTap: _showNaturePicker,
-                    onMinus: () => _changeParcelCount(-1),
-                    onPlus: () => _changeParcelCount(1),
+                    onAddParcel: _addParcelInfo,
+                    onRemoveParcel: _removeParcelInfo,
+                    onPickAttachment: _pickAttachment,
                     onNext: _goToStepTwo,
                     onInitiations: () => _showInitiationsMessage(context),
                   )
@@ -651,14 +703,10 @@ class _SendParcelPageState extends State<SendParcelPage>
                     lastNameController: _lastNameController,
                     firstNameController: _firstNameController,
                     phoneController: _phoneController,
-                    deliveryFeeController: _deliveryFeeController,
-                    attachmentPath: _pickedAttachment?.path,
-                    attachmentName: _pickedAttachment?.name,
                     onDestinationTap: () => _showCityPicker(
                       title: 'Ville de destination',
                       controller: _destinationController,
                     ),
-                    onPickAttachment: _pickAttachment,
                     onPreview: _previewTicket,
                   ),
           ),
@@ -681,25 +729,23 @@ class _SendParcelPageState extends State<SendParcelPage>
 
 class _StepOneForm extends StatelessWidget {
   final TextEditingController departureController;
-  final TextEditingController valueController;
-  final String? selectedNature;
-  final int parcelCount;
+  final List<_ParcelDraft> parcels;
   final VoidCallback onDepartureTap;
-  final VoidCallback onNatureTap;
-  final VoidCallback onMinus;
-  final VoidCallback onPlus;
+  final ValueChanged<int> onNatureTap;
+  final VoidCallback onAddParcel;
+  final ValueChanged<int> onRemoveParcel;
+  final ValueChanged<int> onPickAttachment;
   final VoidCallback onNext;
   final VoidCallback onInitiations;
 
   const _StepOneForm({
     required this.departureController,
-    required this.valueController,
-    required this.selectedNature,
-    required this.parcelCount,
+    required this.parcels,
     required this.onDepartureTap,
     required this.onNatureTap,
-    required this.onMinus,
-    required this.onPlus,
+    required this.onAddParcel,
+    required this.onRemoveParcel,
+    required this.onPickAttachment,
     required this.onNext,
     required this.onInitiations,
     super.key,
@@ -721,20 +767,18 @@ class _StepOneForm extends StatelessWidget {
         const SizedBox(height: 20),
         const _SectionLabel('Informations du colis :'),
         const SizedBox(height: 10),
-        _ChoiceField(
-          value: selectedNature,
-          hintText: 'Nature',
-          icon: Icons.inventory_2_outlined,
-          onTap: onNatureTap,
-        ),
-        const SizedBox(height: 12),
-        _ParcelInputField(
-          controller: valueController,
-          hintText: 'Valeur',
-          keyboardType: TextInputType.number,
-        ),
-        const SizedBox(height: 12),
-        _ParcelCountField(count: parcelCount, onMinus: onMinus, onPlus: onPlus),
+        for (var index = 0; index < parcels.length; index++) ...[
+          _ParcelInfoItem(
+            index: index,
+            parcel: parcels[index],
+            canRemove: parcels.length > 1,
+            onNatureTap: () => onNatureTap(index),
+            onPickAttachment: () => onPickAttachment(index),
+            onRemove: () => onRemoveParcel(index),
+          ),
+          const SizedBox(height: 10),
+        ],
+        _AddParcelInfoButton(count: parcels.length, onPressed: onAddParcel),
         const SizedBox(height: 30),
         _PrimaryParcelButton(label: 'Suivant', onPressed: onNext),
         const SizedBox(height: 14),
@@ -752,11 +796,7 @@ class _StepTwoForm extends StatelessWidget {
   final TextEditingController lastNameController;
   final TextEditingController firstNameController;
   final TextEditingController phoneController;
-  final TextEditingController deliveryFeeController;
-  final String? attachmentPath;
-  final String? attachmentName;
   final VoidCallback onDestinationTap;
-  final VoidCallback onPickAttachment;
   final VoidCallback onPreview;
 
   const _StepTwoForm({
@@ -764,11 +804,7 @@ class _StepTwoForm extends StatelessWidget {
     required this.lastNameController,
     required this.firstNameController,
     required this.phoneController,
-    required this.deliveryFeeController,
-    required this.attachmentPath,
-    required this.attachmentName,
     required this.onDestinationTap,
-    required this.onPickAttachment,
     required this.onPreview,
     super.key,
   });
@@ -799,20 +835,6 @@ class _StepTwoForm extends StatelessWidget {
         SizedBox(
           height: 66,
           child: AfricanPhoneField(controller: phoneController),
-        ),
-        const SizedBox(height: 12),
-        _ParcelInputField(
-          controller: deliveryFeeController,
-          hintText: 'Frais de livraison',
-          keyboardType: TextInputType.number,
-        ),
-        const SizedBox(height: 12),
-        // L'image sert de preuve visuelle du colis : on la met donc en avant
-        // et le bouton Aperçu la rend obligatoire dans la validation.
-        _AttachmentField(
-          fileName: attachmentName,
-          filePath: attachmentPath,
-          onTap: onPickAttachment,
         ),
         const SizedBox(height: 30),
         _PrimaryParcelButton(label: 'Aperçu', onPressed: onPreview),
@@ -1323,6 +1345,191 @@ class _ChoiceField extends StatelessWidget {
   }
 }
 
+class _ParcelInfoItem extends StatelessWidget {
+  final int index;
+  final _ParcelDraft parcel;
+  final bool canRemove;
+  final VoidCallback onNatureTap;
+  final VoidCallback onPickAttachment;
+  final VoidCallback onRemove;
+
+  const _ParcelInfoItem({
+    required this.index,
+    required this.parcel,
+    required this.canRemove,
+    required this.onNatureTap,
+    required this.onPickAttachment,
+    required this.onRemove,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hasNature = parcel.nature != null && parcel.nature!.trim().isNotEmpty;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _deepBlue.withValues(alpha: 0.08)),
+        boxShadow: [
+          BoxShadow(
+            color: _deepBlue.withValues(alpha: 0.04),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: _fofanaGreen.withValues(alpha: 0.09),
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child: const Icon(
+                  Icons.inventory_2_outlined,
+                  color: _fofanaGreen,
+                  size: 19,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Colis ${index + 1}',
+                  style: const TextStyle(
+                    color: _deepBlue,
+                    fontSize: 15.5,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              if (canRemove)
+                IconButton(
+                  tooltip: 'Retirer ce colis',
+                  onPressed: onRemove,
+                  icon: const Icon(
+                    Icons.delete_outline_rounded,
+                    color: _logoRed,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _ChoiceField(
+            value: parcel.nature,
+            hintText: 'Nature du colis ${index + 1}',
+            icon: Icons.inventory_2_outlined,
+            onTap: onNatureTap,
+          ),
+          const SizedBox(height: 10),
+          _ParcelInputField(
+            controller: parcel.valueController,
+            hintText: 'Valeur du colis ${index + 1}',
+            keyboardType: TextInputType.number,
+          ),
+          const SizedBox(height: 10),
+          _AttachmentField(
+            fileName: parcel.attachment?.name,
+            filePath: parcel.attachment?.path,
+            onTap: onPickAttachment,
+          ),
+          if (!hasNature) ...[
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Nature, valeur et image obligatoires pour ce colis',
+                style: TextStyle(
+                  color: _logoRed.withValues(alpha: 0.76),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _AddParcelInfoButton extends StatelessWidget {
+  final int count;
+  final VoidCallback onPressed;
+
+  const _AddParcelInfoButton({required this.count, required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onPressed,
+        child: Container(
+          height: 58,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: _fofanaGreen.withValues(alpha: 0.24)),
+            boxShadow: [
+              BoxShadow(
+                color: _deepBlue.withValues(alpha: 0.04),
+                blurRadius: 14,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: _fofanaGreen.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child: const Icon(
+                  Icons.add_rounded,
+                  color: _fofanaGreen,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Ajouter un colis',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: _deepBlue,
+                    fontSize: 15.5,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              Text(
+                '$count',
+                style: TextStyle(
+                  color: _deepBlue.withValues(alpha: 0.66),
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _ParcelInputField extends StatelessWidget {
   final TextEditingController controller;
   final String hintText;
@@ -1370,118 +1577,6 @@ class _ParcelInputField extends StatelessWidget {
             fontWeight: FontWeight.w700,
           ),
           contentPadding: const EdgeInsets.fromLTRB(18, 21, 18, 0),
-        ),
-      ),
-    );
-  }
-}
-
-class _ParcelCountField extends StatelessWidget {
-  final int count;
-  final VoidCallback onMinus;
-  final VoidCallback onPlus;
-
-  const _ParcelCountField({
-    required this.count,
-    required this.onMinus,
-    required this.onPlus,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 66,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _deepBlue.withValues(alpha: 0.08)),
-        boxShadow: [
-          BoxShadow(
-            color: _deepBlue.withValues(alpha: 0.04),
-            blurRadius: 14,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: _fofanaGreen.withValues(alpha: 0.09),
-              borderRadius: BorderRadius.circular(11),
-            ),
-            child: const Icon(
-              Icons.view_in_ar_outlined,
-              color: _fofanaGreen,
-              size: 19,
-            ),
-          ),
-          const SizedBox(width: 12),
-          const Expanded(
-            child: Text(
-              'Nombre de colis',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: _deepBlue,
-                fontSize: 15,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ),
-          _CounterButton(icon: Icons.remove_rounded, onTap: onMinus),
-          SizedBox(
-            width: 56,
-            child: Text(
-              '$count',
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: _deepBlue,
-                fontSize: 20,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ),
-          _CounterButton(icon: Icons.add_rounded, onTap: onPlus),
-        ],
-      ),
-    );
-  }
-}
-
-class _CounterButton extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-
-  const _CounterButton({required this.icon, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: onTap,
-        child: Container(
-          width: 42,
-          height: 42,
-          decoration: BoxDecoration(
-            color: _fofanaGreen.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: _fofanaGreen.withValues(alpha: 0.08)),
-            boxShadow: [
-              BoxShadow(
-                color: _fofanaGreen.withValues(alpha: 0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 5),
-              ),
-            ],
-          ),
-          child: Icon(icon, color: _fofanaGreen, size: 20),
         ),
       ),
     );
