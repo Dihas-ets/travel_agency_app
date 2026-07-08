@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:code_initial/presentation/pages/parcel/billet_page.dart';
 import 'package:code_initial/presentation/pages/parcel/colis_attente_page.dart';
 import 'package:code_initial/widgets/common/african_phone_field.dart';
@@ -146,6 +147,7 @@ class _ParcelDraft {
   String? nature;
   final TextEditingController valueController = TextEditingController();
   XFile? attachment;
+  int quantity = 1;
 
   bool get isComplete {
     return nature != null &&
@@ -156,7 +158,7 @@ class _ParcelDraft {
 
   String get summary {
     final value = valueController.text.trim();
-    return '${nature ?? ''} - valeur ${value.isEmpty ? '--' : value} CFA';
+    return '${nature ?? ''} x$quantity - valeur ${value.isEmpty ? '--' : value} CFA';
   }
 
   void dispose() {
@@ -354,7 +356,7 @@ class _SendParcelPageState extends State<SendParcelPage>
     );
   }
 
-  int get _parcelCount => _parcels.length;
+  int get _parcelCount => _parcels.fold<int>(0, (sum, parcel) => sum + parcel.quantity);
 
   String get _parcelNatureSummary => _parcels
       .where((parcel) => parcel.nature != null)
@@ -536,6 +538,24 @@ class _SendParcelPageState extends State<SendParcelPage>
     });
   }
 
+  void _increaseParcelQuantity(int index) {
+    setState(() {
+      final parcel = _parcels[index];
+      if (parcel.quantity < 99) {
+        parcel.quantity++;
+      }
+    });
+  }
+
+  void _decreaseParcelQuantity(int index) {
+    setState(() {
+      final parcel = _parcels[index];
+      if (parcel.quantity > 1) {
+        parcel.quantity--;
+      }
+    });
+  }
+
   void _goToStepTwo() {
     if (_departureController.text.trim().isEmpty ||
         _parcels.any((parcel) => !parcel.isComplete)) {
@@ -678,6 +698,12 @@ class _SendParcelPageState extends State<SendParcelPage>
         children: [
           SizedBox(height: _currentStep == 1 ? 0 : 4),
           _StepDivider(label: 'Étape $_currentStep/2'),
+          const SizedBox(height: 12),
+          _StepProgressBadges(
+            currentStep: _currentStep,
+            parcelCardsCount: _parcels.length,
+            totalParcelCount: _parcelCount,
+          ),
           const SizedBox(height: 24),
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 240),
@@ -693,6 +719,8 @@ class _SendParcelPageState extends State<SendParcelPage>
                     onNatureTap: _showNaturePicker,
                     onAddParcel: _addParcelInfo,
                     onRemoveParcel: _removeParcelInfo,
+                    onIncreaseQuantity: _increaseParcelQuantity,
+                    onDecreaseQuantity: _decreaseParcelQuantity,
                     onPickAttachment: _pickAttachment,
                     onNext: _goToStepTwo,
                     onInitiations: () => _showInitiationsMessage(context),
@@ -734,6 +762,8 @@ class _StepOneForm extends StatelessWidget {
   final ValueChanged<int> onNatureTap;
   final VoidCallback onAddParcel;
   final ValueChanged<int> onRemoveParcel;
+  final ValueChanged<int> onIncreaseQuantity;
+  final ValueChanged<int> onDecreaseQuantity;
   final ValueChanged<int> onPickAttachment;
   final VoidCallback onNext;
   final VoidCallback onInitiations;
@@ -745,6 +775,8 @@ class _StepOneForm extends StatelessWidget {
     required this.onNatureTap,
     required this.onAddParcel,
     required this.onRemoveParcel,
+    required this.onIncreaseQuantity,
+    required this.onDecreaseQuantity,
     required this.onPickAttachment,
     required this.onNext,
     required this.onInitiations,
@@ -768,13 +800,18 @@ class _StepOneForm extends StatelessWidget {
         const _SectionLabel('Informations du colis :'),
         const SizedBox(height: 10),
         for (var index = 0; index < parcels.length; index++) ...[
-          _ParcelInfoItem(
+          _AnimatedParcelCard(
             index: index,
-            parcel: parcels[index],
-            canRemove: parcels.length > 1,
-            onNatureTap: () => onNatureTap(index),
-            onPickAttachment: () => onPickAttachment(index),
-            onRemove: () => onRemoveParcel(index),
+            child: _ParcelInfoItem(
+              index: index,
+              parcel: parcels[index],
+              canRemove: parcels.length > 1,
+              onNatureTap: () => onNatureTap(index),
+              onPickAttachment: () => onPickAttachment(index),
+              onRemove: () => onRemoveParcel(index),
+              onIncreaseQuantity: () => onIncreaseQuantity(index),
+              onDecreaseQuantity: () => onDecreaseQuantity(index),
+            ),
           ),
           const SizedBox(height: 10),
         ],
@@ -898,6 +935,138 @@ class _ParcelHeader extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+}
+
+class _StepProgressBadges extends StatelessWidget {
+  final int currentStep;
+  final int parcelCardsCount;
+  final int totalParcelCount;
+
+  const _StepProgressBadges({
+    required this.currentStep,
+    required this.parcelCardsCount,
+    required this.totalParcelCount,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        _StatusBadge(
+          icon: Icons.looks_one_rounded,
+          label: 'Infos colis',
+          value: currentStep >= 1 ? 'OK' : '--',
+          isActive: currentStep == 1,
+          isComplete: currentStep > 1,
+        ),
+        _StatusBadge(
+          icon: Icons.looks_two_rounded,
+          label: 'Destinataire',
+          value: currentStep >= 2 ? 'En cours' : 'À venir',
+          isActive: currentStep == 2,
+          isComplete: false,
+        ),
+        _StatusBadge(
+          icon: Icons.widgets_rounded,
+          label: 'Cartes colis',
+          value: '$parcelCardsCount',
+          isActive: false,
+          isComplete: false,
+        ),
+        _StatusBadge(
+          icon: Icons.inventory_2_rounded,
+          label: 'Total colis',
+          value: '$totalParcelCount',
+          isActive: false,
+          isComplete: false,
+        ),
+      ],
+    );
+  }
+}
+
+class _StatusBadge extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final bool isActive;
+  final bool isComplete;
+
+  const _StatusBadge({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.isActive,
+    required this.isComplete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final background = isComplete
+        ? _fofanaGreen.withValues(alpha: 0.14)
+        : isActive
+        ? const Color(0xFFEAF7EF)
+        : Colors.white;
+    final border = isComplete
+        ? _fofanaGreen.withValues(alpha: 0.48)
+        : isActive
+        ? _fofanaGreen.withValues(alpha: 0.32)
+        : _deepBlue.withValues(alpha: 0.10);
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: border),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: _fofanaGreen),
+          const SizedBox(width: 6),
+          Text(
+            '$label: $value',
+            style: const TextStyle(
+              color: _deepBlue,
+              fontSize: 12.5,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AnimatedParcelCard extends StatelessWidget {
+  final int index;
+  final Widget child;
+
+  const _AnimatedParcelCard({required this.index, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      key: ValueKey('parcel-card-$index'),
+      tween: Tween(begin: 0, end: 1),
+      duration: Duration(milliseconds: 220 + (index * 45)),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: value,
+          child: Transform.translate(
+            offset: Offset(0, (1 - value) * 14),
+            child: child,
+          ),
+        );
+      },
+      child: child,
     );
   }
 }
@@ -1352,6 +1521,8 @@ class _ParcelInfoItem extends StatelessWidget {
   final VoidCallback onNatureTap;
   final VoidCallback onPickAttachment;
   final VoidCallback onRemove;
+  final VoidCallback onIncreaseQuantity;
+  final VoidCallback onDecreaseQuantity;
 
   const _ParcelInfoItem({
     required this.index,
@@ -1360,6 +1531,8 @@ class _ParcelInfoItem extends StatelessWidget {
     required this.onNatureTap,
     required this.onPickAttachment,
     required this.onRemove,
+    required this.onIncreaseQuantity,
+    required this.onDecreaseQuantity,
   });
 
   @override
@@ -1369,14 +1542,14 @@ class _ParcelInfoItem extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: const Color(0xFFFCFDFE),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: _deepBlue.withValues(alpha: 0.08)),
+        border: Border.all(color: _fofanaGreen.withValues(alpha: 0.16)),
         boxShadow: [
           BoxShadow(
-            color: _deepBlue.withValues(alpha: 0.04),
-            blurRadius: 14,
-            offset: const Offset(0, 6),
+            color: _fofanaGreen.withValues(alpha: 0.08),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
@@ -1433,6 +1606,12 @@ class _ParcelInfoItem extends StatelessWidget {
             keyboardType: TextInputType.number,
           ),
           const SizedBox(height: 10),
+          _ParcelQuantitySelector(
+            quantity: parcel.quantity,
+            onIncrease: onIncreaseQuantity,
+            onDecrease: onDecreaseQuantity,
+          ),
+          const SizedBox(height: 10),
           _AttachmentField(
             fileName: parcel.attachment?.name,
             filePath: parcel.attachment?.path,
@@ -1453,6 +1632,113 @@ class _ParcelInfoItem extends StatelessWidget {
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _ParcelQuantitySelector extends StatelessWidget {
+  final int quantity;
+  final VoidCallback onIncrease;
+  final VoidCallback onDecrease;
+
+  const _ParcelQuantitySelector({
+    required this.quantity,
+    required this.onIncrease,
+    required this.onDecrease,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _deepBlue.withValues(alpha: 0.08)),
+      ),
+      child: Row(
+        children: [
+          const Expanded(
+            child: Text(
+              'Nombre de colis',
+              style: TextStyle(
+                color: _deepBlue,
+                fontSize: 14.5,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          _QuantityIconButton(
+            icon: Icons.remove_rounded,
+            onTap: quantity > 1 ? onDecrease : null,
+          ),
+          const SizedBox(width: 8),
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            constraints: const BoxConstraints(minWidth: 38),
+            alignment: Alignment.center,
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            decoration: BoxDecoration(
+              color: _fofanaGreen.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 140),
+              transitionBuilder: (child, animation) {
+                return ScaleTransition(scale: animation, child: child);
+              },
+              child: Text(
+                '$quantity',
+                key: ValueKey(quantity),
+                style: const TextStyle(
+                  color: _deepBlue,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          _QuantityIconButton(icon: Icons.add_rounded, onTap: onIncrease),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuantityIconButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback? onTap;
+
+  const _QuantityIconButton({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final isEnabled = onTap != null;
+
+    return Material(
+      color: isEnabled
+          ? _fofanaGreen.withValues(alpha: 0.12)
+          : const Color(0xFFF1F2F6),
+      borderRadius: BorderRadius.circular(11),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(11),
+        onTap: onTap == null
+            ? null
+            : () {
+                HapticFeedback.selectionClick();
+                onTap!();
+              },
+        child: SizedBox(
+          width: 34,
+          height: 34,
+          child: Icon(
+            icon,
+            color: isEnabled ? _fofanaGreen : const Color(0xFFA6AFC3),
+            size: 20,
+          ),
+        ),
       ),
     );
   }

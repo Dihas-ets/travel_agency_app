@@ -71,6 +71,46 @@ class BilletPage extends StatelessWidget {
     );
   }
 
+  Future<void> _showAgencyPaymentMessage(BuildContext context) async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Paiement en agence',
+          style: TextStyle(
+            color: Color(0xFF0B4F2A),
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        content: const Text(
+          'Veuillez passer à l\'agence pour payer les frais de ce colis.',
+          style: TextStyle(
+            color: Color(0xFF0B4F2A),
+            fontWeight: FontWeight.w700,
+            height: 1.4,
+          ),
+        ),
+        actions: [
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF16A34A),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Compris'),
+          ),
+        ],
+      ),
+    );
+    if (!context.mounted) return;
+    _openParcelList(context);
+  }
+
   Future<void> _downloadTicketPdf(
     BuildContext context, {
     required String date,
@@ -523,17 +563,26 @@ class BilletPage extends StatelessWidget {
                     const SizedBox(height: 14),
                     const Divider(height: 1),
                     const SizedBox(height: 10),
+                    _InfoRow(
+                      leftTitle: 'N° du package',
+                      leftValue: code,
+                      rightTitle: 'Date d’envoi',
+                      rightValue: '$date\n$time',
+                    ),
+                    const SizedBox(height: 10),
                     if (showValidation)
                       _InfoRow(
-                        leftTitle: 'N° du package',
-                        leftValue: code,
-                        rightTitle: 'Date d’envoi',
-                        rightValue: '$date\n$time',
+                        leftTitle: 'Expéditeur',
+                        leftValue: SessionStore.currentClientPhone ?? '--',
+                        rightTitle: 'Statut',
+                        rightValue: 'Enregistré',
                       )
                     else
-                      _SingleInfoBlock(
-                        title: 'Date d’envoi',
-                        value: '$date\n$time',
+                      _InfoRow(
+                        leftTitle: 'Expéditeur',
+                        leftValue: SessionStore.currentClientPhone ?? '--',
+                        rightTitle: 'Statut',
+                        rightValue: 'Aperçu',
                       ),
                     const SizedBox(height: 10),
                     _InfoRow(
@@ -545,11 +594,28 @@ class BilletPage extends StatelessWidget {
                       isPhone: true,
                     ),
                     const SizedBox(height: 12),
+                    _InfoRow(
+                      leftTitle: 'Départ',
+                      leftValue: departureCity,
+                      rightTitle: 'Destination',
+                      rightValue: destinationCity,
+                    ),
+                    const SizedBox(height: 12),
+                    _SingleInfoBlock(
+                      title: 'Détails colis',
+                      value: parcelNature,
+                    ),
+                    const SizedBox(height: 12),
                     _SingleInfoBlock(
                       title: 'Frais de livraison',
                       value: deliveryFee.isEmpty ? '--' : '$deliveryFee CFA',
                     ),
                     if (hasAttachment) ...[
+                      const SizedBox(height: 12),
+                      _SingleInfoBlock(
+                        title: 'Pièce jointe',
+                        value: attachmentName ?? 'Image du colis',
+                      ),
                       const SizedBox(height: 14),
                       Text(
                         'Fichier importé',
@@ -651,8 +717,8 @@ class BilletPage extends StatelessWidget {
                   ),
                   onPressed: showValidation
                       ? null
-                      : () => _openParcelList(context),
-                  child: const Text('Payer'),
+                      : () => _showAgencyPaymentMessage(context),
+                  child: const Text('Suivant'),
                 ),
               ),
               if (showValidation) ...[

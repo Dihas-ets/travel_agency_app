@@ -1102,12 +1102,11 @@ class _PaymentDetailsPageState extends State<_PaymentDetailsPage> {
     }
 
     final registeredClientName = SessionStore.currentClientFullName?.trim();
-    final beneficiaryName =
-        registeredClientName != null && registeredClientName.isNotEmpty
-        ? registeredClientName
-        : _isForSomeoneElse
-        ? '$beneficiaryFirstName $beneficiaryLastName'
-        : 'Moi-même';
+    final beneficiaryName = _isForSomeoneElse
+      ? '$beneficiaryFirstName $beneficiaryLastName'
+      : (registeredClientName != null && registeredClientName.isNotEmpty)
+      ? registeredClientName
+      : 'Moi-même';
     final reservation = _ReservationItem(
       reference: 'TB${DateTime.now().millisecondsSinceEpoch}',
       departure: widget.departure,
