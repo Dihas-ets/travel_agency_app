@@ -1,4 +1,4 @@
-import 'package:code_initial/navigation.dart';
+import 'package:code_initial/core/navigation/app_navigation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:code_initial/main.dart';

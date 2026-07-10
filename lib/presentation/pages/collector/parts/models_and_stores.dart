@@ -115,4 +115,3 @@ class _CollectorParcelRecord {
     required this.status,
   });
 }
-

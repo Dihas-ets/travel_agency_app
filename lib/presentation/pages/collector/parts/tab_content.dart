@@ -81,4 +81,3 @@ class _CollectorTabContent extends StatelessWidget {
     }
   }
 }
-

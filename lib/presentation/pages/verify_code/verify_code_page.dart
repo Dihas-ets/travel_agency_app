@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:code_initial/data/local/auth_local_store.dart';
 import 'package:code_initial/data/local/session_store.dart';
-import 'package:code_initial/navigation.dart';
+import 'package:code_initial/core/navigation/app_navigation.dart';
 
 /// Page de vérification du code reçu par téléphone.
 ///

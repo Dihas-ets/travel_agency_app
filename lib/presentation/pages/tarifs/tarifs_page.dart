@@ -200,7 +200,9 @@ class _TarifsPageState extends State<TarifsPage> {
         _TarifResult(
           from: depart,
           to: destination,
-          dateDepart: i == 0 ? 'Aujourd’hui' : (i == 1 ? 'Demain' : 'Après-demain'),
+          dateDepart: i == 0
+              ? 'Aujourd’hui'
+              : (i == 1 ? 'Demain' : 'Après-demain'),
           heureDepart: i == 0 ? '6h20' : (i == 1 ? '15h10' : '20h'),
           places: places,
           capacity: 30,
@@ -513,7 +515,9 @@ class _TarifsPageState extends State<TarifsPage> {
                 decoration: BoxDecoration(
                   color: _fofanaGreen.withValues(alpha: 0.10),
                   shape: BoxShape.circle,
-                  border: Border.all(color: _fofanaGreen.withValues(alpha: 0.35)),
+                  border: Border.all(
+                    color: _fofanaGreen.withValues(alpha: 0.35),
+                  ),
                 ),
                 child: const Icon(
                   Icons.directions_bus_rounded,

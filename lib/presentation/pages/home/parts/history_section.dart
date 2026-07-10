@@ -1483,4 +1483,3 @@ class _HistoryInfoChip extends StatelessWidget {
     );
   }
 }
-

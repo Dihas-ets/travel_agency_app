@@ -51,96 +51,11 @@ class _ParcelNotificationIconButton extends StatelessWidget {
 
   void _showClientNotifications(BuildContext context) {
     final currentPhone = SessionStore.currentClientPhone;
-    final notifications = List<ParcelRecord>.from(
-      ParcelStore.notifications.where(
-        (parcel) => currentPhone == null || parcel.senderPhone == currentPhone,
-      ),
-    );
     ParcelStore.clearNotifications(senderPhone: currentPhone);
 
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (sheetContext) {
-        return SafeArea(
-          child: Container(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(sheetContext).size.height * 0.72,
-            ),
-            padding: const EdgeInsets.fromLTRB(18, 10, 18, 20),
-            decoration: const BoxDecoration(
-              color: Color(0xFFF8FBFF),
-              borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 44,
-                    height: 5,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF0B4F2A).withValues(alpha: 0.16),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 18),
-                Row(
-                  children: [
-                    const Expanded(
-                      child: Text(
-                        'Notifications',
-                        style: TextStyle(
-                          color: Color(0xFF0B4F2A),
-                          fontSize: 22,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () => Navigator.pop(sheetContext),
-                      icon: const Icon(Icons.close_rounded),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                if (notifications.isEmpty)
-                  const _ClientNotificationEmptyState()
-                else
-                  Flexible(
-                    child: ListView.separated(
-                      shrinkWrap: true,
-                      physics: const BouncingScrollPhysics(),
-                      itemCount: notifications.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 10),
-                      itemBuilder: (context, index) {
-                        final parcel = notifications[index];
-                        return _ClientNotificationTile(
-                          parcel: parcel,
-                          onTap: () {
-                            ParcelStore.markNotificationRead(parcel.code);
-                            Navigator.pop(sheetContext);
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => _ClientNotificationDetailPage(
-                                  parcel: parcel,
-                                ),
-                              ),
-                            );
-                          },
-                        );
-                      },
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const _ClientNotificationsPage()));
   }
 
   @override
@@ -186,6 +101,124 @@ class _ParcelNotificationIconButton extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+class _ClientNotificationsPage extends StatelessWidget {
+  const _ClientNotificationsPage();
+
+  @override
+  Widget build(BuildContext context) {
+    final currentPhone = SessionStore.currentClientPhone;
+    final notifications = List<ParcelRecord>.from(
+      ParcelStore.notifications.where(
+        (parcel) => currentPhone == null || parcel.senderPhone == currentPhone,
+      ),
+    );
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FBFF),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF0B4F2A),
+        foregroundColor: Colors.white,
+        elevation: 0,
+        title: const Text(
+          'Notifications',
+          style: TextStyle(fontWeight: FontWeight.w900),
+        ),
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF0B4F2A), Color(0xFF16A34A)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(22),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF0B4F2A).withValues(alpha: 0.14),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 54,
+                    height: 54,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: const Icon(
+                      Icons.notifications_active_rounded,
+                      color: Colors.white,
+                      size: 28,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Alertes colis',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 19,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          notifications.isEmpty
+                              ? 'Aucune alerte pour le moment'
+                              : '${notifications.length} notification(s) disponible(s)',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.88),
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (notifications.isEmpty)
+              const _ClientNotificationEmptyState()
+            else
+              ...notifications.map(
+                (parcel) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _ClientNotificationTile(
+                    parcel: parcel,
+                    onTap: () {
+                      ParcelStore.markNotificationRead(parcel.code);
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              _ClientNotificationDetailPage(parcel: parcel),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -822,85 +855,105 @@ class _AccountMenuViewState extends State<_AccountMenuView> {
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
-    return SingleChildScrollView(
-      controller: widget.scrollController,
-      padding: EdgeInsets.fromLTRB(20, 12, 20, 42 + bottomInset),
-      child: Column(
-        children: [
-          Center(
-            child: Container(
-              width: 52,
-              height: 6,
-              decoration: BoxDecoration(
-                color: const Color(0xFF0B4F2A).withValues(alpha: 0.16),
-                borderRadius: BorderRadius.circular(20),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              _RoundIconButton(
-                icon: Icons.arrow_back_rounded,
-                onTap: widget.onBack,
-              ),
-              const Expanded(
-                child: Text(
-                  'Mon compte',
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          controller: widget.scrollController,
+          padding: EdgeInsets.fromLTRB(20, 12, 20, 28 + bottomInset),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    width: 52,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0B4F2A).withValues(alpha: 0.16),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    _RoundIconButton(
+                      icon: Icons.arrow_back_rounded,
+                      onTap: widget.onBack,
+                    ),
+                    const Expanded(
+                      child: Text(
+                        'Mon compte',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Color(0xFF0B4F2A),
+                          fontSize: 28,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 52),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                Center(
+                  child: GestureDetector(
+                    onTap: _pickAvatar,
+                    child: Stack(
+                      alignment: Alignment.bottomRight,
+                      children: [
+                        CircleAvatar(
+                          radius: 52,
+                          backgroundColor: const Color(0xFF58648D),
+                          backgroundImage: _pickedAvatar == null
+                              ? null
+                              : FileImage(File(_pickedAvatar!.path)),
+                          child: _pickedAvatar == null
+                              ? const Icon(
+                                  Icons.person_rounded,
+                                  color: Colors.white,
+                                  size: 70,
+                                )
+                              : null,
+                        ),
+                        Container(
+                          width: 36,
+                          height: 36,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFE53935),
+                            shape: BoxShape.circle,
+                            border: Border.fromBorderSide(
+                              BorderSide(color: Colors.white, width: 3),
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.edit_rounded,
+                            color: Colors.white,
+                            size: 18,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                const Text(
+                  'Profil client',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Color(0xFF0B4F2A),
-                    fontSize: 28,
+                    fontSize: 24,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
-              ),
-              const SizedBox(width: 52),
-            ],
-          ),
-          const SizedBox(height: 20),
-          GestureDetector(
-            onTap: _pickAvatar,
-            child: Stack(
-              alignment: Alignment.bottomRight,
-              children: [
-                CircleAvatar(
-                  radius: 68,
-                  backgroundColor: const Color(0xFF58648D),
-                  backgroundImage: _pickedAvatar == null
-                      ? null
-                      : FileImage(File(_pickedAvatar!.path)),
-                  child: _pickedAvatar == null
-                      ? const Icon(
-                          Icons.person_rounded,
-                          color: Colors.white,
-                          size: 88,
-                        )
-                      : null,
-                ),
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFE53935),
-                    shape: BoxShape.circle,
-                    border: Border.fromBorderSide(
-                      BorderSide(color: Colors.white, width: 3),
-                    ),
-                  ),
-                  child: const Icon(
-                    Icons.edit_rounded,
-                    color: Colors.white,
-                    size: 21,
-                  ),
-                ),
+                const SizedBox(height: 18),
+                const _AccountPanel(),
               ],
             ),
           ),
-          const SizedBox(height: 24),
-          const _AccountPanel(),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -993,7 +1046,7 @@ class _AccountPanelState extends State<_AccountPanel> {
 
   late final TextEditingController _nameController;
   late final TextEditingController _emailController;
-  late final TextEditingController _cityController;
+  late final TextEditingController _countryController;
   late final TextEditingController _phoneController;
 
   @override
@@ -1001,7 +1054,7 @@ class _AccountPanelState extends State<_AccountPanel> {
     super.initState();
     _nameController = TextEditingController(text: 'Client Fofana');
     _emailController = TextEditingController(text: 'client@example.com');
-    _cityController = TextEditingController(text: 'Cotonou');
+    _countryController = TextEditingController(text: 'Bénin');
     _phoneController = TextEditingController(text: '+229 01 00 00 00 00');
   }
 
@@ -1009,7 +1062,7 @@ class _AccountPanelState extends State<_AccountPanel> {
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
-    _cityController.dispose();
+    _countryController.dispose();
     _phoneController.dispose();
     super.dispose();
   }
@@ -1029,112 +1082,91 @@ class _AccountPanelState extends State<_AccountPanel> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      // Carte profil agrandie pour rendre les champs et les actions plus lisibles.
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Informations personnelles',
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: Color(0xFF0B4F2A),
-                            fontSize: 18,
-                            fontWeight: FontWeight.w900,
-                            height: 1.18,
-                          ),
-                        ),
-                        SizedBox(height: 7),
-                        Text(
-                          'Photo, nom, prénom et contacts',
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: Color(0xFF5F6B86),
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            height: 1.25,
-                          ),
-                        ),
-                      ],
+                  Text(
+                    'Informations personnelles',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Color(0xFF0B4F2A),
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                      height: 1.18,
                     ),
                   ),
-                  const SizedBox(width: 10),
-                  TextButton.icon(
-                    onPressed: _toggleEdit,
-                    icon: Icon(
-                      _isEditing ? Icons.check_rounded : Icons.edit_rounded,
-                      size: 21,
-                    ),
-                    label: Text(_isEditing ? 'Enregistrer' : 'Modifier'),
-                    style: TextButton.styleFrom(
-                      foregroundColor: const Color(0xFF16A34A),
-                      textStyle: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w900,
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 10,
-                      ),
+                  SizedBox(height: 7),
+                  Text(
+                    'Photo, nom, prénom et contacts',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Color(0xFF5F6B86),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      height: 1.25,
                     ),
                   ),
                 ],
               ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _EditableInfoField(
-            icon: Icons.badge_rounded,
-            title: 'Nom et prénom',
-            controller: _nameController,
-            enabled: _isEditing,
-          ),
-          _EditableInfoField(
-            icon: Icons.email_rounded,
-            title: 'Email',
-            controller: _emailController,
-            enabled: _isEditing,
-          ),
-          _EditableInfoField(
-            icon: Icons.location_city_rounded,
-            title: 'Ville',
-            controller: _cityController,
-            enabled: _isEditing,
-          ),
-          _EditableInfoField(
-            icon: Icons.phone_rounded,
-            title: 'Téléphone',
-            controller: _phoneController,
-            enabled: _isEditing,
-          ),
-          const SizedBox(height: 18),
-          const _AccountInfoCard(),
-        ],
-      ),
+            ),
+            const SizedBox(width: 10),
+            TextButton.icon(
+              onPressed: _toggleEdit,
+              icon: Icon(
+                _isEditing ? Icons.check_rounded : Icons.edit_rounded,
+                size: 21,
+              ),
+              label: Text(_isEditing ? 'Enregistrer' : 'Modifier'),
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFF16A34A),
+                textStyle: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _EditableInfoField(
+          icon: Icons.badge_rounded,
+          title: 'Nom et prénom',
+          controller: _nameController,
+          enabled: _isEditing,
+        ),
+        _EditableInfoField(
+          icon: Icons.email_rounded,
+          title: 'Email',
+          controller: _emailController,
+          enabled: _isEditing,
+        ),
+        _EditableInfoField(
+          icon: Icons.public_rounded,
+          title: 'Pays',
+          controller: _countryController,
+          enabled: _isEditing,
+        ),
+        _EditableInfoField(
+          icon: Icons.phone_rounded,
+          title: 'Téléphone',
+          controller: _phoneController,
+          enabled: _isEditing,
+        ),
+        const SizedBox(height: 18),
+        const _AccountInfoCard(),
+      ],
     );
   }
 }
@@ -1144,29 +1176,20 @@ class _AccountInfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      // Bloc statistiques agrandi pour éviter les libellés trop serrés.
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FBFF),
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: const Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Informations de compte',
-            style: TextStyle(
-              color: Color(0xFF0B4F2A),
-              fontSize: 18,
-              fontWeight: FontWeight.w900,
-            ),
+    return const Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Informations de compte',
+          style: TextStyle(
+            color: Color(0xFF0B4F2A),
+            fontSize: 18,
+            fontWeight: FontWeight.w900,
           ),
-          SizedBox(height: 16),
-          _AccountStatsGrid(),
-        ],
-      ),
+        ),
+        SizedBox(height: 16),
+        _AccountStatsGrid(),
+      ],
     );
   }
 }
@@ -1190,9 +1213,8 @@ class _AccountStatsGrid extends StatelessWidget {
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           crossAxisSpacing: 12,
-          // Les trois autres cartes restent en grille compacte et lisible.
           mainAxisSpacing: 12,
-          childAspectRatio: 0.75,
+          childAspectRatio: 0.82,
           children: const [
             _AccountStat(
               icon: Icons.confirmation_number_rounded,
@@ -1201,12 +1223,7 @@ class _AccountStatsGrid extends StatelessWidget {
             ),
             _AccountStat(
               icon: Icons.local_shipping_rounded,
-              title: 'Envois',
-              value: '0',
-            ),
-            _AccountStat(
-              icon: Icons.inventory_2_rounded,
-              title: 'Réceptions',
+              title: 'Colis envoyés',
               value: '0',
             ),
           ],
@@ -1236,8 +1253,11 @@ class _AccountStat extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: const Color(0xFFF8FBFF),
           borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: const Color(0xFF0B4F2A).withValues(alpha: 0.06),
+          ),
         ),
         child: Row(
           children: [
@@ -1289,8 +1309,11 @@ class _AccountStat extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: const Color(0xFFF8FBFF),
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFF0B4F2A).withValues(alpha: 0.06),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

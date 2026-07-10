@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:code_initial/data/local/auth_local_store.dart';
-import 'package:code_initial/navigation.dart';
+import 'package:code_initial/core/navigation/app_navigation.dart';
 // Import de tous les widgets de ce dossier
 import 'package:code_initial/widgets/register/register_widgets.dart';
 

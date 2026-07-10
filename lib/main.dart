@@ -3,8 +3,8 @@ import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
-import 'navigation.dart';
-import 'utils/app_colors.dart';
+import 'package:code_initial/core/navigation/app_navigation.dart';
+import 'package:code_initial/core/theme/app_colors.dart';
 
 /// Point d'entrée de l'application.
 ///

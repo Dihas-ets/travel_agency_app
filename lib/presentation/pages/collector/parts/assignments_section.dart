@@ -1602,4 +1602,3 @@ class _CollectorOtpBox extends StatelessWidget {
     );
   }
 }
-

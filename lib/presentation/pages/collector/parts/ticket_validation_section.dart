@@ -12,14 +12,95 @@ class _TicketValidationPage extends StatefulWidget {
 class _TicketValidationPageState extends State<_TicketValidationPage> {
   String? _scannedCode;
   bool _ticketVisible = false;
+  final TextEditingController _manualCodeController = TextEditingController();
 
-  void _showTicket() {
-    final validatedCode = _scannedCode ?? 'TK-2026-0487';
+  @override
+  void dispose() {
+    _manualCodeController.dispose();
+    super.dispose();
+  }
+
+  void _showTicket({String? code}) {
+    final validatedCode = (code ?? _scannedCode ?? '').trim().isEmpty
+        ? 'TK-2026-0487'
+        : (code ?? _scannedCode!).trim();
     setState(() {
       _scannedCode = validatedCode;
       _ticketVisible = true;
     });
     _ControllerScannedTicketStore.add(validatedCode);
+  }
+
+  void _validateCurrentScan() {
+    if (_scannedCode == null || _scannedCode!.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Scannez un QR code avant de valider.'),
+          backgroundColor: Color(0xFFE53935),
+        ),
+      );
+      return;
+    }
+
+    _showTicket();
+  }
+
+  Future<void> _openManualValidationDialog() async {
+    _manualCodeController.text = _scannedCode ?? '';
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+          ),
+          title: const Text(
+            'Validation manuelle',
+            style: TextStyle(fontWeight: FontWeight.w900),
+          ),
+          content: TextField(
+            controller: _manualCodeController,
+            textInputAction: TextInputAction.done,
+            decoration: const InputDecoration(
+              labelText: 'Code du ticket',
+              hintText: 'TK-2026-0487',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Annuler'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final enteredCode = _manualCodeController.text.trim();
+                if (enteredCode.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Veuillez renseigner le code du ticket.'),
+                      backgroundColor: Color(0xFFE53935),
+                    ),
+                  );
+                  return;
+                }
+
+                Navigator.pop(dialogContext);
+                _showTicket(code: enteredCode);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF16A34A),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              child: const Text('Valider'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -100,26 +181,53 @@ class _TicketValidationPageState extends State<_TicketValidationPage> {
                 ),
               ),
               const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                height: 58,
-                child: ElevatedButton.icon(
-                  onPressed: _showTicket,
-                  icon: const Icon(Icons.verified_rounded),
-                  label: const Text('Valider'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: red,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    textStyle: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w900,
+              Row(
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: 58,
+                      child: ElevatedButton.icon(
+                        onPressed: _validateCurrentScan,
+                        icon: const Icon(Icons.qr_code_scanner_rounded),
+                        label: const Text('Scanner'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: red,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          textStyle: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: SizedBox(
+                      height: 58,
+                      child: OutlinedButton.icon(
+                        onPressed: _openManualValidationDialog,
+                        icon: const Icon(Icons.edit_note_rounded),
+                        label: const Text('Validation manuelle'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF0B4F2A),
+                          side: const BorderSide(color: Color(0xFF0B4F2A)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          textStyle: const TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
               if (_ticketVisible) ...[
                 const SizedBox(height: 16),

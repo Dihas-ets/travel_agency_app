@@ -641,4 +641,3 @@ class _AgencyMapPin extends StatelessWidget {
     );
   }
 }
-

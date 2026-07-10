@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:code_initial/models/expense_model.dart';
-import 'expense_store.dart';
+import 'package:code_initial/domain/models/expense_model.dart';
+import 'package:code_initial/features/expense/data/expense_store.dart';
 
 class ManualExpensePage extends StatefulWidget {
   final String? initialLibelle;

@@ -701,4 +701,3 @@ class _CollectorTermsSheet extends StatelessWidget {
     );
   }
 }
-

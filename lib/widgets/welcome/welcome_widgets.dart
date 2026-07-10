@@ -25,10 +25,7 @@ class FofanaLogo extends StatelessWidget {
           decoration: BoxDecoration(
             shape: BoxShape.rectangle,
             borderRadius: BorderRadius.circular(50),
-            border: Border.all(
-              color: const Color(0xFF16A34A),
-              width: 3.5,
-            ),
+            border: Border.all(color: const Color(0xFF16A34A), width: 3.5),
           ),
         ),
 

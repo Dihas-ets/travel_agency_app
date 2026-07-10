@@ -219,4 +219,3 @@ class _CollectorMenuButtonIcon extends StatelessWidget {
     );
   }
 }
-

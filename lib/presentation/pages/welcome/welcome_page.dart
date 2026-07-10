@@ -1,4 +1,4 @@
-import 'package:code_initial/navigation.dart';
+import 'package:code_initial/core/navigation/app_navigation.dart';
 import 'package:code_initial/presentation/pages/register/register_page.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';

@@ -2152,4 +2152,3 @@ class _CollectorEmptyCard extends StatelessWidget {
     );
   }
 }
-
