@@ -5,10 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 // Import du fichier de routes GetX (navigation)
-import 'package:code_initial/core/navigation/app_navigation.dart';
+import 'package:code_initial/navigation.dart';
 
 import 'package:code_initial/widgets/onboarding/onboarding_dot_indicator.dart';
-import 'package:code_initial/domain/models/onboarding_data_model.dart';
+import 'package:code_initial/models/onboarding_data_model.dart';
 import 'onboarding_slide.dart';
 
 /// Parcours d'introduction affiché avant l'accueil.

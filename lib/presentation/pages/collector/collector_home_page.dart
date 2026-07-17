@@ -12,7 +12,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:code_initial/features/parcel/presentation/pages/colis_attente_page.dart';
 import 'package:code_initial/features/parcel/presentation/pages/parcel_pages.dart';
-import 'package:code_initial/domain/models/expense_model.dart';
+import 'package:code_initial/models/expense_model.dart';
 import 'package:code_initial/features/expense/data/expense_store.dart';
 import 'package:code_initial/presentation/pages/expense/manual_expense_page.dart';
 import 'package:code_initial/presentation/pages/expense/qr_scanner_page.dart';

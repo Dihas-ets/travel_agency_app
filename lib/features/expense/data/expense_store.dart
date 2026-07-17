@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:code_initial/domain/models/expense_model.dart';
+import 'package:code_initial/models/expense_model.dart';
 
 /// Singleton en mémoire pour stocker et notifier les changements
 /// des dépenses du percepteur.
