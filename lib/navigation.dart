@@ -3,18 +3,18 @@
 // ignore_for_file: constant_identifier_names
 
 import 'package:get/get.dart';
-import 'package:code_initial/presentation/pages/welcome/welcome_page.dart';
-import 'package:code_initial/presentation/pages/onboarding/onboarding_page.dart';
-import 'package:code_initial/presentation/pages/register/register_page.dart';
-import 'package:code_initial/presentation/pages/login/login_page.dart';
-import 'package:code_initial/presentation/pages/login/collector_password_page.dart';
-import 'package:code_initial/presentation/pages/verify_code/verify_code_page.dart';
-import 'package:code_initial/presentation/pages/home/home_page.dart';
-import 'package:code_initial/presentation/pages/collector/collector_home_page.dart';
-import 'package:code_initial/presentation/pages/controller/controller_home_page.dart';
-import 'package:code_initial/presentation/pages/controller/controller_password_page.dart';
-import 'package:code_initial/presentation/pages/forgot_password/forgot_password_page.dart';
-import 'package:code_initial/features/parcel/presentation/pages/envois_effectues_page.dart';
+import 'package:code_initial/screens/global/welcome/welcome_page.dart';
+import 'package:code_initial/screens/global/onboarding/onboarding_page.dart';
+import 'package:code_initial/screens/global/register/register_page.dart';
+import 'package:code_initial/screens/global/login_page.dart';
+import 'package:code_initial/screens/percepteur/percepteur_password_page.dart';
+import 'package:code_initial/screens/global/verify_code/verify_code_page.dart';
+import 'package:code_initial/screens/client/home/home_page.dart';
+import 'package:code_initial/screens/percepteur/percepteur_home_page.dart';
+import 'package:code_initial/screens/controleur/controleur_home_page.dart';
+import 'package:code_initial/screens/controleur/controleur_password_page.dart';
+import 'package:code_initial/screens/global/forgot_password/forgot_password_page.dart';
+import 'package:code_initial/screens/client/parcel/operations/envois_effectues_page.dart';
 
 /// Centralise toutes les pages accessibles avec GetX.
 ///
@@ -28,13 +28,13 @@ class Nav {
     GetPage(name: Routes.LOGIN, page: () => const LoginPage()),
 
     GetPage(
-      name: Routes.COLLECTOR_PASSWORD,
-      page: () => const CollectorPasswordPage(),
+      name: Routes.PERCEPTEUR_PASSWORD,
+      page: () => const PercepteurPasswordPage(),
     ),
 
     GetPage(
-      name: Routes.CONTROLLER_PASSWORD,
-      page: () => const ControllerPasswordPage(),
+      name: Routes.CONTROLEUR_PASSWORD,
+      page: () => const ControleurPasswordPage(),
     ),
 
     GetPage(
@@ -48,11 +48,14 @@ class Nav {
 
     GetPage(name: Routes.HOME, page: () => const HomePage()),
 
-    GetPage(name: Routes.COLLECTOR_HOME, page: () => const CollectorHomePage()),
+    GetPage(
+      name: Routes.PERCEPTEUR_HOME,
+      page: () => const PercepteurHomePage(),
+    ),
 
     GetPage(
-      name: Routes.CONTROLLER_HOME,
-      page: () => const ControllerHomePage(),
+      name: Routes.CONTROLEUR_HOME,
+      page: () => const ControleurHomePage(),
     ),
     GetPage(
       name: Routes.ENVOIS_EFFECTUES,
@@ -80,10 +83,10 @@ class Routes {
   static const LOGIN = '/login';
 
   /// Saisie du mot de passe percepteur après le numéro.
-  static const COLLECTOR_PASSWORD = '/collector-password';
+  static const PERCEPTEUR_PASSWORD = '/percepteur-password';
 
   /// Saisie du mot de passe controleur.
-  static const CONTROLLER_PASSWORD = '/controller-password';
+  static const CONTROLEUR_PASSWORD = '/controleur-password';
 
   /// Page de réinitialisation du mot de passe.
   static const FORGOT_PASSWORD = '/forgot-password';
@@ -101,10 +104,10 @@ class Routes {
   static const HOME = '/home';
 
   /// Interface principale du percepteur.
-  static const COLLECTOR_HOME = '/collector-home';
+  static const PERCEPTEUR_HOME = '/percepteur-home';
 
   /// Interface principale du controleur.
-  static const CONTROLLER_HOME = '/controller-home';
+  static const CONTROLEUR_HOME = '/controleur-home';
 
   /// Liste des envois effectués.
   static const ENVOIS_EFFECTUES = '/envois-effectues';

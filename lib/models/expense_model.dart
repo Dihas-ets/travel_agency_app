@@ -79,7 +79,9 @@ class ExpenseModel {
       quantityUnit: json['quantityUnit'] as String? ?? '',
       costInWords: json['costInWords'] as String? ?? '',
       note: json['note'] as String? ?? '',
-      createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0),
+      createdAt:
+          DateTime.tryParse(json['createdAt'] as String? ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0),
       status: json['status'] as String? ?? '',
       qrCode: json['qrCode'] as String?,
       reservationReference: json['reservationReference'] as String?,

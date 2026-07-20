@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'package:code_initial/navigation.dart';
-import 'package:code_initial/utils/app_colors.dart';
+import 'package:code_initial/config/couleurs/app_colors.dart';
 
 /// Point d'entrée de l'application.
 ///
