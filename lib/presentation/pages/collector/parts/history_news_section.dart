@@ -1,18 +1,19 @@
-part of '../collector_home_page.dart';
-
+import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:code_initial/presentation/pages/collector/parts/reservation_flow.dart';
 // Historique percepteur et actualites affichees dans l espace percepteur.
 
-enum _CollectorHistoryScope { reservations, absent, present }
+enum CollectorHistoryScope { reservations, absent, present }
 
-class _CollectorHistoryPage extends StatefulWidget {
-  const _CollectorHistoryPage();
+class CollectorHistoryPage extends StatefulWidget {
+  const CollectorHistoryPage({super.key});
 
   @override
-  State<_CollectorHistoryPage> createState() => _CollectorHistoryPageState();
+  State<CollectorHistoryPage> createState() => CollectorHistoryPageState();
 }
 
-class _CollectorHistoryPageState extends State<_CollectorHistoryPage> {
-  _CollectorHistoryScope _scope = _CollectorHistoryScope.reservations;
+class CollectorHistoryPageState extends State<CollectorHistoryPage> {
+  CollectorHistoryScope _scope = CollectorHistoryScope.reservations;
 
   @override
   Widget build(BuildContext context) {
@@ -40,37 +41,37 @@ class _CollectorHistoryPageState extends State<_CollectorHistoryPage> {
                   _HistoryActionButton(
                     icon: Icons.confirmation_number_rounded,
                     label: 'Réservation',
-                    selected: _scope == _CollectorHistoryScope.reservations,
+                    selected: _scope == CollectorHistoryScope.reservations,
                     onTap: () => setState(
-                      () => _scope = _CollectorHistoryScope.reservations,
+                      () => _scope = CollectorHistoryScope.reservations,
                     ),
                   ),
                   const SizedBox(width: 8),
                   _HistoryActionButton(
                     icon: Icons.person_off_rounded,
                     label: 'Absent',
-                    selected: _scope == _CollectorHistoryScope.absent,
+                    selected: _scope == CollectorHistoryScope.absent,
                     onTap: () =>
-                        setState(() => _scope = _CollectorHistoryScope.absent),
+                        setState(() => _scope = CollectorHistoryScope.absent),
                   ),
                   const SizedBox(width: 8),
                   _HistoryActionButton(
                     icon: Icons.how_to_reg_rounded,
                     label: 'Présent',
-                    selected: _scope == _CollectorHistoryScope.present,
+                    selected: _scope == CollectorHistoryScope.present,
                     onTap: () =>
-                        setState(() => _scope = _CollectorHistoryScope.present),
+                        setState(() => _scope = CollectorHistoryScope.present),
                   ),
                 ],
               ),
               const SizedBox(height: 18),
-              if (_scope == _CollectorHistoryScope.reservations)
+              if (_scope == CollectorHistoryScope.reservations)
                 Expanded(
-                  child: _CollectorReservationList(
+                  child: CollectorReservationList(
                     onNewReservation: () async {
                       await Navigator.of(context).push(
                         MaterialPageRoute(
-                          builder: (_) => const _CollectorReservationPage(),
+                          builder: (_) => const CollectorReservationPage(),
                         ),
                       );
                       if (mounted) setState(() {});
@@ -79,11 +80,11 @@ class _CollectorHistoryPageState extends State<_CollectorHistoryPage> {
                 )
               else
                 Expanded(
-                  child: _CollectorAttendanceList(
-                    title: _scope == _CollectorHistoryScope.absent
+                  child: CollectorAttendanceList(
+                    title: _scope == CollectorHistoryScope.absent
                         ? 'Passagers absents'
                         : 'Passagers présents',
-                    emptyMessage: _scope == _CollectorHistoryScope.absent
+                    emptyMessage: _scope == CollectorHistoryScope.absent
                         ? 'Aucun passager absent enregistré.'
                         : 'Aucun passager présent enregistré.',
                   ),
@@ -96,14 +97,14 @@ class _CollectorHistoryPageState extends State<_CollectorHistoryPage> {
   }
 }
 
-class _CollectorReservationList extends StatelessWidget {
+class CollectorReservationList extends StatelessWidget {
   final VoidCallback onNewReservation;
 
-  const _CollectorReservationList({required this.onNewReservation});
+  const CollectorReservationList({super.key, required this.onNewReservation});
 
   @override
   Widget build(BuildContext context) {
-    final reservations = _CollectorReservationStore.reservations;
+    final reservations = CollectorReservationStore.reservations;
 
     return ListView(
       children: [
@@ -126,13 +127,13 @@ class _CollectorReservationList extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         if (reservations.isEmpty)
-          const _CollectorEmptyCard(
+          const CollectorEmptyCard(
             title: 'Aucune réservation',
             message:
                 'Les réservations faites par le percepteur apparaîtront ici.',
           )
         else
-          ...reservations.map((item) => _CollectorReservationCard(item: item)),
+          ...reservations.map((item) => CollectorReservationCard(item: item)),
       ],
     );
   }
@@ -192,7 +193,7 @@ class _HistoryActionButton extends StatelessWidget {
   }
 }
 
-class _CollectorNewsArticle {
+class CollectorNewsArticle {
   final String category;
   final String title;
   final String date;
@@ -200,7 +201,7 @@ class _CollectorNewsArticle {
   final String excerpt;
   final List<String> body;
 
-  const _CollectorNewsArticle({
+  const CollectorNewsArticle({
     required this.category,
     required this.title,
     required this.date,
@@ -210,8 +211,8 @@ class _CollectorNewsArticle {
   });
 }
 
-const List<_CollectorNewsArticle> _collectorNewsArticles = [
-  _CollectorNewsArticle(
+const List<CollectorNewsArticle> collectorNewsArticles = [
+  CollectorNewsArticle(
     category: 'Annonces',
     title: 'Nouveau départ sur Gouré',
     date: '28/03/2026',
@@ -224,7 +225,7 @@ const List<_CollectorNewsArticle> _collectorNewsArticles = [
       'Les clients sont invités à se rapprocher des agences Fofana pour confirmer les horaires, les disponibilités et les conditions de réservation.',
     ],
   ),
-  _CollectorNewsArticle(
+  CollectorNewsArticle(
     category: 'Annonces',
     title: "Renforcement des départs sur l'axe Tchaourou",
     date: '25/03/2026',
@@ -237,7 +238,7 @@ const List<_CollectorNewsArticle> _collectorNewsArticles = [
       'Les équipes en agence restent disponibles pour orienter les clients et les aider à choisir le départ le plus pratique.',
     ],
   ),
-  _CollectorNewsArticle(
+  CollectorNewsArticle(
     category: 'Presse',
     title: 'Fofana modernise l’accueil dans ses agences',
     date: '18/03/2026',
@@ -250,7 +251,7 @@ const List<_CollectorNewsArticle> _collectorNewsArticles = [
       'Cette modernisation s’inscrit dans une démarche continue de qualité de service.',
     ],
   ),
-  _CollectorNewsArticle(
+  CollectorNewsArticle(
     category: 'Conseils',
     title: 'Bien préparer son voyage avec Fofana',
     date: '12/03/2026',
@@ -263,7 +264,7 @@ const List<_CollectorNewsArticle> _collectorNewsArticles = [
       'Pour les bagages et colis, les équipes Fofana peuvent préciser les règles applicables selon le trajet choisi.',
     ],
   ),
-  _CollectorNewsArticle(
+  CollectorNewsArticle(
     category: 'Communiqués',
     title: 'Suivi des colis disponible dans les agences Fofana',
     date: '08/03/2026',
@@ -278,14 +279,14 @@ const List<_CollectorNewsArticle> _collectorNewsArticles = [
   ),
 ];
 
-class _CollectorNewsSection extends StatefulWidget {
-  const _CollectorNewsSection();
+class CollectorNewsSection extends StatefulWidget {
+  const CollectorNewsSection({super.key});
 
   @override
-  State<_CollectorNewsSection> createState() => _CollectorNewsSectionState();
+  State<CollectorNewsSection> createState() => CollectorNewsSectionState();
 }
 
-class _CollectorNewsSectionState extends State<_CollectorNewsSection> {
+class CollectorNewsSectionState extends State<CollectorNewsSection> {
   late final PageController _pageController;
   Timer? _timer;
   int _pageIndex = 0;
@@ -298,7 +299,7 @@ class _CollectorNewsSectionState extends State<_CollectorNewsSection> {
     _timer = Timer.periodic(const Duration(seconds: 3), (_) {
       if (!mounted) return;
       setState(
-        () => _pageIndex = (_pageIndex + 1) % _collectorNewsArticles.length,
+        () => _pageIndex = (_pageIndex + 1) % collectorNewsArticles.length,
       );
       if (!_pageController.hasClients) return;
       _pageController.animateToPage(
@@ -320,10 +321,10 @@ class _CollectorNewsSectionState extends State<_CollectorNewsSection> {
   Widget build(BuildContext context) {
     const green = Color(0xFF16A34A);
 
-    void openDetail(_CollectorNewsArticle article) {
+    void openDetail(CollectorNewsArticle article) {
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) => _CollectorNewsDetailPage(article: article),
+          builder: (_) => CollectorNewsDetailPage(article: article),
         ),
       );
     }
@@ -348,7 +349,7 @@ class _CollectorNewsSectionState extends State<_CollectorNewsSection> {
                 onPressed: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (_) => const _CollectorNewsListPage(),
+                      builder: (_) => const CollectorNewsListPage(),
                     ),
                   );
                 },
@@ -381,14 +382,14 @@ class _CollectorNewsSectionState extends State<_CollectorNewsSection> {
           height: 138,
           child: PageView.builder(
             controller: _pageController,
-            itemCount: _collectorNewsArticles.length,
+            itemCount: collectorNewsArticles.length,
             physics: const NeverScrollableScrollPhysics(),
             itemBuilder: (context, index) {
-              final item = _collectorNewsArticles[index];
+              final item = collectorNewsArticles[index];
 
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 6),
-                child: _CollectorNewsHeroTile(
+                child: CollectorNewsHeroTile(
                   article: item,
                   compact: true,
                   onTap: () => openDetail(item),
@@ -400,7 +401,7 @@ class _CollectorNewsSectionState extends State<_CollectorNewsSection> {
         const SizedBox(height: 8),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(_collectorNewsArticles.length, (i) {
+          children: List.generate(collectorNewsArticles.length, (i) {
             final isActive = i == _pageIndex;
             return AnimatedContainer(
               duration: const Duration(milliseconds: 250),
@@ -419,12 +420,12 @@ class _CollectorNewsSectionState extends State<_CollectorNewsSection> {
   }
 }
 
-class _CollectorNewsHeroTile extends StatelessWidget {
-  final _CollectorNewsArticle article;
+class CollectorNewsHeroTile extends StatelessWidget {
+  final CollectorNewsArticle article;
   final VoidCallback onTap;
   final bool compact;
 
-  const _CollectorNewsHeroTile({
+  const CollectorNewsHeroTile({super.key, 
     required this.article,
     required this.onTap,
     this.compact = false,
@@ -456,7 +457,7 @@ class _CollectorNewsHeroTile extends StatelessWidget {
               Positioned(
                 left: 12,
                 top: 12,
-                child: _CollectorNewsCategoryPill(category: article.category),
+                child: CollectorNewsCategoryPill(category: article.category),
               ),
               Positioned(
                 left: 14,
@@ -537,10 +538,10 @@ class _CollectorNewsHeroTile extends StatelessWidget {
   }
 }
 
-class _CollectorNewsCategoryPill extends StatelessWidget {
+class CollectorNewsCategoryPill extends StatelessWidget {
   final String category;
 
-  const _CollectorNewsCategoryPill({required this.category});
+  const CollectorNewsCategoryPill({super.key, required this.category});
 
   @override
   Widget build(BuildContext context) {
@@ -562,8 +563,8 @@ class _CollectorNewsCategoryPill extends StatelessWidget {
   }
 }
 
-class _CollectorNewsListPage extends StatelessWidget {
-  const _CollectorNewsListPage();
+class CollectorNewsListPage extends StatelessWidget {
+  const CollectorNewsListPage({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -583,17 +584,17 @@ class _CollectorNewsListPage extends StatelessWidget {
       body: SafeArea(
         child: ListView.separated(
           padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
-          itemCount: _collectorNewsArticles.length,
+          itemCount: collectorNewsArticles.length,
           separatorBuilder: (_, __) => const SizedBox(height: 14),
           itemBuilder: (context, index) {
-            final article = _collectorNewsArticles[index];
+            final article = collectorNewsArticles[index];
             return SizedBox(
               height: 178,
-              child: _CollectorNewsHeroTile(
+              child: CollectorNewsHeroTile(
                 article: article,
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (_) => _CollectorNewsDetailPage(article: article),
+                    builder: (_) => CollectorNewsDetailPage(article: article),
                   ),
                 ),
               ),
@@ -605,10 +606,10 @@ class _CollectorNewsListPage extends StatelessWidget {
   }
 }
 
-class _CollectorNewsDetailPage extends StatelessWidget {
-  final _CollectorNewsArticle article;
+class CollectorNewsDetailPage extends StatelessWidget {
+  final CollectorNewsArticle article;
 
-  const _CollectorNewsDetailPage({required this.article});
+  const CollectorNewsDetailPage({super.key, required this.article});
 
   @override
   Widget build(BuildContext context) {
@@ -631,7 +632,7 @@ class _CollectorNewsDetailPage extends StatelessWidget {
           children: [
             SizedBox(
               height: 230,
-              child: _CollectorNewsHeroTile(article: article, onTap: () {}),
+              child: CollectorNewsHeroTile(article: article, onTap: () {}),
             ),
             const SizedBox(height: 18),
             Text(
@@ -683,9 +684,11 @@ class _CollectorNewsDetailPage extends StatelessWidget {
   }
 }
 
-class _CollectorTab {
+class CollectorTab {
   final String title;
   final IconData icon;
 
-  const _CollectorTab(this.title, this.icon);
+  const CollectorTab(this.title, this.icon);
 }
+
+

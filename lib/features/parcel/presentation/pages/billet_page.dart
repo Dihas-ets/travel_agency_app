@@ -8,7 +8,7 @@ import 'package:printing/printing.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:code_initial/data/local/session_store.dart';
 import 'package:code_initial/features/parcel/presentation/pages/colis_attente_page.dart';
-import 'package:code_initial/features/parcel/data/parcel_store.dart';
+import 'package:code_initial/models/parcel_store.dart';
 
 class BilletPage extends StatelessWidget {
   final String code;

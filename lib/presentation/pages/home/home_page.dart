@@ -8,7 +8,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:code_initial/features/parcel/presentation/pages/parcel_pages.dart';
-import 'package:code_initial/features/parcel/data/parcel_store.dart';
+import 'package:code_initial/models/parcel_store.dart';
 import 'package:code_initial/data/local/session_store.dart';
 import 'package:code_initial/presentation/pages/tarifs/tarifs_page.dart';
 import 'package:code_initial/widgets/login/login_widgets.dart';

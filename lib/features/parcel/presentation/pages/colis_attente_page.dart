@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:code_initial/data/local/session_store.dart';
 import 'package:code_initial/features/parcel/presentation/pages/billet_page.dart';
-import 'package:code_initial/features/parcel/data/parcel_store.dart';
+import 'package:code_initial/models/parcel_store.dart';
 
 const Color _deepBlue = Color(0xFF0B4F2A);
 const Color _logoRed = Color(0xFFE53935);

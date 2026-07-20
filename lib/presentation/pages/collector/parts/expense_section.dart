@@ -1,16 +1,23 @@
-part of '../collector_home_page.dart';
+import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:code_initial/models/expense_model.dart';
+import 'package:code_initial/models/expense_store.dart';
+import 'package:code_initial/presentation/pages/collector/parts/reservation_flow.dart';
+import 'package:code_initial/presentation/pages/expense/manual_expense_page.dart';
+import 'package:code_initial/presentation/pages/expense/qr_scanner_page.dart';
 
 // Ecran Depense percepteur et ses widgets de saisie, liste et synthese.
 
-class _CollectorDepenseContent extends StatefulWidget {
-  const _CollectorDepenseContent();
+class CollectorDepenseContent extends StatefulWidget {
+  const CollectorDepenseContent({super.key});
 
   @override
-  State<_CollectorDepenseContent> createState() =>
+  State<CollectorDepenseContent> createState() =>
       _CollectorDepenseContentState();
 }
 
-class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
+class _CollectorDepenseContentState extends State<CollectorDepenseContent>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final expenseStore = ExpenseStore();
@@ -34,10 +41,8 @@ class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<int>(
-      valueListenable: _CollectorReservationStore.version,
-      builder: (context, _, __) {
-        return Container(
+    return Builder(builder: (context) {
+      return Container(
           width: double.infinity,
           decoration: BoxDecoration(
             color: Colors.white,
@@ -131,7 +136,7 @@ class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
   }
 
   void _openManualExpenseForReservation(
-    _CollectorReservationRecord reservation,
+    CollectorReservationRecord reservation,
   ) {
     Navigator.push(
       context,
@@ -149,7 +154,7 @@ class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
     );
   }
 
-  void _openScannerForReservation(_CollectorReservationRecord reservation) {
+  void _openScannerForReservation(CollectorReservationRecord reservation) {
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -688,7 +693,7 @@ class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
   Widget _buildTripHeader(List<ExpenseModel> expenses) {
     final isOngoing = _tabController.index == 0;
     final reservation = isOngoing
-        ? _CollectorReservationStore.activeReservation
+        ? CollectorReservationStore.activeReservation
         : _latestHistoricalReservation();
 
     if (reservation == null) {
@@ -928,7 +933,7 @@ class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
 
   // ignore: unused_element
   Widget _buildOngoingTripCard(
-    _CollectorReservationRecord reservation,
+    CollectorReservationRecord reservation,
     List<ExpenseModel> expenses,
   ) {
     final totalAmount = expenses.fold<double>(
@@ -1102,7 +1107,7 @@ class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
 
   // ignore: unused_element
   Widget _buildHistoricalReservationCard(
-    _CollectorReservationRecord reservation,
+    CollectorReservationRecord reservation,
     List<ExpenseModel> expenses,
   ) {
     final trajet = _reservationRoute(reservation);
@@ -1391,7 +1396,7 @@ class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
   }
 
   void _showReservationExpenseSheet(
-    _CollectorReservationRecord reservation,
+    CollectorReservationRecord reservation,
     List<ExpenseModel> expenses, {
     bool allowAdd = true,
   }) {
@@ -1778,12 +1783,12 @@ class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
     return '${expense.quantity} $unit';
   }
 
-  _CollectorReservationRecord? _latestReservation() {
-    return _CollectorReservationStore.activeReservation;
+  CollectorReservationRecord? _latestReservation() {
+    return CollectorReservationStore.activeReservation;
   }
 
-  _CollectorReservationRecord? _latestHistoricalReservation() {
-    final reservations = _CollectorReservationStore.historicalReservations;
+  CollectorReservationRecord? _latestHistoricalReservation() {
+    final reservations = CollectorReservationStore.historicalReservations;
     if (reservations.isEmpty) return null;
     return reservations.first;
   }
@@ -1802,7 +1807,7 @@ class _CollectorDepenseContentState extends State<_CollectorDepenseContent>
     return '$route|$busMatricule';
   }
 
-  String _reservationRoute(_CollectorReservationRecord reservation) {
+  String _reservationRoute(CollectorReservationRecord reservation) {
     return '${reservation.departure} -> ${reservation.destination}';
   }
 

@@ -1,43 +1,45 @@
-part of '../collector_home_page.dart';
+import 'package:flutter/material.dart';
+import 'package:code_initial/models/models_and_stores.dart';
+import 'package:code_initial/features/parcel/presentation/pages/colis_attente_page.dart';
+import 'package:code_initial/presentation/pages/collector/parts/assignments_section.dart';
 
 // Menu principal percepteur, profil editable et conditions.
 
-class _CollectorMainMenuSheet extends StatefulWidget {
-  const _CollectorMainMenuSheet();
+class CollectorMainMenuSheet extends StatefulWidget {
+  const CollectorMainMenuSheet({super.key});
 
   @override
-  State<_CollectorMainMenuSheet> createState() =>
-      _CollectorMainMenuSheetState();
+  State<CollectorMainMenuSheet> createState() => CollectorMainMenuSheetState();
 }
 
-enum _CollectorMainMenuTarget { profile, assignments, parcels, terms, logout }
+enum CollectorMainMenuTarget { profile, assignments, parcels, terms, logout }
 
-class _CollectorMainMenuSheetState extends State<_CollectorMainMenuSheet> {
+class CollectorMainMenuSheetState extends State<CollectorMainMenuSheet> {
   bool _showProfile = false;
-  _CollectorMainMenuTarget? _selectedMenu;
+  CollectorMainMenuTarget? _selectedMenu;
 
-  void _selectMenu(_CollectorMainMenuTarget target) {
+  void _selectMenu(CollectorMainMenuTarget target) {
     setState(() => _selectedMenu = target);
   }
 
   void _openProfile() {
     setState(() {
-      _selectedMenu = _CollectorMainMenuTarget.profile;
+      _selectedMenu = CollectorMainMenuTarget.profile;
       _showProfile = true;
     });
   }
 
   void _openAssignments() {
-    _selectMenu(_CollectorMainMenuTarget.assignments);
+    _selectMenu(CollectorMainMenuTarget.assignments);
     final navigator = Navigator.of(context);
     navigator.pop();
     navigator.push(
-      MaterialPageRoute(builder: (_) => const _CollectorAssignmentsPage()),
+      MaterialPageRoute(builder: (_) => const CollectorAssignmentsPage()),
     );
   }
 
   void _openParcels() {
-    _selectMenu(_CollectorMainMenuTarget.parcels);
+    _selectMenu(CollectorMainMenuTarget.parcels);
     final navigator = Navigator.of(context);
     navigator.pop();
     navigator.push(
@@ -48,16 +50,16 @@ class _CollectorMainMenuSheetState extends State<_CollectorMainMenuSheet> {
   }
 
   void _showTerms() {
-    _selectMenu(_CollectorMainMenuTarget.terms);
+    _selectMenu(CollectorMainMenuTarget.terms);
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (_) => const _CollectorTermsSheet(),
+      builder: (_) => const CollectorTermsSheet(),
     );
   }
 
   void _logout() {
-    _selectMenu(_CollectorMainMenuTarget.logout);
+    _selectMenu(CollectorMainMenuTarget.logout);
     Navigator.of(context).pushNamedAndRemoveUntil('/welcomepage', (_) => false);
   }
 
@@ -76,12 +78,12 @@ class _CollectorMainMenuSheetState extends State<_CollectorMainMenuSheet> {
           child: AnimatedSwitcher(
             duration: const Duration(milliseconds: 260),
             child: _showProfile
-                ? _CollectorProfileMenuView(
+                ? CollectorProfileMenuView(
                     key: const ValueKey('collector-profile'),
                     scrollController: scrollController,
                     onBack: () => setState(() => _showProfile = false),
                   )
-                : _CollectorMainMenuView(
+                : CollectorMainMenuView(
                     key: const ValueKey('collector-menu'),
                     scrollController: scrollController,
                     selectedMenu: _selectedMenu,
@@ -99,9 +101,9 @@ class _CollectorMainMenuSheetState extends State<_CollectorMainMenuSheet> {
   }
 }
 
-class _CollectorMainMenuView extends StatelessWidget {
+class CollectorMainMenuView extends StatelessWidget {
   final ScrollController scrollController;
-  final _CollectorMainMenuTarget? selectedMenu;
+  final CollectorMainMenuTarget? selectedMenu;
   final VoidCallback onClose;
   final VoidCallback onProfileTap;
   final VoidCallback onAssignmentsTap;
@@ -109,7 +111,7 @@ class _CollectorMainMenuView extends StatelessWidget {
   final VoidCallback onTermsTap;
   final VoidCallback onLogoutTap;
 
-  const _CollectorMainMenuView({
+  const CollectorMainMenuView({
     super.key,
     required this.scrollController,
     required this.selectedMenu,
@@ -170,39 +172,39 @@ class _CollectorMainMenuView extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 26),
-          const _CollectorMenuSectionTitle(
+          const CollectorMenuSectionTitle(
             icon: Icons.grid_view_rounded,
             title: 'Menu principal',
           ),
           const SizedBox(height: 10),
-          _CollectorMenuOptionTile(
+          CollectorMenuOptionTile(
             icon: Icons.account_circle_outlined,
             title: 'Profil',
-            isSelected: selectedMenu == _CollectorMainMenuTarget.profile,
+            isSelected: selectedMenu == CollectorMainMenuTarget.profile,
             onTap: onProfileTap,
           ),
-          _CollectorMenuOptionTile(
+          CollectorMenuOptionTile(
             icon: Icons.assignment_turned_in_rounded,
             title: 'Mes affectations',
-            isSelected: selectedMenu == _CollectorMainMenuTarget.assignments,
+            isSelected: selectedMenu == CollectorMainMenuTarget.assignments,
             onTap: onAssignmentsTap,
           ),
-          _CollectorMenuOptionTile(
+          CollectorMenuOptionTile(
             icon: Icons.inventory_2_rounded,
             title: 'Mes colis enregistrés',
-            isSelected: selectedMenu == _CollectorMainMenuTarget.parcels,
+            isSelected: selectedMenu == CollectorMainMenuTarget.parcels,
             onTap: onParcelsTap,
           ),
-          _CollectorMenuOptionTile(
+          CollectorMenuOptionTile(
             icon: Icons.description_outlined,
             title: "Conditions d'utilisation",
-            isSelected: selectedMenu == _CollectorMainMenuTarget.terms,
+            isSelected: selectedMenu == CollectorMainMenuTarget.terms,
             onTap: onTermsTap,
           ),
-          _CollectorMenuOptionTile(
+          CollectorMenuOptionTile(
             icon: Icons.logout_rounded,
             title: 'Déconnexion',
-            isSelected: selectedMenu == _CollectorMainMenuTarget.logout,
+            isSelected: selectedMenu == CollectorMainMenuTarget.logout,
             onTap: onLogoutTap,
           ),
           const SizedBox(height: 18),
@@ -221,11 +223,15 @@ class _CollectorMainMenuView extends StatelessWidget {
   }
 }
 
-class _CollectorMenuSectionTitle extends StatelessWidget {
+class CollectorMenuSectionTitle extends StatelessWidget {
   final IconData icon;
   final String title;
 
-  const _CollectorMenuSectionTitle({required this.icon, required this.title});
+  const CollectorMenuSectionTitle({
+    super.key,
+    required this.icon,
+    required this.title,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -260,13 +266,14 @@ class _CollectorMenuSectionTitle extends StatelessWidget {
   }
 }
 
-class _CollectorMenuOptionTile extends StatelessWidget {
+class CollectorMenuOptionTile extends StatelessWidget {
   final IconData icon;
   final String title;
   final VoidCallback onTap;
   final bool isSelected;
 
-  const _CollectorMenuOptionTile({
+  const CollectorMenuOptionTile({
+    super.key,
     required this.icon,
     required this.title,
     required this.onTap,
@@ -315,11 +322,11 @@ class _CollectorMenuOptionTile extends StatelessWidget {
   }
 }
 
-class _CollectorProfileMenuView extends StatelessWidget {
+class CollectorProfileMenuView extends StatelessWidget {
   final ScrollController scrollController;
   final VoidCallback onBack;
 
-  const _CollectorProfileMenuView({
+  const CollectorProfileMenuView({
     super.key,
     required this.scrollController,
     required this.onBack,
@@ -345,7 +352,7 @@ class _CollectorProfileMenuView extends StatelessWidget {
           const SizedBox(height: 16),
           Row(
             children: [
-              _CollectorRoundIconButton(
+              CollectorRoundIconButton(
                 icon: Icons.arrow_back_rounded,
                 onTap: onBack,
               ),
@@ -374,18 +381,22 @@ class _CollectorProfileMenuView extends StatelessWidget {
             child: Icon(Icons.person_rounded, color: Colors.white, size: 88),
           ),
           const SizedBox(height: 24),
-          const _CollectorProfilePanel(),
+          const CollectorProfilePanel(),
         ],
       ),
     );
   }
 }
 
-class _CollectorRoundIconButton extends StatelessWidget {
+class CollectorRoundIconButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
 
-  const _CollectorRoundIconButton({required this.icon, required this.onTap});
+  const CollectorRoundIconButton({
+    super.key,
+    required this.icon,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -411,31 +422,30 @@ class _CollectorRoundIconButton extends StatelessWidget {
   }
 }
 
-class _CollectorProfilePanel extends StatelessWidget {
-  const _CollectorProfilePanel();
+class CollectorProfilePanel extends StatelessWidget {
+  const CollectorProfilePanel({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<_CollectorProfileData>(
-      valueListenable: _CollectorProfileStore.profile,
+    return ValueListenableBuilder<CollectorProfileData>(
+      valueListenable: CollectorProfileStore.profile,
       builder: (context, profile, _) {
-        return _CollectorProfileEditor(profile: profile);
+        return CollectorProfileEditor(profile: profile);
       },
     );
   }
 }
 
-class _CollectorProfileEditor extends StatefulWidget {
-  final _CollectorProfileData profile;
+class CollectorProfileEditor extends StatefulWidget {
+  final CollectorProfileData profile;
 
-  const _CollectorProfileEditor({required this.profile});
+  const CollectorProfileEditor({super.key, required this.profile});
 
   @override
-  State<_CollectorProfileEditor> createState() =>
-      _CollectorProfileEditorState();
+  State<CollectorProfileEditor> createState() => CollectorProfileEditorState();
 }
 
-class _CollectorProfileEditorState extends State<_CollectorProfileEditor> {
+class CollectorProfileEditorState extends State<CollectorProfileEditor> {
   late final TextEditingController _nameController;
   late final TextEditingController _phoneController;
   late final TextEditingController _agencyController;
@@ -451,7 +461,7 @@ class _CollectorProfileEditorState extends State<_CollectorProfileEditor> {
   }
 
   @override
-  void didUpdateWidget(covariant _CollectorProfileEditor oldWidget) {
+  void didUpdateWidget(covariant CollectorProfileEditor oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.profile != widget.profile) {
       _nameController.text = widget.profile.fullName;
@@ -486,7 +496,7 @@ class _CollectorProfileEditorState extends State<_CollectorProfileEditor> {
           : _roleController.text.trim(),
     );
 
-    _CollectorProfileStore.update(nextProfile);
+    CollectorProfileStore.update(nextProfile);
     FocusScope.of(context).unfocus();
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -514,26 +524,26 @@ class _CollectorProfileEditorState extends State<_CollectorProfileEditor> {
       ),
       child: Column(
         children: [
-          _CollectorProfileEditField(
+          CollectorProfileEditField(
             icon: Icons.badge_rounded,
             label: 'Nom et prénom',
             controller: _nameController,
           ),
           const SizedBox(height: 14),
-          _CollectorProfileEditField(
+          CollectorProfileEditField(
             icon: Icons.phone_rounded,
             label: 'Téléphone',
             controller: _phoneController,
             keyboardType: TextInputType.phone,
           ),
           const SizedBox(height: 14),
-          _CollectorProfileEditField(
+          CollectorProfileEditField(
             icon: Icons.location_city_rounded,
             label: 'Agence',
             controller: _agencyController,
           ),
           const SizedBox(height: 14),
-          _CollectorProfileEditField(
+          CollectorProfileEditField(
             icon: Icons.work_rounded,
             label: 'Fonction',
             controller: _roleController,
@@ -563,13 +573,14 @@ class _CollectorProfileEditorState extends State<_CollectorProfileEditor> {
   }
 }
 
-class _CollectorProfileEditField extends StatelessWidget {
+class CollectorProfileEditField extends StatelessWidget {
   final IconData icon;
   final String label;
   final TextEditingController controller;
   final TextInputType? keyboardType;
 
-  const _CollectorProfileEditField({
+  const CollectorProfileEditField({
+    super.key,
     required this.icon,
     required this.label,
     required this.controller,
@@ -623,8 +634,8 @@ class _CollectorProfileEditField extends StatelessWidget {
   }
 }
 
-class _CollectorProfileTabContent extends StatelessWidget {
-  const _CollectorProfileTabContent();
+class CollectorProfileTabContent extends StatelessWidget {
+  const CollectorProfileTabContent({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -649,14 +660,14 @@ class _CollectorProfileTabContent extends StatelessWidget {
           ),
         ),
         SizedBox(height: 18),
-        _CollectorProfilePanel(),
+        CollectorProfilePanel(),
       ],
     );
   }
 }
 
-class _CollectorTermsSheet extends StatelessWidget {
-  const _CollectorTermsSheet();
+class CollectorTermsSheet extends StatelessWidget {
+  const CollectorTermsSheet({super.key});
 
   @override
   Widget build(BuildContext context) {

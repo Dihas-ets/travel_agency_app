@@ -1,25 +1,28 @@
-part of '../collector_home_page.dart';
-
+import 'package:flutter/material.dart';
+import 'package:code_initial/presentation/pages/collector/parts/history_news_section.dart';
+import 'package:code_initial/presentation/pages/collector/parts/assignments_section.dart';
+import 'package:code_initial/presentation/pages/collector/parts/ticket_validation_section.dart';
+import 'package:code_initial/presentation/pages/collector/parts/reservation_flow.dart';
 // Menu Voyage percepteur et boutons d action d acces rapide.
 
-class _CollectorVoyageContent extends StatelessWidget {
-  const _CollectorVoyageContent();
+class CollectorVoyageContent extends StatelessWidget {
+  const CollectorVoyageContent({super.key});
 
   @override
   Widget build(BuildContext context) {
     return ListView(
       padding: const EdgeInsets.only(bottom: 18),
       children: const [
-        _CollectorNewsSection(),
+        CollectorNewsSection(),
         SizedBox(height: 22),
-        _CollectorVoyageMenu(),
+        CollectorVoyageMenu(),
       ],
     );
   }
 }
 
-class _CollectorVoyageMenu extends StatelessWidget {
-  const _CollectorVoyageMenu();
+class CollectorVoyageMenu extends StatelessWidget {
+  const CollectorVoyageMenu({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -38,13 +41,13 @@ class _CollectorVoyageMenu extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        _CollectorMenuButton(
+        CollectorMenuButton(
           icon: Icons.assignment_turned_in_rounded,
           label: 'Affectations',
           isWide: true,
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (_) => const _CollectorAssignmentsPage(),
+              builder: (_) => const CollectorAssignmentsPage(),
             ),
           ),
         ),
@@ -52,24 +55,24 @@ class _CollectorVoyageMenu extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: _CollectorMenuButton(
+              child: CollectorMenuButton(
                 icon: Icons.login_rounded,
                 label: 'Connexion',
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (_) => const _CollectorConnectionPage(),
+                    builder: (_) => const CollectorConnectionPage(),
                   ),
                 ),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: _CollectorMenuButton(
+              child: CollectorMenuButton(
                 icon: Icons.qr_code_scanner_rounded,
                 label: 'Validation',
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (_) => const _TicketValidationPage(),
+                    builder: (_) => const TicketValidationPage(),
                   ),
                 ),
               ),
@@ -80,24 +83,24 @@ class _CollectorVoyageMenu extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: _CollectorMenuButton(
+              child: CollectorMenuButton(
                 icon: Icons.confirmation_number_rounded,
                 label: 'Réservation',
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (_) => const _CollectorReservationPage(),
+                    builder: (_) => const CollectorReservationPage(),
                   ),
                 ),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: _CollectorMenuButton(
+              child: CollectorMenuButton(
                 icon: Icons.history_rounded,
                 label: 'Historique',
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (_) => const _CollectorHistoryPage(),
+                    builder: (_) => const CollectorHistoryPage(),
                   ),
                 ),
               ),
@@ -109,13 +112,13 @@ class _CollectorVoyageMenu extends StatelessWidget {
   }
 }
 
-class _CollectorMenuButton extends StatelessWidget {
+class CollectorMenuButton extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
   final bool isWide;
 
-  const _CollectorMenuButton({
+  const CollectorMenuButton({super.key, 
     required this.icon,
     required this.label,
     required this.onTap,
@@ -154,7 +157,7 @@ class _CollectorMenuButton extends StatelessWidget {
           child: isWide
               ? Row(
                   children: [
-                    _CollectorMenuButtonIcon(icon: icon),
+                    CollectorMenuButtonIcon(icon: icon),
                     const SizedBox(width: 13),
                     Expanded(
                       child: Text(
@@ -178,7 +181,7 @@ class _CollectorMenuButton extends StatelessWidget {
               : Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    _CollectorMenuButtonIcon(icon: icon),
+                    CollectorMenuButtonIcon(icon: icon),
                     const SizedBox(height: 12),
                     Text(
                       label,
@@ -198,10 +201,10 @@ class _CollectorMenuButton extends StatelessWidget {
   }
 }
 
-class _CollectorMenuButtonIcon extends StatelessWidget {
+class CollectorMenuButtonIcon extends StatelessWidget {
   final IconData icon;
 
-  const _CollectorMenuButtonIcon({required this.icon});
+  const CollectorMenuButtonIcon({super.key, required this.icon});
 
   @override
   Widget build(BuildContext context) {
@@ -219,3 +222,5 @@ class _CollectorMenuButtonIcon extends StatelessWidget {
     );
   }
 }
+
+

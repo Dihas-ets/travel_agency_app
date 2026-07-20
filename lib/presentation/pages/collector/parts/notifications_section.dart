@@ -1,12 +1,18 @@
-part of '../collector_home_page.dart';
+import 'package:flutter/material.dart';
+import 'package:code_initial/models/models_and_stores.dart';
+import 'package:code_initial/presentation/pages/collector/parts/reservation_flow.dart';
 
 // Boutons, feuille et pages de detail des notifications percepteur.
 
-class _CollectorHeaderIconButton extends StatelessWidget {
+class CollectorHeaderIconButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
 
-  const _CollectorHeaderIconButton({required this.icon, required this.onTap});
+  const CollectorHeaderIconButton({
+    super.key,
+    required this.icon,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -32,33 +38,33 @@ class _CollectorHeaderIconButton extends StatelessWidget {
   }
 }
 
-class _CollectorNotificationIconButton extends StatefulWidget {
-  const _CollectorNotificationIconButton();
+class CollectorNotificationIconButton extends StatefulWidget {
+  const CollectorNotificationIconButton({super.key});
 
   @override
-  State<_CollectorNotificationIconButton> createState() =>
-      _CollectorNotificationIconButtonState();
+  State<CollectorNotificationIconButton> createState() =>
+      CollectorNotificationIconButtonState();
 }
 
-class _CollectorNotificationIconButtonState
-    extends State<_CollectorNotificationIconButton> {
+class CollectorNotificationIconButtonState
+    extends State<CollectorNotificationIconButton> {
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<int>(
-      valueListenable: _CollectorNotificationStore.count,
+      valueListenable: CollectorNotificationStore.count,
       builder: (context, count, _) {
         return Stack(
           clipBehavior: Clip.none,
           children: [
-            _CollectorHeaderIconButton(
+            CollectorHeaderIconButton(
               icon: Icons.notifications_none_rounded,
               onTap: () {
-                _CollectorNotificationStore.clear();
+                CollectorNotificationStore.clear();
                 showModalBottomSheet(
                   context: context,
                   backgroundColor: Colors.transparent,
                   isScrollControlled: true,
-                  builder: (_) => const _CollectorNotificationsSheet(),
+                  builder: (_) => const CollectorNotificationsSheet(),
                 );
               },
             ),
@@ -92,12 +98,12 @@ class _CollectorNotificationIconButtonState
   }
 }
 
-class _CollectorNotificationsSheet extends StatelessWidget {
-  const _CollectorNotificationsSheet();
+class CollectorNotificationsSheet extends StatelessWidget {
+  const CollectorNotificationsSheet({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final notifications = _CollectorNotificationStore.notifications;
+    final notifications = CollectorNotificationStore.notifications;
 
     return DraggableScrollableSheet(
       initialChildSize: 0.62,
@@ -144,20 +150,20 @@ class _CollectorNotificationsSheet extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               if (notifications.isEmpty)
-                const _CollectorEmptyCard(
+                const CollectorEmptyCard(
                   title: 'Aucune notification',
                   message: 'Les alertes de réservation apparaîtront ici.',
                 )
               else
                 ...notifications.map(
-                  (item) => _CollectorNotificationTile(
+                  (item) => CollectorNotificationTile(
                     item: item,
                     onTap: () {
                       Navigator.pop(context);
                       Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (_) =>
-                              _CollectorNotificationDetailPage(item: item),
+                              CollectorNotificationDetailPage(item: item),
                         ),
                       );
                     },
@@ -171,11 +177,15 @@ class _CollectorNotificationsSheet extends StatelessWidget {
   }
 }
 
-class _CollectorNotificationTile extends StatelessWidget {
-  final _CollectorNotificationItem item;
+class CollectorNotificationTile extends StatelessWidget {
+  final CollectorNotificationItem item;
   final VoidCallback onTap;
 
-  const _CollectorNotificationTile({required this.item, required this.onTap});
+  const CollectorNotificationTile({
+    super.key,
+    required this.item,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -252,10 +262,10 @@ class _CollectorNotificationTile extends StatelessWidget {
   }
 }
 
-class _CollectorNotificationDetailPage extends StatelessWidget {
-  final _CollectorNotificationItem item;
+class CollectorNotificationDetailPage extends StatelessWidget {
+  final CollectorNotificationItem item;
 
-  const _CollectorNotificationDetailPage({required this.item});
+  const CollectorNotificationDetailPage({super.key, required this.item});
 
   @override
   Widget build(BuildContext context) {

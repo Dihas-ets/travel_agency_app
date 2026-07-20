@@ -1,10 +1,9 @@
-part of '../collector/collector_home_page.dart';
-
+import 'package:flutter/material.dart';
 // Donnees memoire propres a l espace controleur.
 // Elles restent separees du percepteur pour pouvoir brancher plus tard une API
 // sans modifier les ecrans d'affectation, de connexion ou de validation.
 
-class _ControllerScannedTicket {
+class ControllerScannedTicket {
   final String code;
   final String passenger;
   final String route;
@@ -13,7 +12,7 @@ class _ControllerScannedTicket {
   final String scannedAt;
   final String status;
 
-  const _ControllerScannedTicket({
+  const ControllerScannedTicket({
     required this.code,
     required this.passenger,
     required this.route,
@@ -24,11 +23,9 @@ class _ControllerScannedTicket {
   });
 }
 
-class _ControllerScannedTicketStore {
-  static final ValueNotifier<List<_ControllerScannedTicket>> tickets =
-      ValueNotifier<List<_ControllerScannedTicket>>(
-        <_ControllerScannedTicket>[],
-      );
+class ControllerScannedTicketStore {
+  static final ValueNotifier<List<ControllerScannedTicket>> tickets =
+      ValueNotifier<List<ControllerScannedTicket>>(<ControllerScannedTicket>[]);
 
   static void add(String rawCode) {
     final code = rawCode.trim().isEmpty ? 'TK-2026-0487' : rawCode.trim();
@@ -41,7 +38,7 @@ class _ControllerScannedTicketStore {
         '${now.minute.toString().padLeft(2, '0')}';
 
     tickets.value = [
-      _ControllerScannedTicket(
+      ControllerScannedTicket(
         code: code,
         passenger: 'Client Fofana',
         route: 'Cotonou -> Parakou',
@@ -55,26 +52,26 @@ class _ControllerScannedTicketStore {
   }
 }
 
-class _ControllerProfileData {
+class ControllerProfileData {
   final String fullName;
   final String phone;
   final String agency;
   final String role;
 
-  const _ControllerProfileData({
+  const ControllerProfileData({
     required this.fullName,
     required this.phone,
     required this.agency,
     required this.role,
   });
 
-  _ControllerProfileData copyWith({
+  ControllerProfileData copyWith({
     String? fullName,
     String? phone,
     String? agency,
     String? role,
   }) {
-    return _ControllerProfileData(
+    return ControllerProfileData(
       fullName: fullName ?? this.fullName,
       phone: phone ?? this.phone,
       agency: agency ?? this.agency,
@@ -83,10 +80,10 @@ class _ControllerProfileData {
   }
 }
 
-class _ControllerProfileStore {
-  static final ValueNotifier<_ControllerProfileData> profile =
-      ValueNotifier<_ControllerProfileData>(
-        const _ControllerProfileData(
+class ControllerProfileStore {
+  static final ValueNotifier<ControllerProfileData> profile =
+      ValueNotifier<ControllerProfileData>(
+        const ControllerProfileData(
           fullName: 'Controleur Fofana',
           phone: '+229 01 00 00 00 00',
           agency: 'Cotonou',
@@ -94,7 +91,7 @@ class _ControllerProfileStore {
         ),
       );
 
-  static void update(_ControllerProfileData data) {
+  static void update(ControllerProfileData data) {
     profile.value = data;
   }
 }

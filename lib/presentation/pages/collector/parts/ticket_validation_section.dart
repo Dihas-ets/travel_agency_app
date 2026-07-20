@@ -1,15 +1,16 @@
-part of '../collector_home_page.dart';
-
+import 'package:flutter/material.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:code_initial/presentation/pages/controller/controller_models.dart';
 // Validation de billet et cartes d information associees.
 
-class _TicketValidationPage extends StatefulWidget {
-  const _TicketValidationPage();
+class TicketValidationPage extends StatefulWidget {
+  const TicketValidationPage({super.key});
 
   @override
-  State<_TicketValidationPage> createState() => _TicketValidationPageState();
+  State<TicketValidationPage> createState() => _TicketValidationPageState();
 }
 
-class _TicketValidationPageState extends State<_TicketValidationPage> {
+class _TicketValidationPageState extends State<TicketValidationPage> {
   String? _scannedCode;
   bool _ticketVisible = false;
   final TextEditingController _manualCodeController = TextEditingController();
@@ -28,7 +29,7 @@ class _TicketValidationPageState extends State<_TicketValidationPage> {
       _scannedCode = validatedCode;
       _ticketVisible = true;
     });
-    _ControllerScannedTicketStore.add(validatedCode);
+    ControllerScannedTicketStore.add(validatedCode);
   }
 
   void _validateCurrentScan() {
@@ -296,23 +297,36 @@ class _TicketInfoCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          _TicketInfoRow(title: 'Code ticket', value: code),
-          const _TicketInfoRow(title: 'Passager', value: 'Client Fofana'),
-          const _TicketInfoRow(title: 'Trajet', value: 'Cotonou -> Parakou'),
-          const _TicketInfoRow(title: 'Départ', value: '21/05/2026 à 08:30'),
-          const _TicketInfoRow(title: 'Siège', value: '12A'),
-          const _TicketInfoRow(title: 'Statut', value: 'Ticket valide'),
+          CollectorTicketInfoRow(title: 'Code ticket', value: code),
+          const CollectorTicketInfoRow(
+            title: 'Passager',
+            value: 'Client Fofana',
+          ),
+          const CollectorTicketInfoRow(
+            title: 'Trajet',
+            value: 'Cotonou -> Parakou',
+          ),
+          const CollectorTicketInfoRow(
+            title: 'Départ',
+            value: '21/05/2026 à 08:30',
+          ),
+          const CollectorTicketInfoRow(title: 'Siège', value: '12A'),
+          const CollectorTicketInfoRow(title: 'Statut', value: 'Ticket valide'),
         ],
       ),
     );
   }
 }
 
-class _TicketInfoRow extends StatelessWidget {
+class CollectorTicketInfoRow extends StatelessWidget {
   final String title;
   final String value;
 
-  const _TicketInfoRow({required this.title, required this.value});
+  const CollectorTicketInfoRow({
+    super.key,
+    required this.title,
+    required this.value,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -347,7 +361,7 @@ class _TicketInfoRow extends StatelessWidget {
   }
 }
 
-const List<String> _collectorBeninCities = [
+const List<String> collectorBeninCities = [
   'Abomey',
   'Abomey-Calavi',
   'Adjohoun',

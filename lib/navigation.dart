@@ -11,6 +11,7 @@ import 'package:code_initial/presentation/pages/login/collector_password_page.da
 import 'package:code_initial/presentation/pages/verify_code/verify_code_page.dart';
 import 'package:code_initial/presentation/pages/home/home_page.dart';
 import 'package:code_initial/presentation/pages/collector/collector_home_page.dart';
+import 'package:code_initial/presentation/pages/controller/controller_home_page.dart';
 import 'package:code_initial/presentation/pages/controller/controller_password_page.dart';
 import 'package:code_initial/presentation/pages/forgot_password/forgot_password_page.dart';
 import 'package:code_initial/features/parcel/presentation/pages/envois_effectues_page.dart';

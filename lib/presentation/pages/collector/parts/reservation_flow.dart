@@ -1,41 +1,50 @@
-part of '../collector_home_page.dart';
-
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'dart:math' as math;
+import 'package:geolocator/geolocator.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+import 'package:code_initial/models/models_and_stores.dart';
+import 'package:code_initial/presentation/pages/collector/parts/notifications_section.dart';
+import 'package:code_initial/presentation/pages/collector/parts/ticket_validation_section.dart';
 // Reservation percepteur: donnees, formulaire, paiement, billet et presence.
 
-class _CollectorCityPosition {
+class CollectorCityPosition {
   final double latitude;
   final double longitude;
 
-  const _CollectorCityPosition(this.latitude, this.longitude);
+  const CollectorCityPosition(this.latitude, this.longitude);
 }
 
-const Map<String, _CollectorCityPosition> _collectorCityPositions = {
-  'Abomey': _CollectorCityPosition(7.1829, 1.9912),
-  'Abomey-Calavi': _CollectorCityPosition(6.4485, 2.3557),
-  'Adjohoun': _CollectorCityPosition(6.7167, 2.4833),
-  'Allada': _CollectorCityPosition(6.6655, 2.1514),
-  'Aplahoué': _CollectorCityPosition(6.9333, 1.6833),
-  'Banikoara': _CollectorCityPosition(11.2985, 2.4386),
-  'Bassila': _CollectorCityPosition(9.0081, 1.6654),
-  'Bembèrèkè': _CollectorCityPosition(10.2283, 2.6633),
-  'Bétérou': _CollectorCityPosition(9.1992, 2.2586),
-  'Bohicon': _CollectorCityPosition(7.1783, 2.0667),
-  'Cotonou': _CollectorCityPosition(6.3703, 2.3912),
-  'Dassa-Zoumè': _CollectorCityPosition(7.75, 2.1833),
-  'Djougou': _CollectorCityPosition(9.7085, 1.6659),
-  'Kandi': _CollectorCityPosition(11.1342, 2.9386),
-  'Lokossa': _CollectorCityPosition(6.6387, 1.7167),
-  'Natitingou': _CollectorCityPosition(10.3042, 1.3796),
-  'Ouidah': _CollectorCityPosition(6.3631, 2.0851),
-  'Parakou': _CollectorCityPosition(9.3372, 2.6303),
-  'Porto-Novo': _CollectorCityPosition(6.4969, 2.6289),
-  'Sakété': _CollectorCityPosition(6.7362, 2.6587),
-  'Savalou': _CollectorCityPosition(7.9281, 1.9756),
-  'Sèmè-Kpodji': _CollectorCityPosition(6.3654, 2.6161),
-  'Tchaourou': _CollectorCityPosition(8.8865, 2.5975),
+const Map<String, CollectorCityPosition> collectorCityPositions = {
+  'Abomey': CollectorCityPosition(7.1829, 1.9912),
+  'Abomey-Calavi': CollectorCityPosition(6.4485, 2.3557),
+  'Adjohoun': CollectorCityPosition(6.7167, 2.4833),
+  'Allada': CollectorCityPosition(6.6655, 2.1514),
+  'Aplahoué': CollectorCityPosition(6.9333, 1.6833),
+  'Banikoara': CollectorCityPosition(11.2985, 2.4386),
+  'Bassila': CollectorCityPosition(9.0081, 1.6654),
+  'Bembèrèkè': CollectorCityPosition(10.2283, 2.6633),
+  'Bétérou': CollectorCityPosition(9.1992, 2.2586),
+  'Bohicon': CollectorCityPosition(7.1783, 2.0667),
+  'Cotonou': CollectorCityPosition(6.3703, 2.3912),
+  'Dassa-Zoumè': CollectorCityPosition(7.75, 2.1833),
+  'Djougou': CollectorCityPosition(9.7085, 1.6659),
+  'Kandi': CollectorCityPosition(11.1342, 2.9386),
+  'Lokossa': CollectorCityPosition(6.6387, 1.7167),
+  'Natitingou': CollectorCityPosition(10.3042, 1.3796),
+  'Ouidah': CollectorCityPosition(6.3631, 2.0851),
+  'Parakou': CollectorCityPosition(9.3372, 2.6303),
+  'Porto-Novo': CollectorCityPosition(6.4969, 2.6289),
+  'Sakété': CollectorCityPosition(6.7362, 2.6587),
+  'Savalou': CollectorCityPosition(7.9281, 1.9756),
+  'Sèmè-Kpodji': CollectorCityPosition(6.3654, 2.6161),
+  'Tchaourou': CollectorCityPosition(8.8865, 2.5975),
 };
 
-class _CollectorReservationRecord {
+class CollectorReservationRecord {
   final String reference;
   final String departure;
   final String destination;
@@ -48,7 +57,7 @@ class _CollectorReservationRecord {
   final String busMatricule;
   final String status;
 
-  const _CollectorReservationRecord({
+  const CollectorReservationRecord({
     required this.reference,
     required this.departure,
     required this.destination,
@@ -62,8 +71,8 @@ class _CollectorReservationRecord {
     required this.status,
   });
 
-  _CollectorReservationRecord copyWith({String? status, String? busMatricule}) {
-    return _CollectorReservationRecord(
+  CollectorReservationRecord copyWith({String? status, String? busMatricule}) {
+    return CollectorReservationRecord(
       reference: reference,
       departure: departure,
       destination: destination,
@@ -79,35 +88,35 @@ class _CollectorReservationRecord {
   }
 }
 
-class _CollectorReservationStore {
-  static final List<_CollectorReservationRecord> reservations = [];
+class CollectorReservationStore {
+  static final List<CollectorReservationRecord> reservations = [];
   static final ValueNotifier<int> version = ValueNotifier<int>(0);
 
-  static _CollectorReservationRecord? get activeReservation {
+  static CollectorReservationRecord? get activeReservation {
     if (reservations.isEmpty) return null;
     return reservations.first;
   }
 
-  static List<_CollectorReservationRecord> get historicalReservations {
+  static List<CollectorReservationRecord> get historicalReservations {
     if (reservations.length <= 1) return [];
     return reservations.skip(1).toList();
   }
 
-  static void add(_CollectorReservationRecord reservation) {
+  static void add(CollectorReservationRecord reservation) {
     reservations.insert(0, reservation);
     version.value += 1;
   }
 }
 
-class _CollectorReservationPage extends StatefulWidget {
-  const _CollectorReservationPage();
+class CollectorReservationPage extends StatefulWidget {
+  const CollectorReservationPage({super.key});
 
   @override
-  State<_CollectorReservationPage> createState() =>
-      _CollectorReservationPageState();
+  State<CollectorReservationPage> createState() =>
+      CollectorReservationPageState();
 }
 
-class _CollectorReservationPageState extends State<_CollectorReservationPage> {
+class CollectorReservationPageState extends State<CollectorReservationPage> {
   static const Color _deepBlue = Color(0xFF0B4F2A);
   static const Color _fofanaGreen = Color(0xFF16A34A);
 
@@ -187,14 +196,14 @@ class _CollectorReservationPageState extends State<_CollectorReservationPage> {
     );
   }
 
-  _CollectorCityPosition? _positionFor(String city) {
+  CollectorCityPosition? _positionFor(String city) {
     if (city.startsWith('Ma position') && _currentPosition != null) {
-      return _CollectorCityPosition(
+      return CollectorCityPosition(
         _currentPosition!.latitude,
         _currentPosition!.longitude,
       );
     }
-    return _collectorCityPositions[city];
+    return collectorCityPositions[city];
   }
 
   double _distanceKm(
@@ -359,7 +368,7 @@ class _CollectorReservationPageState extends State<_CollectorReservationPage> {
                   child: ListView.separated(
                     padding: const EdgeInsets.fromLTRB(16, 4, 16, 18),
                     itemCount:
-                        _collectorBeninCities.length +
+                        collectorBeninCities.length +
                         (includeCurrentLocation ? 1 : 0),
                     separatorBuilder: (_, __) => const SizedBox(height: 8),
                     itemBuilder: (context, index) {
@@ -390,7 +399,7 @@ class _CollectorReservationPageState extends State<_CollectorReservationPage> {
                       final cityIndex = includeCurrentLocation
                           ? index - 1
                           : index;
-                      final city = _collectorBeninCities[cityIndex];
+                      final city = collectorBeninCities[cityIndex];
                       return Material(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(16),
@@ -459,7 +468,7 @@ class _CollectorReservationPageState extends State<_CollectorReservationPage> {
 
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => _CollectorPaymentDetailsPage(
+        builder: (_) => CollectorPaymentDetailsPage(
           departure: _departController.text.trim(),
           destination: _destinationController.text.trim(),
           date:
@@ -523,7 +532,7 @@ class _CollectorReservationPageState extends State<_CollectorReservationPage> {
                     children: [
                       Align(
                         alignment: Alignment.centerLeft,
-                        child: _CollectorHeaderIconButton(
+                        child: CollectorHeaderIconButton(
                           icon: Icons.arrow_back_rounded,
                           onTap: () => Navigator.of(context).maybePop(),
                         ),
@@ -579,9 +588,9 @@ class _CollectorReservationPageState extends State<_CollectorReservationPage> {
                   children: [
                     _buildReservationForm(),
                     const SizedBox(height: 18),
-                    if (_CollectorReservationStore.reservations.isNotEmpty)
-                      ..._CollectorReservationStore.reservations.map(
-                        (item) => _CollectorReservationCard(item: item),
+                    if (CollectorReservationStore.reservations.isNotEmpty)
+                      ...CollectorReservationStore.reservations.map(
+                        (item) => CollectorReservationCard(item: item),
                       ),
                   ],
                 ),
@@ -628,7 +637,7 @@ class _CollectorReservationPageState extends State<_CollectorReservationPage> {
               children: [
                 Column(
                   children: [
-                    _CollectorCityField(
+                    CollectorCityField(
                       controller: _departController,
                       label: 'De',
                       hint: 'Ville de départ',
@@ -639,7 +648,7 @@ class _CollectorReservationPageState extends State<_CollectorReservationPage> {
                         includeCurrentLocation: true,
                       ),
                     ),
-                    _CollectorCityField(
+                    CollectorCityField(
                       controller: _destinationController,
                       label: 'À',
                       hint: 'Ville de destination',
@@ -685,7 +694,7 @@ class _CollectorReservationPageState extends State<_CollectorReservationPage> {
             ),
           ),
           const SizedBox(height: 18),
-          _CollectorSmallField(
+          CollectorSmallField(
             label: 'Date de départ',
             value: _dateController.text.isEmpty
                 ? 'Sélectionner une date'
@@ -695,7 +704,7 @@ class _CollectorReservationPageState extends State<_CollectorReservationPage> {
           ),
           const SizedBox(height: 14),
           if (_destinationController.text.isNotEmpty) ...[
-            _CollectorTextInput(
+            CollectorTextInput(
               controller: _amountController,
               label: 'Montant',
               icon: Icons.payments_rounded,
@@ -705,7 +714,7 @@ class _CollectorReservationPageState extends State<_CollectorReservationPage> {
             ),
             const SizedBox(height: 14),
           ],
-          _CollectorPassengerCard(
+          CollectorPassengerCard(
             count: _passengerCount,
             onMinus: () {
               if (_passengerCount > 1) {
@@ -752,14 +761,14 @@ class _CollectorReservationPageState extends State<_CollectorReservationPage> {
   }
 }
 
-class _CollectorCityField extends StatelessWidget {
+class CollectorCityField extends StatelessWidget {
   final TextEditingController controller;
   final String label;
   final String hint;
   final bool isFirst;
   final VoidCallback onTap;
 
-  const _CollectorCityField({
+  const CollectorCityField({super.key, 
     required this.controller,
     required this.label,
     required this.hint,
@@ -829,13 +838,13 @@ class _CollectorCityField extends StatelessWidget {
   }
 }
 
-class _CollectorSmallField extends StatelessWidget {
+class CollectorSmallField extends StatelessWidget {
   final String label;
   final String value;
   final IconData icon;
   final VoidCallback onTap;
 
-  const _CollectorSmallField({
+  const CollectorSmallField({super.key, 
     required this.label,
     required this.value,
     required this.icon,
@@ -892,12 +901,12 @@ class _CollectorSmallField extends StatelessWidget {
   }
 }
 
-class _CollectorPassengerCard extends StatelessWidget {
+class CollectorPassengerCard extends StatelessWidget {
   final int count;
   final VoidCallback onMinus;
   final VoidCallback onPlus;
 
-  const _CollectorPassengerCard({
+  const CollectorPassengerCard({super.key, 
     required this.count,
     required this.onMinus,
     required this.onPlus,
@@ -950,7 +959,7 @@ class _CollectorPassengerCard extends StatelessWidget {
               ],
             ),
           ),
-          _CollectorStepperButton(icon: Icons.remove, onTap: onMinus),
+          CollectorStepperButton(icon: Icons.remove, onTap: onMinus),
           const SizedBox(width: 10),
           Text(
             '$count',
@@ -961,18 +970,18 @@ class _CollectorPassengerCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-          _CollectorStepperButton(icon: Icons.add, onTap: onPlus),
+          CollectorStepperButton(icon: Icons.add, onTap: onPlus),
         ],
       ),
     );
   }
 }
 
-class _CollectorStepperButton extends StatelessWidget {
+class CollectorStepperButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
 
-  const _CollectorStepperButton({required this.icon, required this.onTap});
+  const CollectorStepperButton({super.key, required this.icon, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -995,7 +1004,7 @@ class _CollectorStepperButton extends StatelessWidget {
   }
 }
 
-class _CollectorPaymentDetailsPage extends StatefulWidget {
+class CollectorPaymentDetailsPage extends StatefulWidget {
   final String departure;
   final String destination;
   final String date;
@@ -1003,7 +1012,7 @@ class _CollectorPaymentDetailsPage extends StatefulWidget {
   final int passengers;
   final String time;
 
-  const _CollectorPaymentDetailsPage({
+  const CollectorPaymentDetailsPage({super.key, 
     required this.departure,
     required this.destination,
     required this.date,
@@ -1013,12 +1022,12 @@ class _CollectorPaymentDetailsPage extends StatefulWidget {
   });
 
   @override
-  State<_CollectorPaymentDetailsPage> createState() =>
-      _CollectorPaymentDetailsPageState();
+  State<CollectorPaymentDetailsPage> createState() =>
+      CollectorPaymentDetailsPageState();
 }
 
-class _CollectorPaymentDetailsPageState
-    extends State<_CollectorPaymentDetailsPage> {
+class CollectorPaymentDetailsPageState
+    extends State<CollectorPaymentDetailsPage> {
   final TextEditingController _requesterPhoneController =
       TextEditingController();
   final TextEditingController _passengerNameController =
@@ -1044,7 +1053,7 @@ class _CollectorPaymentDetailsPageState
 
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => _CollectorPaymentChoicePage(
+        builder: (_) => CollectorPaymentChoicePage(
           reservation: _buildReservation(
             passengerName: passenger,
             phone: phone,
@@ -1056,12 +1065,12 @@ class _CollectorPaymentDetailsPageState
     );
   }
 
-  _CollectorReservationRecord _buildReservation({
+  CollectorReservationRecord _buildReservation({
     required String passengerName,
     required String phone,
     required String status,
   }) {
-    return _CollectorReservationRecord(
+    return CollectorReservationRecord(
       reference: 'TB${DateTime.now().millisecondsSinceEpoch}',
       departure: widget.departure,
       destination: widget.destination,
@@ -1119,7 +1128,7 @@ class _CollectorPaymentDetailsPageState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _CollectorTripSummaryCard(
+              CollectorTripSummaryCard(
                 departure: widget.departure,
                 destination: widget.destination,
                 date: widget.date,
@@ -1128,13 +1137,13 @@ class _CollectorPaymentDetailsPageState
                 price: '${_formatAmount(widget.priceAmount)} CFA',
               ),
               const SizedBox(height: 16),
-              _CollectorTextInput(
+              CollectorTextInput(
                 controller: _passengerNameController,
                 label: 'Nom du passager',
                 icon: Icons.person_rounded,
               ),
               const SizedBox(height: 12),
-              _CollectorTextInput(
+              CollectorTextInput(
                 controller: _requesterPhoneController,
                 label: 'Téléphone du demandeur',
                 icon: Icons.phone_rounded,
@@ -1169,22 +1178,22 @@ class _CollectorPaymentDetailsPageState
   }
 }
 
-class _CollectorPaymentChoicePage extends StatefulWidget {
-  final _CollectorReservationRecord reservation;
+class CollectorPaymentChoicePage extends StatefulWidget {
+  final CollectorReservationRecord reservation;
   final int priceAmount;
 
-  const _CollectorPaymentChoicePage({
+  const CollectorPaymentChoicePage({super.key, 
     required this.reservation,
     required this.priceAmount,
   });
 
   @override
-  State<_CollectorPaymentChoicePage> createState() =>
-      _CollectorPaymentChoicePageState();
+  State<CollectorPaymentChoicePage> createState() =>
+      CollectorPaymentChoicePageState();
 }
 
-class _CollectorPaymentChoicePageState
-    extends State<_CollectorPaymentChoicePage> {
+class CollectorPaymentChoicePageState
+    extends State<CollectorPaymentChoicePage> {
   String _mode = 'cash';
   String? _method;
   final TextEditingController _clientCodeController = TextEditingController();
@@ -1211,7 +1220,7 @@ class _CollectorPaymentChoicePageState
     }
 
     setState(() => _paymentRequestSent = true);
-    _CollectorNotificationStore.add(
+    CollectorNotificationStore.add(
       title: 'Demande de paiement',
       message:
           'Demande envoyée au ${widget.reservation.phone} via ${_methodLabel(_method!)}.',
@@ -1243,8 +1252,8 @@ class _CollectorPaymentChoicePageState
 
   void _completeReservation(String status) {
     final reservation = widget.reservation.copyWith(status: status);
-    _CollectorReservationStore.add(reservation);
-    _CollectorNotificationStore.add(
+    CollectorReservationStore.add(reservation);
+    CollectorNotificationStore.add(
       title: 'Réservation confirmée',
       message:
           '${reservation.passengerName} - ${reservation.departure} vers ${reservation.destination}.',
@@ -1252,7 +1261,7 @@ class _CollectorPaymentChoicePageState
 
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
-        builder: (_) => _CollectorGeneratedTicketPage(reservation: reservation),
+        builder: (_) => CollectorGeneratedTicketPage(reservation: reservation),
       ),
     );
   }
@@ -1293,7 +1302,7 @@ class _CollectorPaymentChoicePageState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _CollectorTripSummaryCard(
+              CollectorTripSummaryCard(
                 departure: widget.reservation.departure,
                 destination: widget.reservation.destination,
                 date: widget.reservation.date,
@@ -1330,7 +1339,7 @@ class _CollectorPaymentChoicePageState
                     Row(
                       children: [
                         Expanded(
-                          child: _CollectorModeButton(
+                          child: CollectorModeButton(
                             label: 'Cash',
                             icon: Icons.payments_rounded,
                             selected: _mode == 'cash',
@@ -1339,7 +1348,7 @@ class _CollectorPaymentChoicePageState
                         ),
                         const SizedBox(width: 10),
                         Expanded(
-                          child: _CollectorModeButton(
+                          child: CollectorModeButton(
                             label: 'Autre paiement',
                             icon: Icons.phone_android_rounded,
                             selected: _mode == 'remote',
@@ -1350,9 +1359,9 @@ class _CollectorPaymentChoicePageState
                     ),
                     const SizedBox(height: 16),
                     if (_mode == 'cash')
-                      _CollectorCashPaymentPanel(onConfirm: _confirmCash)
+                      CollectorCashPaymentPanel(onConfirm: _confirmCash)
                     else
-                      _CollectorRemotePaymentPanel(
+                      CollectorRemotePaymentPanel(
                         selectedMethod: _method,
                         requestSent: _paymentRequestSent,
                         clientCodeController: _clientCodeController,
@@ -1375,13 +1384,13 @@ class _CollectorPaymentChoicePageState
   }
 }
 
-class _CollectorModeButton extends StatelessWidget {
+class CollectorModeButton extends StatelessWidget {
   final String label;
   final IconData icon;
   final bool selected;
   final VoidCallback onTap;
 
-  const _CollectorModeButton({
+  const CollectorModeButton({super.key, 
     required this.label,
     required this.icon,
     required this.selected,
@@ -1428,10 +1437,10 @@ class _CollectorModeButton extends StatelessWidget {
   }
 }
 
-class _CollectorCashPaymentPanel extends StatelessWidget {
+class CollectorCashPaymentPanel extends StatelessWidget {
   final VoidCallback onConfirm;
 
-  const _CollectorCashPaymentPanel({required this.onConfirm});
+  const CollectorCashPaymentPanel({super.key, required this.onConfirm});
 
   @override
   Widget build(BuildContext context) {
@@ -1476,7 +1485,7 @@ class _CollectorCashPaymentPanel extends StatelessWidget {
   }
 }
 
-class _CollectorRemotePaymentPanel extends StatelessWidget {
+class CollectorRemotePaymentPanel extends StatelessWidget {
   final String? selectedMethod;
   final bool requestSent;
   final TextEditingController clientCodeController;
@@ -1484,7 +1493,7 @@ class _CollectorRemotePaymentPanel extends StatelessWidget {
   final VoidCallback onSendRequest;
   final VoidCallback onConfirmPayment;
 
-  const _CollectorRemotePaymentPanel({
+  const CollectorRemotePaymentPanel({super.key, 
     required this.selectedMethod,
     required this.requestSent,
     required this.clientCodeController,
@@ -1514,7 +1523,7 @@ class _CollectorRemotePaymentPanel extends StatelessWidget {
           mainAxisSpacing: 10,
           childAspectRatio: 2.3,
           children: methods.map((method) {
-            return _CollectorPaymentMethodTile(
+            return CollectorPaymentMethodTile(
               value: method.$1,
               label: method.$2,
               imagePath: method.$3,
@@ -1591,14 +1600,14 @@ class _CollectorRemotePaymentPanel extends StatelessWidget {
   }
 }
 
-class _CollectorPaymentMethodTile extends StatelessWidget {
+class CollectorPaymentMethodTile extends StatelessWidget {
   final String value;
   final String label;
   final String? imagePath;
   final bool selected;
   final VoidCallback onTap;
 
-  const _CollectorPaymentMethodTile({
+  const CollectorPaymentMethodTile({super.key, 
     required this.value,
     required this.label,
     required this.imagePath,
@@ -1663,7 +1672,7 @@ class _CollectorPaymentMethodTile extends StatelessWidget {
   }
 }
 
-class _CollectorTextInput extends StatelessWidget {
+class CollectorTextInput extends StatelessWidget {
   final TextEditingController controller;
   final String label;
   final IconData icon;
@@ -1671,7 +1680,7 @@ class _CollectorTextInput extends StatelessWidget {
   final String? suffixText;
   final List<TextInputFormatter>? inputFormatters;
 
-  const _CollectorTextInput({
+  const CollectorTextInput({super.key, 
     required this.controller,
     required this.label,
     required this.icon,
@@ -1705,7 +1714,7 @@ class _CollectorTextInput extends StatelessWidget {
   }
 }
 
-class _CollectorTripSummaryCard extends StatelessWidget {
+class CollectorTripSummaryCard extends StatelessWidget {
   final String departure;
   final String destination;
   final String date;
@@ -1713,7 +1722,7 @@ class _CollectorTripSummaryCard extends StatelessWidget {
   final int passengerCount;
   final String price;
 
-  const _CollectorTripSummaryCard({
+  const CollectorTripSummaryCard({super.key, 
     required this.departure,
     required this.destination,
     required this.date,
@@ -1749,20 +1758,20 @@ class _CollectorTripSummaryCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
-          _TicketInfoRow(title: 'Trajet', value: '$departure -> $destination'),
-          _TicketInfoRow(title: 'Départ', value: '$date à $time'),
-          _TicketInfoRow(title: 'Passagers', value: '$passengerCount'),
-          _TicketInfoRow(title: 'Total', value: price),
+          CollectorTicketInfoRow(title: 'Trajet', value: '$departure -> $destination'),
+          CollectorTicketInfoRow(title: 'Départ', value: '$date à $time'),
+          CollectorTicketInfoRow(title: 'Passagers', value: '$passengerCount'),
+          CollectorTicketInfoRow(title: 'Total', value: price),
         ],
       ),
     );
   }
 }
 
-class _CollectorGeneratedTicketPage extends StatelessWidget {
-  final _CollectorReservationRecord reservation;
+class CollectorGeneratedTicketPage extends StatelessWidget {
+  final CollectorReservationRecord reservation;
 
-  const _CollectorGeneratedTicketPage({required this.reservation});
+  const CollectorGeneratedTicketPage({super.key, required this.reservation});
 
   Future<void> _downloadPdf(BuildContext context) async {
     try {
@@ -1939,7 +1948,7 @@ class _CollectorGeneratedTicketPage extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _CollectorReservationCard(item: reservation),
+              CollectorReservationCard(item: reservation),
               const SizedBox(height: 16),
               Container(
                 padding: const EdgeInsets.all(18),
@@ -2023,10 +2032,10 @@ class _CollectorGeneratedTicketPage extends StatelessWidget {
   }
 }
 
-class _CollectorReservationCard extends StatelessWidget {
-  final _CollectorReservationRecord item;
+class CollectorReservationCard extends StatelessWidget {
+  final CollectorReservationRecord item;
 
-  const _CollectorReservationCard({required this.item});
+  const CollectorReservationCard({super.key, required this.item});
 
   @override
   Widget build(BuildContext context) {
@@ -2078,25 +2087,25 @@ class _CollectorReservationCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 14),
-          _TicketInfoRow(
+          CollectorTicketInfoRow(
             title: 'Trajet',
             value: '${item.departure} -> ${item.destination}',
           ),
-          _TicketInfoRow(title: 'Départ', value: '${item.date} à ${item.time}'),
-          _TicketInfoRow(title: 'Passager', value: item.passengerName),
-          _TicketInfoRow(title: 'Téléphone', value: item.phone),
-          _TicketInfoRow(title: 'Total', value: item.price),
+          CollectorTicketInfoRow(title: 'Départ', value: '${item.date} à ${item.time}'),
+          CollectorTicketInfoRow(title: 'Passager', value: item.passengerName),
+          CollectorTicketInfoRow(title: 'Téléphone', value: item.phone),
+          CollectorTicketInfoRow(title: 'Total', value: item.price),
         ],
       ),
     );
   }
 }
 
-class _CollectorAttendanceList extends StatelessWidget {
+class CollectorAttendanceList extends StatelessWidget {
   final String title;
   final String emptyMessage;
 
-  const _CollectorAttendanceList({
+  const CollectorAttendanceList({super.key, 
     required this.title,
     required this.emptyMessage,
   });
@@ -2104,16 +2113,16 @@ class _CollectorAttendanceList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      children: [_CollectorEmptyCard(title: title, message: emptyMessage)],
+      children: [CollectorEmptyCard(title: title, message: emptyMessage)],
     );
   }
 }
 
-class _CollectorEmptyCard extends StatelessWidget {
+class CollectorEmptyCard extends StatelessWidget {
   final String title;
   final String message;
 
-  const _CollectorEmptyCard({required this.title, required this.message});
+  const CollectorEmptyCard({super.key, required this.title, required this.message});
 
   @override
   Widget build(BuildContext context) {
@@ -2152,3 +2161,5 @@ class _CollectorEmptyCard extends StatelessWidget {
     );
   }
 }
+
+

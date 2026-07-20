@@ -1,25 +1,30 @@
-part of '../collector_home_page.dart';
+import 'package:flutter/material.dart';
+import 'package:code_initial/presentation/pages/collector/parts/voyage_menu_section.dart';
+import 'package:code_initial/presentation/pages/collector/parts/parcel_section.dart';
+import 'package:code_initial/presentation/pages/collector/parts/expense_section.dart';
+import 'package:code_initial/presentation/pages/collector/parts/menu_profile_section.dart';
+import 'package:code_initial/presentation/pages/collector/parts/history_news_section.dart';
 
 // Aiguilleur des onglets principaux de l espace percepteur.
 
-class _CollectorTabContent extends StatelessWidget {
-  final _CollectorTab tab;
+class CollectorTabContent extends StatelessWidget {
+  final CollectorTab tab;
 
-  const _CollectorTabContent({required this.tab});
+  const CollectorTabContent({super.key, required this.tab});
 
   @override
   Widget build(BuildContext context) {
     if (tab.title == 'Voyage') {
-      return const _CollectorVoyageContent();
+      return const CollectorVoyageContent();
     }
     if (tab.title == 'Colis') {
-      return const _CollectorColisContent();
+      return const CollectorColisContent();
     }
     if (tab.title == 'Depense') {
-      return const _CollectorDepenseContent();
+      return const CollectorDepenseContent();
     }
     if (tab.title == 'Profil') {
-      return const _CollectorProfileTabContent();
+      return const CollectorProfileTabContent();
     }
 
     return Container(

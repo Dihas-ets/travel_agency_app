@@ -1,5 +1,12 @@
-part of '../collector/collector_home_page.dart';
-
+import 'package:flutter/material.dart';
+import 'package:code_initial/presentation/pages/collector/parts/menu_profile_section.dart';
+import 'package:code_initial/presentation/pages/collector/parts/notifications_section.dart';
+import 'package:code_initial/presentation/pages/collector/parts/voyage_menu_section.dart';
+import 'package:code_initial/presentation/pages/collector/parts/history_news_section.dart';
+import 'package:code_initial/presentation/pages/collector/parts/assignments_section.dart';
+import 'package:code_initial/presentation/pages/collector/parts/ticket_validation_section.dart';
+import 'package:code_initial/presentation/pages/controller/controller_history_section.dart';
+import 'package:code_initial/presentation/pages/controller/controller_profile_section.dart';
 // Page racine de l espace controleur.
 // Les trois actions metier du voyage reutilisent exactement les pages du
 // percepteur; seuls le shell, l'historique des scans et le profil changent.
@@ -8,16 +15,16 @@ class ControllerHomePage extends StatefulWidget {
   const ControllerHomePage({super.key});
 
   @override
-  State<ControllerHomePage> createState() => _ControllerHomePageState();
+  State<ControllerHomePage> createState() => ControllerHomePageState();
 }
 
-class _ControllerHomePageState extends State<ControllerHomePage> {
+class ControllerHomePageState extends State<ControllerHomePage> {
   int _currentIndex = 0;
 
-  final List<_CollectorTab> _tabs = const [
-    _CollectorTab('Voyage', Icons.directions_bus_filled_rounded),
-    _CollectorTab('Historique', Icons.history_rounded),
-    _CollectorTab('Profil', Icons.person_rounded),
+  final List<CollectorTab> _tabs = const [
+    CollectorTab('Voyage', Icons.directions_bus_filled_rounded),
+    CollectorTab('Historique', Icons.history_rounded),
+    CollectorTab('Profil', Icons.person_rounded),
   ];
 
   void _openMainMenu() {
@@ -25,7 +32,7 @@ class _ControllerHomePageState extends State<ControllerHomePage> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => const _ControllerMainMenuSheet(),
+      builder: (_) => const ControllerMainMenuSheet(),
     );
   }
 
@@ -54,7 +61,7 @@ class _ControllerHomePageState extends State<ControllerHomePage> {
                   children: [
                     Align(
                       alignment: Alignment.centerLeft,
-                      child: _CollectorHeaderIconButton(
+                      child: CollectorHeaderIconButton(
                         icon: Icons.menu_rounded,
                         onTap: _openMainMenu,
                       ),
@@ -66,11 +73,11 @@ class _ControllerHomePageState extends State<ControllerHomePage> {
                     ),
                     Align(
                       alignment: Alignment.centerRight,
-                      child: _CollectorHeaderIconButton(
+                      child: CollectorHeaderIconButton(
                         icon: Icons.qr_code_scanner_rounded,
                         onTap: () => Navigator.of(context).push(
                           MaterialPageRoute(
-                            builder: (_) => const _TicketValidationPage(),
+                            builder: (_) => const TicketValidationPage(),
                           ),
                         ),
                       ),
@@ -96,7 +103,7 @@ class _ControllerHomePageState extends State<ControllerHomePage> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                Expanded(child: _ControllerTabContent(tab: currentTab)),
+                Expanded(child: ControllerTabContent(tab: currentTab)),
               ],
             ),
           ),
@@ -173,44 +180,44 @@ class _ControllerHomePageState extends State<ControllerHomePage> {
   }
 }
 
-class _ControllerTabContent extends StatelessWidget {
-  final _CollectorTab tab;
+class ControllerTabContent extends StatelessWidget {
+  final CollectorTab tab;
 
-  const _ControllerTabContent({required this.tab});
+  const ControllerTabContent({super.key, required this.tab});
 
   @override
   Widget build(BuildContext context) {
     switch (tab.title) {
       case 'Voyage':
-        return const _ControllerVoyageContent();
+        return const ControllerVoyageContent();
       case 'Historique':
-        return const _ControllerHistoryTabContent();
+        return const ControllerHistoryTabContent();
       case 'Profil':
-        return const _ControllerProfileTabContent();
+        return const ControllerProfileTabContent();
       default:
         return const SizedBox.shrink();
     }
   }
 }
 
-class _ControllerVoyageContent extends StatelessWidget {
-  const _ControllerVoyageContent();
+class ControllerVoyageContent extends StatelessWidget {
+  const ControllerVoyageContent({super.key});
 
   @override
   Widget build(BuildContext context) {
     return ListView(
       padding: const EdgeInsets.only(bottom: 18),
       children: const [
-        _CollectorNewsSection(),
+        CollectorNewsSection(),
         SizedBox(height: 22),
-        _ControllerVoyageMenu(),
+        ControllerVoyageMenu(),
       ],
     );
   }
 }
 
-class _ControllerVoyageMenu extends StatelessWidget {
-  const _ControllerVoyageMenu();
+class ControllerVoyageMenu extends StatelessWidget {
+  const ControllerVoyageMenu({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -229,13 +236,13 @@ class _ControllerVoyageMenu extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        _CollectorMenuButton(
+        CollectorMenuButton(
           icon: Icons.assignment_turned_in_rounded,
           label: 'Affectation',
           isWide: true,
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (_) => const _CollectorAssignmentsPage(),
+              builder: (_) => const CollectorAssignmentsPage(),
             ),
           ),
         ),
@@ -243,24 +250,24 @@ class _ControllerVoyageMenu extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: _CollectorMenuButton(
+              child: CollectorMenuButton(
                 icon: Icons.login_rounded,
                 label: 'Connexion',
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (_) => const _CollectorConnectionPage(),
+                    builder: (_) => const CollectorConnectionPage(),
                   ),
                 ),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: _CollectorMenuButton(
+              child: CollectorMenuButton(
                 icon: Icons.qr_code_scanner_rounded,
                 label: 'Validation',
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (_) => const _TicketValidationPage(),
+                    builder: (_) => const TicketValidationPage(),
                   ),
                 ),
               ),
@@ -272,8 +279,8 @@ class _ControllerVoyageMenu extends StatelessWidget {
   }
 }
 
-class _ControllerMainMenuSheet extends StatelessWidget {
-  const _ControllerMainMenuSheet();
+class ControllerMainMenuSheet extends StatelessWidget {
+  const ControllerMainMenuSheet({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -327,14 +334,14 @@ class _ControllerMainMenuSheet extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 24),
-              _CollectorMenuOptionTile(
+              CollectorMenuOptionTile(
                 icon: Icons.account_circle_outlined,
                 title: 'Profil',
                 onTap: () {
                   Navigator.pop(context);
                 },
               ),
-              _CollectorMenuOptionTile(
+              CollectorMenuOptionTile(
                 icon: Icons.assignment_turned_in_rounded,
                 title: 'Mes affectations',
                 onTap: () {
@@ -342,12 +349,12 @@ class _ControllerMainMenuSheet extends StatelessWidget {
                   navigator.pop();
                   navigator.push(
                     MaterialPageRoute(
-                      builder: (_) => const _CollectorAssignmentsPage(),
+                      builder: (_) => const CollectorAssignmentsPage(),
                     ),
                   );
                 },
               ),
-              _CollectorMenuOptionTile(
+              CollectorMenuOptionTile(
                 icon: Icons.history_rounded,
                 title: 'Tickets scannes',
                 onTap: () {
@@ -355,12 +362,12 @@ class _ControllerMainMenuSheet extends StatelessWidget {
                   navigator.pop();
                   navigator.push(
                     MaterialPageRoute(
-                      builder: (_) => const _ControllerHistoryPage(),
+                      builder: (_) => const ControllerHistoryPage(),
                     ),
                   );
                 },
               ),
-              _CollectorMenuOptionTile(
+              CollectorMenuOptionTile(
                 icon: Icons.logout_rounded,
                 title: 'Deconnexion',
                 onTap: () {
@@ -376,3 +383,5 @@ class _ControllerMainMenuSheet extends StatelessWidget {
     );
   }
 }
+
+

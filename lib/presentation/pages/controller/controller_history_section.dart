@@ -1,18 +1,20 @@
-part of '../collector/collector_home_page.dart';
-
+import 'package:flutter/material.dart';
+import 'package:code_initial/presentation/pages/controller/controller_models.dart';
+import 'package:code_initial/presentation/pages/collector/parts/reservation_flow.dart';
+import 'package:code_initial/presentation/pages/collector/parts/ticket_validation_section.dart';
 // Historique controleur: liste les tickets deja scannes pendant les validations.
 
-class _ControllerHistoryTabContent extends StatelessWidget {
-  const _ControllerHistoryTabContent();
+class ControllerHistoryTabContent extends StatelessWidget {
+  const ControllerHistoryTabContent({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const _ControllerScannedTicketList();
+    return const ControllerScannedTicketList();
   }
 }
 
-class _ControllerHistoryPage extends StatelessWidget {
-  const _ControllerHistoryPage();
+class ControllerHistoryPage extends StatelessWidget {
+  const ControllerHistoryPage({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -32,23 +34,23 @@ class _ControllerHistoryPage extends StatelessWidget {
       body: const SafeArea(
         child: Padding(
           padding: EdgeInsets.fromLTRB(18, 18, 18, 24),
-          child: _ControllerScannedTicketList(),
+          child: ControllerScannedTicketList(),
         ),
       ),
     );
   }
 }
 
-class _ControllerScannedTicketList extends StatelessWidget {
-  const _ControllerScannedTicketList();
+class ControllerScannedTicketList extends StatelessWidget {
+  const ControllerScannedTicketList({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<List<_ControllerScannedTicket>>(
-      valueListenable: _ControllerScannedTicketStore.tickets,
+    return ValueListenableBuilder<List<ControllerScannedTicket>>(
+      valueListenable: ControllerScannedTicketStore.tickets,
       builder: (context, tickets, _) {
         if (tickets.isEmpty) {
-          return const _CollectorEmptyCard(
+          return const CollectorEmptyCard(
             title: 'Aucun ticket scanne',
             message:
                 'Les tickets valides par le controleur apparaitront ici apres chaque scan.',
@@ -61,7 +63,7 @@ class _ControllerScannedTicketList extends StatelessWidget {
           itemCount: tickets.length,
           separatorBuilder: (_, __) => const SizedBox(height: 12),
           itemBuilder: (context, index) {
-            return _ControllerScannedTicketCard(ticket: tickets[index]);
+            return ControllerScannedTicketCard(ticket: tickets[index]);
           },
         );
       },
@@ -69,10 +71,10 @@ class _ControllerScannedTicketList extends StatelessWidget {
   }
 }
 
-class _ControllerScannedTicketCard extends StatelessWidget {
-  final _ControllerScannedTicket ticket;
+class ControllerScannedTicketCard extends StatelessWidget {
+  final ControllerScannedTicket ticket;
 
-  const _ControllerScannedTicketCard({required this.ticket});
+  const ControllerScannedTicketCard({super.key, required this.ticket});
 
   @override
   Widget build(BuildContext context) {
@@ -145,13 +147,15 @@ class _ControllerScannedTicketCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 14),
-          _TicketInfoRow(title: 'Passager', value: ticket.passenger),
-          _TicketInfoRow(title: 'Trajet', value: ticket.route),
-          _TicketInfoRow(title: 'Depart', value: ticket.departure),
-          _TicketInfoRow(title: 'Siege', value: ticket.seat),
-          _TicketInfoRow(title: 'Scanne le', value: ticket.scannedAt),
+          CollectorTicketInfoRow(title: 'Passager', value: ticket.passenger),
+          CollectorTicketInfoRow(title: 'Trajet', value: ticket.route),
+          CollectorTicketInfoRow(title: 'Depart', value: ticket.departure),
+          CollectorTicketInfoRow(title: 'Siege', value: ticket.seat),
+          CollectorTicketInfoRow(title: 'Scanne le', value: ticket.scannedAt),
         ],
       ),
     );
   }
 }
+
+

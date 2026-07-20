@@ -1,9 +1,10 @@
-part of '../collector/collector_home_page.dart';
-
+import 'package:flutter/material.dart';
+import 'package:code_initial/presentation/pages/controller/controller_models.dart';
+import 'package:code_initial/presentation/pages/collector/parts/menu_profile_section.dart';
 // Profil controleur: edition locale des informations de compte.
 
-class _ControllerProfileTabContent extends StatelessWidget {
-  const _ControllerProfileTabContent();
+class ControllerProfileTabContent extends StatelessWidget {
+  const ControllerProfileTabContent({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -32,37 +33,37 @@ class _ControllerProfileTabContent extends StatelessWidget {
           ),
         ),
         SizedBox(height: 18),
-        _ControllerProfilePanel(),
+        ControllerProfilePanel(),
       ],
     );
   }
 }
 
-class _ControllerProfilePanel extends StatelessWidget {
-  const _ControllerProfilePanel();
+class ControllerProfilePanel extends StatelessWidget {
+  const ControllerProfilePanel({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<_ControllerProfileData>(
-      valueListenable: _ControllerProfileStore.profile,
+    return ValueListenableBuilder<ControllerProfileData>(
+      valueListenable: ControllerProfileStore.profile,
       builder: (context, profile, _) {
-        return _ControllerProfileEditor(profile: profile);
+        return ControllerProfileEditor(profile: profile);
       },
     );
   }
 }
 
-class _ControllerProfileEditor extends StatefulWidget {
-  final _ControllerProfileData profile;
+class ControllerProfileEditor extends StatefulWidget {
+  final ControllerProfileData profile;
 
-  const _ControllerProfileEditor({required this.profile});
+  const ControllerProfileEditor({super.key, required this.profile});
 
   @override
-  State<_ControllerProfileEditor> createState() =>
-      _ControllerProfileEditorState();
+  State<ControllerProfileEditor> createState() =>
+      ControllerProfileEditorState();
 }
 
-class _ControllerProfileEditorState extends State<_ControllerProfileEditor> {
+class ControllerProfileEditorState extends State<ControllerProfileEditor> {
   late final TextEditingController _nameController;
   late final TextEditingController _phoneController;
   late final TextEditingController _agencyController;
@@ -78,7 +79,7 @@ class _ControllerProfileEditorState extends State<_ControllerProfileEditor> {
   }
 
   @override
-  void didUpdateWidget(covariant _ControllerProfileEditor oldWidget) {
+  void didUpdateWidget(covariant ControllerProfileEditor oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.profile != widget.profile) {
       _nameController.text = widget.profile.fullName;
@@ -113,7 +114,7 @@ class _ControllerProfileEditorState extends State<_ControllerProfileEditor> {
           : _roleController.text.trim(),
     );
 
-    _ControllerProfileStore.update(nextProfile);
+    ControllerProfileStore.update(nextProfile);
     FocusScope.of(context).unfocus();
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -141,23 +142,23 @@ class _ControllerProfileEditorState extends State<_ControllerProfileEditor> {
       ),
       child: Column(
         children: [
-          _CollectorProfileEditField(
+          CollectorProfileEditField(
             icon: Icons.badge_rounded,
             label: 'Nom et prenom',
             controller: _nameController,
           ),
-          _CollectorProfileEditField(
+          CollectorProfileEditField(
             icon: Icons.phone_rounded,
             label: 'Telephone',
             controller: _phoneController,
             keyboardType: TextInputType.phone,
           ),
-          _CollectorProfileEditField(
+          CollectorProfileEditField(
             icon: Icons.location_city_rounded,
             label: 'Agence',
             controller: _agencyController,
           ),
-          _CollectorProfileEditField(
+          CollectorProfileEditField(
             icon: Icons.work_rounded,
             label: 'Fonction',
             controller: _roleController,
@@ -186,3 +187,5 @@ class _ControllerProfileEditorState extends State<_ControllerProfileEditor> {
     );
   }
 }
+
+

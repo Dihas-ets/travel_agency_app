@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:code_initial/models/expense_model.dart';
-import 'package:code_initial/features/expense/data/expense_store.dart';
+import 'package:code_initial/models/expense_store.dart';
 import 'manual_expense_page.dart';
 
 class QRScannerPage extends StatefulWidget {

@@ -1,21 +1,21 @@
-part of '../collector_home_page.dart';
+import 'package:flutter/material.dart';
 
 // Modeles et stores memoire propres a l espace percepteur.
 
-class _CollectorNotificationStore {
+class CollectorNotificationStore {
   static final ValueNotifier<int> count = ValueNotifier<int>(3);
-  static final List<_CollectorNotificationItem> notifications = [
-    _CollectorNotificationItem(
+  static final List<CollectorNotificationItem> notifications = [
+    CollectorNotificationItem(
       title: 'Bienvenue',
       message: 'Votre espace percepteur Fofana est prêt.',
       time: 'Maintenant',
     ),
-    _CollectorNotificationItem(
+    CollectorNotificationItem(
       title: 'Voyage',
       message: 'Consultez les réservations et confirmez les paiements.',
       time: 'Aujourd’hui',
     ),
-    _CollectorNotificationItem(
+    CollectorNotificationItem(
       title: 'Colis',
       message: 'Les nouvelles opérations colis apparaîtront ici.',
       time: 'Aujourd’hui',
@@ -28,7 +28,7 @@ class _CollectorNotificationStore {
   }) {
     notifications.insert(
       0,
-      _CollectorNotificationItem(
+      CollectorNotificationItem(
         title: title,
         message: message,
         time: 'Maintenant',
@@ -40,38 +40,38 @@ class _CollectorNotificationStore {
   static void clear() => count.value = 0;
 }
 
-class _CollectorNotificationItem {
+class CollectorNotificationItem {
   final String title;
   final String message;
   final String time;
 
-  const _CollectorNotificationItem({
+  const CollectorNotificationItem({
     required this.title,
     required this.message,
     required this.time,
   });
 }
 
-class _CollectorProfileData {
+class CollectorProfileData {
   final String fullName;
   final String phone;
   final String agency;
   final String role;
 
-  const _CollectorProfileData({
+  const CollectorProfileData({
     required this.fullName,
     required this.phone,
     required this.agency,
     required this.role,
   });
 
-  _CollectorProfileData copyWith({
+  CollectorProfileData copyWith({
     String? fullName,
     String? phone,
     String? agency,
     String? role,
   }) {
-    return _CollectorProfileData(
+    return CollectorProfileData(
       fullName: fullName ?? this.fullName,
       phone: phone ?? this.phone,
       agency: agency ?? this.agency,
@@ -80,10 +80,10 @@ class _CollectorProfileData {
   }
 }
 
-class _CollectorProfileStore {
-  static final ValueNotifier<_CollectorProfileData> profile =
-      ValueNotifier<_CollectorProfileData>(
-        const _CollectorProfileData(
+class CollectorProfileStore {
+  static final ValueNotifier<CollectorProfileData> profile =
+      ValueNotifier<CollectorProfileData>(
+        const CollectorProfileData(
           fullName: 'Percepteur Fofana',
           phone: '+229 01 00 00 00 00',
           agency: 'Cotonou',
@@ -91,12 +91,12 @@ class _CollectorProfileStore {
         ),
       );
 
-  static void update(_CollectorProfileData data) {
+  static void update(CollectorProfileData data) {
     profile.value = data;
   }
 }
 
-class _CollectorParcelRecord {
+class CollectorParcelRecord {
   final String id;
   final String collectorPhone;
   final String receiverName;
@@ -105,7 +105,7 @@ class _CollectorParcelRecord {
   final String destination;
   String status;
 
-  _CollectorParcelRecord({
+  CollectorParcelRecord({
     required this.id,
     required this.collectorPhone,
     required this.receiverName,

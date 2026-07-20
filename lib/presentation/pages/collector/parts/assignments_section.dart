@@ -1,50 +1,90 @@
-part of '../collector_home_page.dart';
-
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'dart:async';
+import 'package:code_initial/models/models_and_stores.dart';
+import 'package:code_initial/presentation/pages/collector/parts/notifications_section.dart';
 // Missions percepteur: filtres, listes, detail, itineraire et connexion.
 
-enum _CollectorAssignmentFilter { current, scheduled, past }
+// Widget stub pour CollectorParcelStatusPill
+class CollectorParcelStatusPill extends StatelessWidget {
+  final String label;
+  final bool strong;
 
-enum _CollectorAssignmentPastStatusFilter { all, completed, reassigned, absent }
+  const CollectorParcelStatusPill({super.key, required this.label, required this.strong});
 
-extension on _CollectorAssignmentPastStatusFilter {
+  @override
+  Widget build(BuildContext context) {
+    const deepBlue = Color(0xFF0B4F2A);
+    const green = Color(0xFF16A34A);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: strong
+            ? green.withValues(alpha: 0.12)
+            : deepBlue.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: strong
+              ? green.withValues(alpha: 0.26)
+              : deepBlue.withValues(alpha: 0.14),
+        ),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: strong ? green : deepBlue,
+          fontSize: 12,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+  }
+}
+
+enum CollectorAssignmentFilter { current, scheduled, past }
+
+enum CollectorAssignmentPastStatusFilter { all, completed, reassigned, absent }
+
+extension on CollectorAssignmentPastStatusFilter {
   String get label {
     switch (this) {
-      case _CollectorAssignmentPastStatusFilter.all:
+      case CollectorAssignmentPastStatusFilter.all:
         return 'Tous';
-      case _CollectorAssignmentPastStatusFilter.completed:
+      case CollectorAssignmentPastStatusFilter.completed:
         return 'Effectué';
-      case _CollectorAssignmentPastStatusFilter.reassigned:
+      case CollectorAssignmentPastStatusFilter.reassigned:
         return 'Réaffecter';
-      case _CollectorAssignmentPastStatusFilter.absent:
+      case CollectorAssignmentPastStatusFilter.absent:
         return 'Absent';
     }
   }
 
   bool matches(String status) {
     switch (this) {
-      case _CollectorAssignmentPastStatusFilter.all:
+      case CollectorAssignmentPastStatusFilter.all:
         return true;
-      case _CollectorAssignmentPastStatusFilter.completed:
+      case CollectorAssignmentPastStatusFilter.completed:
         return status == 'Effectué';
-      case _CollectorAssignmentPastStatusFilter.reassigned:
+      case CollectorAssignmentPastStatusFilter.reassigned:
         return status == 'Réaffecter';
-      case _CollectorAssignmentPastStatusFilter.absent:
+      case CollectorAssignmentPastStatusFilter.absent:
         return status == 'Absent';
     }
   }
 }
 
-class _CollectorAssignmentCollector {
+class CollectorAssignmentCollector {
   final String name;
   final String phone;
 
-  const _CollectorAssignmentCollector({
+  const CollectorAssignmentCollector({
     required this.name,
     required this.phone,
   });
 }
 
-class _CollectorAssignmentRecord {
+class CollectorAssignmentRecord {
   final String date;
   final String time;
   final String busMatricule;
@@ -52,10 +92,10 @@ class _CollectorAssignmentRecord {
   final String driverPhone;
   final String route;
   final String sessionCloseTime;
-  final List<_CollectorAssignmentCollector> collectors;
+  final List<CollectorAssignmentCollector> collectors;
   final String status;
 
-  const _CollectorAssignmentRecord({
+  const CollectorAssignmentRecord({
     required this.date,
     required this.time,
     required this.busMatricule,
@@ -68,25 +108,25 @@ class _CollectorAssignmentRecord {
   });
 }
 
-class _CollectorAssignmentsPage extends StatefulWidget {
-  const _CollectorAssignmentsPage();
+class CollectorAssignmentsPage extends StatefulWidget {
+  const CollectorAssignmentsPage({super.key});
 
   @override
-  State<_CollectorAssignmentsPage> createState() =>
-      _CollectorAssignmentsPageState();
+  State<CollectorAssignmentsPage> createState() =>
+      CollectorAssignmentsPageState();
 }
 
-class _CollectorAssignmentsPageState extends State<_CollectorAssignmentsPage> {
+class CollectorAssignmentsPageState extends State<CollectorAssignmentsPage> {
   static const Color _deepBlue = Color(0xFF0B4F2A);
   static const Color _fofanaGreen = Color(0xFF16A34A);
 
-  _CollectorAssignmentFilter _filter = _CollectorAssignmentFilter.current;
-  _CollectorAssignmentPastStatusFilter _pastStatusFilter =
-      _CollectorAssignmentPastStatusFilter.all;
+  CollectorAssignmentFilter _filter = CollectorAssignmentFilter.current;
+  CollectorAssignmentPastStatusFilter _pastStatusFilter =
+      CollectorAssignmentPastStatusFilter.all;
 
   // Jeu de données local en attendant la connexion à l'API des affectations.
-  final List<_CollectorAssignmentRecord> _currentAssignments = const [
-    _CollectorAssignmentRecord(
+  final List<CollectorAssignmentRecord> _currentAssignments = const [
+    CollectorAssignmentRecord(
       date: '29 mai 2026',
       time: '08:30',
       busMatricule: 'BJ-6248-RB',
@@ -95,11 +135,11 @@ class _CollectorAssignmentsPageState extends State<_CollectorAssignmentsPage> {
       route: 'Cotonou -> Parakou',
       sessionCloseTime: '18:45',
       collectors: [
-        _CollectorAssignmentCollector(
+        CollectorAssignmentCollector(
           name: 'Awa Mensah',
           phone: '+229 01 64 20 11 90',
         ),
-        _CollectorAssignmentCollector(
+        CollectorAssignmentCollector(
           name: 'Joel Kpadonou',
           phone: '+229 01 97 44 08 26',
         ),
@@ -108,8 +148,8 @@ class _CollectorAssignmentsPageState extends State<_CollectorAssignmentsPage> {
     ),
   ];
 
-  final List<_CollectorAssignmentRecord> _scheduledAssignments = const [
-    _CollectorAssignmentRecord(
+  final List<CollectorAssignmentRecord> _scheduledAssignments = const [
+    CollectorAssignmentRecord(
       date: '31 mai 2026',
       time: '06:00',
       busMatricule: 'BJ-7812-AG',
@@ -118,18 +158,18 @@ class _CollectorAssignmentsPageState extends State<_CollectorAssignmentsPage> {
       route: 'Porto-Novo -> Natitingou',
       sessionCloseTime: '17:30',
       collectors: [
-        _CollectorAssignmentCollector(
+        CollectorAssignmentCollector(
           name: 'Chancelle Toko',
           phone: '+229 01 62 19 31 45',
         ),
-        _CollectorAssignmentCollector(
+        CollectorAssignmentCollector(
           name: 'Eric Houngbo',
           phone: '+229 01 69 88 14 77',
         ),
       ],
       status: 'Programmé',
     ),
-    _CollectorAssignmentRecord(
+    CollectorAssignmentRecord(
       date: '02 juin 2026',
       time: '14:15',
       busMatricule: 'BJ-4589-CD',
@@ -138,11 +178,11 @@ class _CollectorAssignmentsPageState extends State<_CollectorAssignmentsPage> {
       route: 'Cotonou -> Djougou',
       sessionCloseTime: '23:00',
       collectors: [
-        _CollectorAssignmentCollector(
+        CollectorAssignmentCollector(
           name: 'Mariette Hounkanrin',
           phone: '+229 01 60 75 29 10',
         ),
-        _CollectorAssignmentCollector(
+        CollectorAssignmentCollector(
           name: 'Serge Loko',
           phone: '+229 01 66 13 57 84',
         ),
@@ -151,8 +191,8 @@ class _CollectorAssignmentsPageState extends State<_CollectorAssignmentsPage> {
     ),
   ];
 
-  final List<_CollectorAssignmentRecord> _pastAssignments = const [
-    _CollectorAssignmentRecord(
+  final List<CollectorAssignmentRecord> _pastAssignments = const [
+    CollectorAssignmentRecord(
       date: '27 mai 2026',
       time: '07:45',
       busMatricule: 'BJ-3220-TR',
@@ -161,18 +201,18 @@ class _CollectorAssignmentsPageState extends State<_CollectorAssignmentsPage> {
       route: 'Cotonou -> Bohicon',
       sessionCloseTime: '16:20',
       collectors: [
-        _CollectorAssignmentCollector(
+        CollectorAssignmentCollector(
           name: 'Mireille Zinsou',
           phone: '+229 01 65 42 71 88',
         ),
-        _CollectorAssignmentCollector(
+        CollectorAssignmentCollector(
           name: 'Patrick Tossa',
           phone: '+229 01 91 06 24 35',
         ),
       ],
       status: 'Effectué',
     ),
-    _CollectorAssignmentRecord(
+    CollectorAssignmentRecord(
       date: '25 mai 2026',
       time: '09:00',
       busMatricule: 'BJ-9301-PL',
@@ -181,18 +221,18 @@ class _CollectorAssignmentsPageState extends State<_CollectorAssignmentsPage> {
       route: 'Porto-Novo -> Kandi',
       sessionCloseTime: '20:10',
       collectors: [
-        _CollectorAssignmentCollector(
+        CollectorAssignmentCollector(
           name: 'Nadine Sossa',
           phone: '+229 01 68 77 31 04',
         ),
-        _CollectorAssignmentCollector(
+        CollectorAssignmentCollector(
           name: 'Abel Gandonou',
           phone: '+229 01 94 50 63 19',
         ),
       ],
       status: 'Réaffecter',
     ),
-    _CollectorAssignmentRecord(
+    CollectorAssignmentRecord(
       date: '22 mai 2026',
       time: '12:30',
       busMatricule: 'BJ-1077-MK',
@@ -201,11 +241,11 @@ class _CollectorAssignmentsPageState extends State<_CollectorAssignmentsPage> {
       route: 'Cotonou -> Lokossa',
       sessionCloseTime: '19:00',
       collectors: [
-        _CollectorAssignmentCollector(
+        CollectorAssignmentCollector(
           name: 'Judith Ahouanvoebla',
           phone: '+229 01 61 33 42 50',
         ),
-        _CollectorAssignmentCollector(
+        CollectorAssignmentCollector(
           name: 'David Nonvignon',
           phone: '+229 01 96 82 18 73',
         ),
@@ -214,13 +254,13 @@ class _CollectorAssignmentsPageState extends State<_CollectorAssignmentsPage> {
     ),
   ];
 
-  List<_CollectorAssignmentRecord> get _records {
+  List<CollectorAssignmentRecord> get _records {
     switch (_filter) {
-      case _CollectorAssignmentFilter.current:
+      case CollectorAssignmentFilter.current:
         return _currentAssignments;
-      case _CollectorAssignmentFilter.scheduled:
+      case CollectorAssignmentFilter.scheduled:
         return _scheduledAssignments;
-      case _CollectorAssignmentFilter.past:
+      case CollectorAssignmentFilter.past:
         return _pastAssignments
             .where((assignment) => _pastStatusFilter.matches(assignment.status))
             .toList();
@@ -229,11 +269,11 @@ class _CollectorAssignmentsPageState extends State<_CollectorAssignmentsPage> {
 
   String get _title {
     switch (_filter) {
-      case _CollectorAssignmentFilter.current:
+      case CollectorAssignmentFilter.current:
         return 'Affectation en cours';
-      case _CollectorAssignmentFilter.scheduled:
+      case CollectorAssignmentFilter.scheduled:
         return 'Affectations programmées';
-      case _CollectorAssignmentFilter.past:
+      case CollectorAssignmentFilter.past:
         return 'Affectations passées';
     }
   }
@@ -251,11 +291,11 @@ class _CollectorAssignmentsPageState extends State<_CollectorAssignmentsPage> {
     }
   }
 
-  void _selectFilter(_CollectorAssignmentFilter value) {
+  void _selectFilter(CollectorAssignmentFilter value) {
     setState(() {
       _filter = value;
-      if (_filter != _CollectorAssignmentFilter.past) {
-        _pastStatusFilter = _CollectorAssignmentPastStatusFilter.all;
+      if (_filter != CollectorAssignmentFilter.past) {
+        _pastStatusFilter = CollectorAssignmentPastStatusFilter.all;
       }
     });
   }
@@ -286,7 +326,7 @@ class _CollectorAssignmentsPageState extends State<_CollectorAssignmentsPage> {
                 children: [
                   Row(
                     children: [
-                      _CollectorHeaderIconButton(
+                      CollectorHeaderIconButton(
                         icon: Icons.arrow_back_rounded,
                         onTap: () => Navigator.of(context).maybePop(),
                       ),
@@ -325,7 +365,7 @@ class _CollectorAssignmentsPageState extends State<_CollectorAssignmentsPage> {
                 physics: const BouncingScrollPhysics(),
                 padding: const EdgeInsets.fromLTRB(18, 18, 18, 26),
                 children: [
-                  _CollectorAssignmentSegmentedControl(
+                  CollectorAssignmentSegmentedControl(
                     selected: _filter,
                     onChanged: _selectFilter,
                   ),
@@ -355,7 +395,7 @@ class _CollectorAssignmentsPageState extends State<_CollectorAssignmentsPage> {
                           ),
                         ]
                       : _records.map((item) {
-                          if (_filter == _CollectorAssignmentFilter.current) {
+                          if (_filter == CollectorAssignmentFilter.current) {
                             return Container(
                               margin: const EdgeInsets.only(bottom: 16),
                               padding: const EdgeInsets.all(18),
@@ -388,35 +428,35 @@ class _CollectorAssignmentsPageState extends State<_CollectorAssignmentsPage> {
                                           ),
                                         ),
                                       ),
-                                      _CollectorParcelStatusPill(
+                                      CollectorParcelStatusPill(
                                         label: item.status,
                                         strong: true,
                                       ),
                                     ],
                                   ),
                                   const SizedBox(height: 12),
-                                  _CollectorAssignmentRoutePanel(
+                                  CollectorAssignmentRoutePanel(
                                     route: item.route,
                                   ),
                                   const SizedBox(height: 12),
-                                  _CollectorAssignmentInfoGrid(
+                                  CollectorAssignmentInfoGrid(
                                     children: [
-                                      _CollectorAssignmentInfo(
+                                      CollectorAssignmentInfo(
                                         icon: Icons.person_rounded,
                                         label: 'Chauffeur',
                                         value: item.driverName,
                                       ),
-                                      _CollectorAssignmentInfo(
+                                      CollectorAssignmentInfo(
                                         icon: Icons.phone_rounded,
                                         label: 'Téléphone chauffeur',
                                         value: item.driverPhone,
                                       ),
-                                      _CollectorAssignmentInfo(
+                                      CollectorAssignmentInfo(
                                         icon: Icons.lock_clock_rounded,
                                         label: 'Fin session',
                                         value: item.sessionCloseTime,
                                       ),
-                                      _CollectorAssignmentInfo(
+                                      CollectorAssignmentInfo(
                                         icon: Icons.event_rounded,
                                         label: 'Date/Heure',
                                         value: '${item.date}\n${item.time}',
@@ -523,7 +563,7 @@ class _CollectorAssignmentsPageState extends State<_CollectorAssignmentsPage> {
                               onTap: () => Navigator.of(context).push(
                                 MaterialPageRoute(
                                   builder: (_) =>
-                                      _CollectorAssignmentDetailPage(
+                                      CollectorAssignmentDetailPage(
                                         assignment: item,
                                         mode: _filter,
                                       ),
@@ -532,12 +572,12 @@ class _CollectorAssignmentsPageState extends State<_CollectorAssignmentsPage> {
                             ),
                           );
                         }).toList()),
-                  if (_filter == _CollectorAssignmentFilter.past) ...[
+                  if (_filter == CollectorAssignmentFilter.past) ...[
                     const SizedBox(height: 12),
                     Wrap(
                       spacing: 10,
                       runSpacing: 10,
-                      children: _CollectorAssignmentPastStatusFilter.values
+                      children: CollectorAssignmentPastStatusFilter.values
                           .map(
                             (status) => ChoiceChip(
                               label: Text(status.label),
@@ -570,11 +610,11 @@ class _CollectorAssignmentsPageState extends State<_CollectorAssignmentsPage> {
   }
 }
 
-class _CollectorAssignmentSegmentedControl extends StatelessWidget {
-  final _CollectorAssignmentFilter selected;
-  final ValueChanged<_CollectorAssignmentFilter> onChanged;
+class CollectorAssignmentSegmentedControl extends StatelessWidget {
+  final CollectorAssignmentFilter selected;
+  final ValueChanged<CollectorAssignmentFilter> onChanged;
 
-  const _CollectorAssignmentSegmentedControl({
+  const CollectorAssignmentSegmentedControl({super.key, 
     required this.selected,
     required this.onChanged,
   });
@@ -599,23 +639,23 @@ class _CollectorAssignmentSegmentedControl extends StatelessWidget {
       ),
       child: Row(
         children: [
-          _CollectorAssignmentTabButton(
+          CollectorAssignmentTabButton(
             label: 'En cours',
             icon: Icons.play_circle_fill_rounded,
-            selected: selected == _CollectorAssignmentFilter.current,
-            onTap: () => onChanged(_CollectorAssignmentFilter.current),
+            selected: selected == CollectorAssignmentFilter.current,
+            onTap: () => onChanged(CollectorAssignmentFilter.current),
           ),
-          _CollectorAssignmentTabButton(
+          CollectorAssignmentTabButton(
             label: 'Programmer',
             icon: Icons.event_available_rounded,
-            selected: selected == _CollectorAssignmentFilter.scheduled,
-            onTap: () => onChanged(_CollectorAssignmentFilter.scheduled),
+            selected: selected == CollectorAssignmentFilter.scheduled,
+            onTap: () => onChanged(CollectorAssignmentFilter.scheduled),
           ),
-          _CollectorAssignmentTabButton(
+          CollectorAssignmentTabButton(
             label: 'Passer',
             icon: Icons.history_rounded,
-            selected: selected == _CollectorAssignmentFilter.past,
-            onTap: () => onChanged(_CollectorAssignmentFilter.past),
+            selected: selected == CollectorAssignmentFilter.past,
+            onTap: () => onChanged(CollectorAssignmentFilter.past),
           ),
         ],
       ),
@@ -623,13 +663,13 @@ class _CollectorAssignmentSegmentedControl extends StatelessWidget {
   }
 }
 
-class _CollectorAssignmentTabButton extends StatelessWidget {
+class CollectorAssignmentTabButton extends StatelessWidget {
   final String label;
   final IconData icon;
   final bool selected;
   final VoidCallback onTap;
 
-  const _CollectorAssignmentTabButton({
+  const CollectorAssignmentTabButton({super.key, 
     required this.label,
     required this.icon,
     required this.selected,
@@ -679,11 +719,11 @@ class _CollectorAssignmentTabButton extends StatelessWidget {
   }
 }
 
-class _CollectorAssignmentDetailPage extends StatelessWidget {
-  final _CollectorAssignmentRecord assignment;
-  final _CollectorAssignmentFilter mode;
+class CollectorAssignmentDetailPage extends StatelessWidget {
+  final CollectorAssignmentRecord assignment;
+  final CollectorAssignmentFilter mode;
 
-  const _CollectorAssignmentDetailPage({
+  const CollectorAssignmentDetailPage({super.key, 
     required this.assignment,
     required this.mode,
   });
@@ -771,26 +811,26 @@ class _CollectorAssignmentDetailPage extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 18),
-                  _CollectorAssignmentRoutePanel(route: assignment.route),
+                  CollectorAssignmentRoutePanel(route: assignment.route),
                   const SizedBox(height: 18),
-                  _CollectorAssignmentInfoGrid(
+                  CollectorAssignmentInfoGrid(
                     children: [
-                      _CollectorAssignmentInfo(
+                      CollectorAssignmentInfo(
                         icon: Icons.person_rounded,
                         label: 'Chauffeur',
                         value: assignment.driverName,
                       ),
-                      _CollectorAssignmentInfo(
+                      CollectorAssignmentInfo(
                         icon: Icons.phone_rounded,
                         label: 'Téléphone chauffeur',
                         value: assignment.driverPhone,
                       ),
-                      _CollectorAssignmentInfo(
+                      CollectorAssignmentInfo(
                         icon: Icons.confirmation_number_rounded,
                         label: 'Matricule bus',
                         value: assignment.busMatricule,
                       ),
-                      _CollectorAssignmentInfo(
+                      CollectorAssignmentInfo(
                         icon: Icons.lock_clock_rounded,
                         label: 'Fermeture session',
                         value: assignment.sessionCloseTime,
@@ -827,13 +867,13 @@ class _CollectorAssignmentDetailPage extends StatelessWidget {
                             context: context,
                             backgroundColor: Colors.transparent,
                             builder: (_) =>
-                                _CollectorPhoneSheet(collector: collector),
+                                CollectorPhoneSheet(collector: collector),
                           );
                         },
                       ),
                     ),
                   ),
-                  if (mode == _CollectorAssignmentFilter.current) ...[
+                  if (mode == CollectorAssignmentFilter.current) ...[
                     const SizedBox(height: 18),
                     SizedBox(
                       width: double.infinity,
@@ -875,18 +915,18 @@ class _CollectorAssignmentDetailPage extends StatelessWidget {
   }
 }
 
-class _CollectorAssignmentRoutePanel extends StatefulWidget {
+class CollectorAssignmentRoutePanel extends StatefulWidget {
   final String route;
 
-  const _CollectorAssignmentRoutePanel({required this.route});
+  const CollectorAssignmentRoutePanel({super.key, required this.route});
 
   @override
-  State<_CollectorAssignmentRoutePanel> createState() =>
-      _CollectorAssignmentRoutePanelState();
+  State<CollectorAssignmentRoutePanel> createState() =>
+      CollectorAssignmentRoutePanelState();
 }
 
-class _CollectorAssignmentRoutePanelState
-    extends State<_CollectorAssignmentRoutePanel> {
+class CollectorAssignmentRoutePanelState
+    extends State<CollectorAssignmentRoutePanel> {
   bool _expanded = false;
 
   @override
@@ -961,10 +1001,10 @@ class _CollectorAssignmentRoutePanelState
   }
 }
 
-class _CollectorAssignmentInfoGrid extends StatelessWidget {
-  final List<_CollectorAssignmentInfo> children;
+class CollectorAssignmentInfoGrid extends StatelessWidget {
+  final List<CollectorAssignmentInfo> children;
 
-  const _CollectorAssignmentInfoGrid({required this.children});
+  const CollectorAssignmentInfoGrid({super.key, required this.children});
 
   @override
   Widget build(BuildContext context) {
@@ -984,12 +1024,12 @@ class _CollectorAssignmentInfoGrid extends StatelessWidget {
   }
 }
 
-class _CollectorAssignmentInfo extends StatelessWidget {
+class CollectorAssignmentInfo extends StatelessWidget {
   final IconData icon;
   final String label;
   final String value;
 
-  const _CollectorAssignmentInfo({
+  const CollectorAssignmentInfo({super.key, 
     required this.icon,
     required this.label,
     required this.value,
@@ -1040,10 +1080,10 @@ class _CollectorAssignmentInfo extends StatelessWidget {
   }
 }
 
-class _CollectorPhoneSheet extends StatelessWidget {
-  final _CollectorAssignmentCollector collector;
+class CollectorPhoneSheet extends StatelessWidget {
+  final CollectorAssignmentCollector collector;
 
-  const _CollectorPhoneSheet({required this.collector});
+  const CollectorPhoneSheet({super.key, required this.collector});
 
   @override
   Widget build(BuildContext context) {
@@ -1160,15 +1200,15 @@ class _CollectorPhoneSheet extends StatelessWidget {
   }
 }
 
-class _CollectorConnectionPage extends StatefulWidget {
-  const _CollectorConnectionPage();
+class CollectorConnectionPage extends StatefulWidget {
+  const CollectorConnectionPage({super.key});
 
   @override
-  State<_CollectorConnectionPage> createState() =>
-      _CollectorConnectionPageState();
+  State<CollectorConnectionPage> createState() =>
+      CollectorConnectionPageState();
 }
 
-class _CollectorConnectionPageState extends State<_CollectorConnectionPage> {
+class CollectorConnectionPageState extends State<CollectorConnectionPage> {
   static const Color _deepBlue = Color(0xFF0B4F2A);
   static const Color _fofanaGreen = Color(0xFF16A34A);
   static const int _initialSessionSeconds = 2 * 60 * 60;
@@ -1249,7 +1289,7 @@ class _CollectorConnectionPageState extends State<_CollectorConnectionPage> {
   void _requestSessionOpening() {
     setState(() => _showOtpRequest = true);
     _startResendTimer();
-    _CollectorNotificationStore.add(
+    CollectorNotificationStore.add(
       title: 'Ouverture session',
       message: "Demande d'ouverture de session envoyée.",
     );
@@ -1272,7 +1312,7 @@ class _CollectorConnectionPageState extends State<_CollectorConnectionPage> {
       _sessionRemaining = _initialSessionSeconds;
     });
     _startSessionTimer();
-    _CollectorNotificationStore.add(
+    CollectorNotificationStore.add(
       title: 'Session activée',
       message: 'Votre session percepteur est active.',
     );
@@ -1298,7 +1338,7 @@ class _CollectorConnectionPageState extends State<_CollectorConnectionPage> {
                 children: [
                   Align(
                     alignment: Alignment.centerLeft,
-                    child: _CollectorHeaderIconButton(
+                    child: CollectorHeaderIconButton(
                       icon: Icons.arrow_back_rounded,
                       onTap: () => Navigator.of(context).pop(),
                     ),
@@ -1326,7 +1366,7 @@ class _CollectorConnectionPageState extends State<_CollectorConnectionPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _CollectorSessionCard(
+                    CollectorSessionCard(
                       isActive: _isSessionActive,
                       remainingLabel: _formatDuration(_sessionRemaining),
                     ),
@@ -1411,7 +1451,7 @@ class _CollectorConnectionPageState extends State<_CollectorConnectionPage> {
                                             ? 0
                                             : 6,
                                       ),
-                                      child: _CollectorOtpBox(
+                                      child: CollectorOtpBox(
                                         controller: _otpControllers[index],
                                       ),
                                     ),
@@ -1466,11 +1506,11 @@ class _CollectorConnectionPageState extends State<_CollectorConnectionPage> {
   }
 }
 
-class _CollectorSessionCard extends StatelessWidget {
+class CollectorSessionCard extends StatelessWidget {
   final bool isActive;
   final String remainingLabel;
 
-  const _CollectorSessionCard({
+  const CollectorSessionCard({super.key, 
     required this.isActive,
     required this.remainingLabel,
   });
@@ -1565,10 +1605,10 @@ class _CollectorSessionCard extends StatelessWidget {
   }
 }
 
-class _CollectorOtpBox extends StatelessWidget {
+class CollectorOtpBox extends StatelessWidget {
   final TextEditingController controller;
 
-  const _CollectorOtpBox({required this.controller});
+  const CollectorOtpBox({super.key, required this.controller});
 
   @override
   Widget build(BuildContext context) {
@@ -1602,3 +1642,5 @@ class _CollectorOtpBox extends StatelessWidget {
     );
   }
 }
+
+

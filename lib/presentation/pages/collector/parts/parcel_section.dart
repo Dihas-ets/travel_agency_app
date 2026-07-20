@@ -1,21 +1,25 @@
-part of '../collector_home_page.dart';
+import 'package:flutter/material.dart';
+import 'package:code_initial/models/models_and_stores.dart';
+import 'package:code_initial/features/parcel/presentation/pages/colis_attente_page.dart';
+import 'package:code_initial/features/parcel/presentation/pages/parcel_pages.dart';
+import 'package:code_initial/presentation/pages/collector/parts/reservation_flow.dart';
 
 // Gestion des colis cote percepteur: modes, listes, table de transit et statuts.
 
-class _CollectorColisContent extends StatefulWidget {
-  const _CollectorColisContent();
+class CollectorColisContent extends StatefulWidget {
+  const CollectorColisContent({super.key});
 
   @override
-  State<_CollectorColisContent> createState() => _CollectorColisContentState();
+  State<CollectorColisContent> createState() => CollectorColisContentState();
 }
 
-class _CollectorColisContentState extends State<_CollectorColisContent> {
+class CollectorColisContentState extends State<CollectorColisContent> {
   static const Color _deepBlue = Color(0xFF0B4F2A);
   static const Color _green = Color(0xFF16A34A);
   static const Color _mutedText = Color(0xFF5F6B86);
 
-  final List<_CollectorParcelRecord> _availableParcels = [
-    _CollectorParcelRecord(
+  final List<CollectorParcelRecord> _availableParcels = [
+    CollectorParcelRecord(
       id: 'CL-2401',
       collectorPhone: '+229 01 61 44 20 90',
       receiverName: 'Aminata Sanni',
@@ -24,7 +28,7 @@ class _CollectorColisContentState extends State<_CollectorColisContent> {
       destination: 'Cotonou',
       status: 'En attente',
     ),
-    _CollectorParcelRecord(
+    CollectorParcelRecord(
       id: 'CL-2402',
       collectorPhone: '+229 01 66 30 18 75',
       receiverName: 'Boris Adjovi',
@@ -33,7 +37,7 @@ class _CollectorColisContentState extends State<_CollectorColisContent> {
       destination: 'Porto-Novo',
       status: 'En attente',
     ),
-    _CollectorParcelRecord(
+    CollectorParcelRecord(
       id: 'CL-2403',
       collectorPhone: '+229 01 95 70 11 42',
       receiverName: 'Clarisse Hounkpe',
@@ -44,8 +48,8 @@ class _CollectorColisContentState extends State<_CollectorColisContent> {
     ),
   ];
 
-  final List<_CollectorParcelRecord> _transitParcels = [
-    _CollectorParcelRecord(
+  final List<CollectorParcelRecord> _transitParcels = [
+    CollectorParcelRecord(
       id: 'CL-2398',
       collectorPhone: '+229 01 64 91 82 77',
       receiverName: 'Didier Koto',
@@ -60,7 +64,7 @@ class _CollectorColisContentState extends State<_CollectorColisContent> {
   String _searchQuery = '';
   int _selectedColisMenuIndex = 0;
 
-  List<_CollectorParcelRecord> get _filteredParcels {
+  List<CollectorParcelRecord> get _filteredParcels {
     if (_searchQuery.isEmpty) return _availableParcels;
     final query = _searchQuery.toLowerCase();
     return _availableParcels.where((parcel) {
@@ -71,7 +75,7 @@ class _CollectorColisContentState extends State<_CollectorColisContent> {
     }).toList();
   }
 
-  _CollectorParcelRecord? get _selectedParcel {
+  CollectorParcelRecord? get _selectedParcel {
     if (_selectedPhone == null) return null;
     for (final parcel in _availableParcels) {
       if (parcel.collectorPhone == _selectedPhone) return parcel;
@@ -171,7 +175,7 @@ class _CollectorColisContentState extends State<_CollectorColisContent> {
     );
   }
 
-  void _removeParcel(_CollectorParcelRecord parcel) {
+  void _removeParcel(CollectorParcelRecord parcel) {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
@@ -214,13 +218,13 @@ class _CollectorColisContentState extends State<_CollectorColisContent> {
     );
   }
 
-  void _toggleStatus(_CollectorParcelRecord parcel) {
+  void _toggleStatus(CollectorParcelRecord parcel) {
     setState(() {
       parcel.status = parcel.status == 'Arriver' ? 'Recuperer' : 'Arriver';
     });
   }
 
-  void _showParcelDetail(_CollectorParcelRecord parcel) {
+  void _showParcelDetail(CollectorParcelRecord parcel) {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
@@ -269,7 +273,7 @@ class _CollectorColisContentState extends State<_CollectorColisContent> {
 
     return Column(
       children: [
-        _CollectorColisModeTabs(
+        CollectorColisModeTabs(
           selectedIndex: _selectedColisMenuIndex,
           onChanged: (index) => setState(() => _selectedColisMenuIndex = index),
         ),
@@ -283,7 +287,7 @@ class _CollectorColisContentState extends State<_CollectorColisContent> {
     );
   }
 
-  Widget _buildEmbarquementContent(_CollectorParcelRecord? selectedParcel) {
+  Widget _buildEmbarquementContent(CollectorParcelRecord? selectedParcel) {
     return Stack(
       children: [
         Positioned.fill(
@@ -410,7 +414,7 @@ class _CollectorColisContentState extends State<_CollectorColisContent> {
                         final phoneField = DropdownButtonFormField<String>(
                           initialValue: _selectedPhone,
                           isExpanded: true,
-                          decoration: _collectorColisInputDecoration(
+                          decoration: collectorColisInputDecoration(
                             label: 'Numero du recepteur',
                             icon: Icons.phone_rounded,
                           ),
@@ -429,7 +433,7 @@ class _CollectorColisContentState extends State<_CollectorColisContent> {
                           readOnly: true,
                           initialValue: selectedParcel?.receiverName ?? '',
                           key: ValueKey(selectedParcel?.receiverName ?? ''),
-                          decoration: _collectorColisInputDecoration(
+                          decoration: collectorColisInputDecoration(
                             label: 'Nom du recepteur',
                             icon: Icons.person_rounded,
                           ),
@@ -570,7 +574,7 @@ class _CollectorColisContentState extends State<_CollectorColisContent> {
                 ),
               ),
               const SizedBox(height: 10),
-              _CollectorTransitParcelTable(
+              CollectorTransitParcelTable(
                 parcels: _transitParcels,
                 onView: _showParcelDetail,
                 onRemove: _removeParcel,
@@ -600,11 +604,11 @@ class _CollectorColisContentState extends State<_CollectorColisContent> {
   }
 }
 
-class _CollectorColisModeTabs extends StatelessWidget {
+class CollectorColisModeTabs extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onChanged;
 
-  const _CollectorColisModeTabs({
+  const CollectorColisModeTabs({super.key, 
     required this.selectedIndex,
     required this.onChanged,
   });
@@ -629,14 +633,14 @@ class _CollectorColisModeTabs extends StatelessWidget {
       ),
       child: Row(
         children: [
-          _CollectorColisModeButton(
+          CollectorColisModeButton(
             label: 'Embarquement',
             icon: Icons.local_shipping_rounded,
             selected: selectedIndex == 0,
             onTap: () => onChanged(0),
           ),
           const SizedBox(width: 6),
-          _CollectorColisModeButton(
+          CollectorColisModeButton(
             label: 'Enregistrement',
             icon: Icons.check_circle_rounded,
             selected: selectedIndex == 1,
@@ -648,13 +652,13 @@ class _CollectorColisModeTabs extends StatelessWidget {
   }
 }
 
-class _CollectorColisModeButton extends StatelessWidget {
+class CollectorColisModeButton extends StatelessWidget {
   final String label;
   final IconData icon;
   final bool selected;
   final VoidCallback onTap;
 
-  const _CollectorColisModeButton({
+  const CollectorColisModeButton({super.key, 
     required this.label,
     required this.icon,
     required this.selected,
@@ -710,7 +714,7 @@ class _CollectorColisModeButton extends StatelessWidget {
   }
 }
 
-InputDecoration _collectorColisInputDecoration({
+InputDecoration collectorColisInputDecoration({
   required String label,
   required IconData icon,
 }) {
@@ -734,13 +738,13 @@ InputDecoration _collectorColisInputDecoration({
   );
 }
 
-class _CollectorTransitParcelTable extends StatelessWidget {
-  final List<_CollectorParcelRecord> parcels;
-  final ValueChanged<_CollectorParcelRecord> onView;
-  final ValueChanged<_CollectorParcelRecord> onRemove;
-  final ValueChanged<_CollectorParcelRecord> onToggleStatus;
+class CollectorTransitParcelTable extends StatelessWidget {
+  final List<CollectorParcelRecord> parcels;
+  final ValueChanged<CollectorParcelRecord> onView;
+  final ValueChanged<CollectorParcelRecord> onRemove;
+  final ValueChanged<CollectorParcelRecord> onToggleStatus;
 
-  const _CollectorTransitParcelTable({
+  const CollectorTransitParcelTable({super.key, 
     required this.parcels,
     required this.onView,
     required this.onRemove,
@@ -754,7 +758,7 @@ class _CollectorTransitParcelTable extends StatelessWidget {
     const mutedText = Color(0xFF5F6B86);
 
     if (parcels.isEmpty) {
-      return const _CollectorEmptyCard(
+      return const CollectorEmptyCard(
         title: 'Aucun colis en transit',
         message: 'Les colis acceptes apparaitront ici.',
       );
@@ -831,7 +835,7 @@ class _CollectorTransitParcelTable extends StatelessWidget {
                       ],
                     ),
                   ),
-                  _CollectorParcelStatusPill(
+                  CollectorParcelStatusPill(
                     label: isRecovered ? 'Récupéré' : 'Arrivé',
                     strong: isRecovered,
                   ),
@@ -899,11 +903,11 @@ class _CollectorTransitParcelTable extends StatelessWidget {
   }
 }
 
-class _CollectorParcelStatusPill extends StatelessWidget {
+class CollectorParcelStatusPill extends StatelessWidget {
   final String label;
   final bool strong;
 
-  const _CollectorParcelStatusPill({required this.label, required this.strong});
+  const CollectorParcelStatusPill({super.key, required this.label, required this.strong});
 
   @override
   Widget build(BuildContext context) {
@@ -934,3 +938,5 @@ class _CollectorParcelStatusPill extends StatelessWidget {
     );
   }
 }
+
+
