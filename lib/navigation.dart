@@ -5,16 +5,16 @@
 import 'package:get/get.dart';
 import 'package:code_initial/screens/global/welcome/welcome_page.dart';
 import 'package:code_initial/screens/global/onboarding/onboarding_page.dart';
-import 'package:code_initial/screens/global/register/register_page.dart';
-import 'package:code_initial/screens/global/login_page.dart';
+import 'package:code_initial/auth/inscription_page.dart';
+import 'package:code_initial/auth/connexion_page.dart';
 import 'package:code_initial/screens/percepteur/percepteur_password_page.dart';
-import 'package:code_initial/screens/global/verify_code/verify_code_page.dart';
+import 'package:code_initial/auth/verification_code_page.dart';
 import 'package:code_initial/screens/client/home/home_page.dart';
 import 'package:code_initial/screens/percepteur/percepteur_home_page.dart';
 import 'package:code_initial/screens/controleur/controleur_home_page.dart';
 import 'package:code_initial/screens/controleur/controleur_password_page.dart';
-import 'package:code_initial/screens/global/forgot_password/forgot_password_page.dart';
-import 'package:code_initial/screens/client/parcel/operations/envois_effectues_page.dart';
+import 'package:code_initial/auth/mot_de_passe_oublie_page.dart';
+import 'package:code_initial/screens/client/colis/envois_effectues_page.dart';
 
 /// Centralise toutes les pages accessibles avec GetX.
 ///

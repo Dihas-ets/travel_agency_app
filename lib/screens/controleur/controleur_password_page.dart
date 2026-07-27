@@ -1,7 +1,7 @@
 import 'package:code_initial/navigation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:code_initial/screens/global/widgets/login/login_widgets.dart';
+import 'package:code_initial/auth/widgets/connexion_widgets.dart';
 
 /// Connexion de l'espace controleur.
 ///

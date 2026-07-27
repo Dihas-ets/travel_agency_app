@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:code_initial/models/models_and_stores.dart';
-import 'package:code_initial/screens/client/parcel/operations/colis_attente_page.dart';
+import 'package:code_initial/screens/client/colis/colis_attente_page.dart';
 import 'package:code_initial/screens/percepteur/parts/assignments_section.dart';
 
 // Menu principal percepteur, profil editable et conditions.

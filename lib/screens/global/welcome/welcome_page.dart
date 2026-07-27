@@ -1,5 +1,5 @@
 import 'package:code_initial/navigation.dart';
-import 'package:code_initial/screens/global/register/register_page.dart';
+import 'package:code_initial/auth/inscription_page.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 

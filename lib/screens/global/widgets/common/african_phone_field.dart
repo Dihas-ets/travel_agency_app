@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+/// Représente un pays disponible dans le sélecteur téléphonique.
 class AfricanCountry {
   final String name;
   final String code;
@@ -68,6 +69,7 @@ const List<AfricanCountry> africanCountries = [
   AfricanCountry(name: 'Zimbabwe', code: '+263', flag: '🇿🇼'),
 ];
 
+/// Champ de numéro avec un indicatif téléphonique africain sélectionnable.
 class AfricanPhoneField extends StatefulWidget {
   final TextEditingController? controller;
 
@@ -78,8 +80,10 @@ class AfricanPhoneField extends StatefulWidget {
 }
 
 class _AfricanPhoneFieldState extends State<AfricanPhoneField> {
+  // Le Bénin est sélectionné par défaut pour les utilisateurs locaux.
   AfricanCountry selectedCountry = africanCountries.first;
 
+  /// Affiche la liste des pays et conserve le pays choisi.
   Future<void> _openCountryPicker() async {
     final country = await showModalBottomSheet<AfricanCountry>(
       context: context,
@@ -182,22 +186,23 @@ class _AfricanPhoneFieldState extends State<AfricanPhoneField> {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: _openCountryPicker,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 15),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.88),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: const Color(0xFF0B4F2A).withValues(alpha: 0.24),
-            width: 1.4,
-          ),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 15),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.88),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFF0B4F2A).withValues(alpha: 0.24),
+          width: 1.4,
         ),
-        child: Row(
-          children: [
-            Row(
+      ),
+      child: Row(
+        children: [
+          // Seule cette zone ouvre le sélecteur : le champ reste saisissable.
+          InkWell(
+            onTap: _openCountryPicker,
+            borderRadius: BorderRadius.circular(12),
+            child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
@@ -215,30 +220,29 @@ class _AfricanPhoneFieldState extends State<AfricanPhoneField> {
                 const Icon(Icons.arrow_drop_down, color: Color(0xFF0B4F2A)),
               ],
             ),
-            const SizedBox(width: 10),
-            Container(
-              height: 30,
-              width: 1,
-              color: const Color(0xFF0B4F2A).withValues(alpha: 0.24),
-            ),
-            const SizedBox(width: 15),
-            Expanded(
-              child: TextField(
-                controller: widget.controller,
-                keyboardType: TextInputType.phone,
-                onTap: () {},
-                decoration: const InputDecoration(
-                  hintText: '',
-                  border: InputBorder.none,
-                  hintStyle: TextStyle(
-                    color: Color(0xFF7B849B),
-                    fontWeight: FontWeight.w500,
-                  ),
+          ),
+          const SizedBox(width: 10),
+          Container(
+            height: 30,
+            width: 1,
+            color: const Color(0xFF0B4F2A).withValues(alpha: 0.24),
+          ),
+          const SizedBox(width: 15),
+          Expanded(
+            child: TextField(
+              controller: widget.controller,
+              keyboardType: TextInputType.phone,
+              decoration: const InputDecoration(
+                hintText: '',
+                border: InputBorder.none,
+                hintStyle: TextStyle(
+                  color: Color(0xFF7B849B),
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
