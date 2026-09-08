@@ -4,20 +4,22 @@ import 'package:code_initial/auth/stockage_auth_local.dart';
 import 'package:code_initial/navigation.dart';
 import 'package:code_initial/auth/widgets/connexion_widgets.dart';
 
+import 'package:code_initial/services/auth_service.dart';
+
 /// Page de connexion.
 ///
 /// Elle demande d'abord un numéro de téléphone.
 /// Les clients inscrits continuent par OTP, l'equipe par mot de passe.
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
-
+  
   @override
   State<LoginPage> createState() => _LoginPageState();
 }
 
 class _LoginPageState extends State<LoginPage> {
   final TextEditingController _telephoneController = TextEditingController();
-
+  String _numeroComplet = ""; 
   /// Libère les contrôleurs quand la page est retirée de l'arbre Flutter.
   @override
   void dispose() {
@@ -25,29 +27,45 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-  Future<void> _continuer() async {
-    final telephone = _telephoneController.text.trim();
-
-    if (telephone.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Veuillez entrer votre numéro de téléphone."),
-          backgroundColor: Color(0xFF16A34A),
-        ),
-      );
+Future<void> _continuer() async {
+    // On vérifie toujours si c'est vide via le contrôleur
+    if (_telephoneController.text.trim().isEmpty) {
+      Get.snackbar("Champs requis", "Veuillez entrer votre numéro.",
+          backgroundColor: Colors.redAccent, colorText: Colors.white);
       return;
     }
 
-    final isClient = await AuthLocalStore.isRegisteredClientPhone(telephone);
-    if (isClient) {
-      Get.toNamed(
-        Routes.VERIFY_CODE,
-        arguments: {'flow': 'login', 'phone': telephone},
-      );
-      return;
-    }
+    Get.dialog(
+      const Center(child: CircularProgressIndicator(color: Color(0xFF16A34A))),
+      barrierDismissible: false,
+    );
 
-    Get.toNamed(Routes.PERCEPTEUR_PASSWORD, arguments: {'phone': telephone});
+    try {
+      // MODIFICATION : On envoie _numeroComplet au lieu de telephone
+      final result = await AuthService().connexionOtp(_numeroComplet);
+
+      Get.back();
+
+      if (result['success']) {
+        Get.toNamed(
+          Routes.VERIFY_CODE,
+          arguments: {
+            'flow': 'login', 
+            'phone': _numeroComplet // On passe le numéro complet
+          },
+        );
+      } else {
+        Get.toNamed(
+          Routes.PERCEPTEUR_PASSWORD, 
+          arguments: {
+            'phone': _numeroComplet // On passe le numéro complet
+          }
+        );
+      }
+    } catch (e) {
+      Get.back();
+      Get.snackbar("Erreur", "Problème de connexion au serveur.");
+    }
   }
 
   @override
@@ -136,7 +154,12 @@ class _LoginPageState extends State<LoginPage> {
 
                       const SizedBox(height: 10),
 
-                      PhoneLoginField(controller: _telephoneController),
+                      PhoneLoginField(
+                        controller: _telephoneController,
+                        onFullNumberChanged: (value) {
+                          _numeroComplet = value; // Ici, value contient le format "+229XXXXXXXX"
+                        },
+                      ),
                     ],
                   ),
                 ),

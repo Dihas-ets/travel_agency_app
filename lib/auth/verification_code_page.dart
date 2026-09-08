@@ -7,6 +7,8 @@ import 'package:code_initial/auth/stockage_auth_local.dart';
 import 'package:code_initial/data/local/session_store.dart';
 import 'package:code_initial/navigation.dart';
 
+import 'package:code_initial/services/auth_service.dart';
+
 /// Page de vérification du code reçu par téléphone.
 ///
 /// L'utilisateur saisit un code à 6 chiffres, un chiffre par case.
@@ -85,37 +87,65 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
   }
 
   Future<void> _validerCode() async {
+    // 1. Récupérer le code saisi
     final code = _controllers.map((controller) => controller.text).join();
+    
     if (code.length != 6) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Veuillez entrer le code à 6 chiffres.'),
-          backgroundColor: Color(0xFF16A34A),
-        ),
-      );
+      Get.snackbar("Code incomplet", "Veuillez entrer les 6 chiffres.",
+          backgroundColor: Colors.orange, colorText: Colors.white);
       return;
     }
 
+    // 2. Récupérer les infos passées par la page précédente
     final arguments = Get.arguments as Map<String, dynamic>?;
     final phone = arguments?['phone']?.toString() ?? '';
-    final flow = arguments?['flow']?.toString() ?? '';
-    if (phone.isNotEmpty && (flow == 'login' || flow == 'register')) {
-      SessionStore.setCurrentClientPhone(phone);
-    }
-    if (flow == 'register') {
-      final nom = arguments?['nom']?.toString() ?? '';
-      final prenom = arguments?['prenom']?.toString() ?? '';
-      if (nom.trim().isNotEmpty || prenom.trim().isNotEmpty) {
-        SessionStore.setCurrentClientName(nom: nom, prenom: prenom);
-      }
-    } else if (phone.isNotEmpty && flow == 'login') {
-      final fullName = await AuthLocalStore.getClientFullName(phone);
-      if (fullName != null && fullName.isNotEmpty) {
-        SessionStore.currentClientFullName = fullName;
-      }
-    }
+    final nom = arguments?['nom']?.toString() ?? '';
+    final prenom = arguments?['prenom']?.toString() ?? '';
 
-    Get.offAllNamed(Routes.HOME);
+    // 3. Afficher le loader
+    Get.dialog(
+      const Center(child: CircularProgressIndicator(color: Color(0xFF16A34A))),
+      barrierDismissible: false,
+    );
+
+    try {
+      // 4. Appel au backend pour vérifier le code
+      final result = await AuthService().verifierOtp(
+        telephone: phone,
+        code: code,
+        nom: nom,
+        prenom: prenom,
+      );
+
+      Get.back(); // Fermer le loader
+
+      if (result['success']) {
+        // --- LOGIQUE DE SAUVEGARDE DU TOKEN ---
+        final token = result['token'];
+        
+        // On sauvegarde le token pour les futurs appels API authentifiés
+        // On suppose que SessionStore ou AuthLocalStore gère cela
+        await AuthLocalStore.saveToken(token); 
+        
+        // On met à jour la session locale
+        SessionStore.setCurrentClientPhone(phone);
+        if (nom.isNotEmpty) {
+          SessionStore.setCurrentClientName(nom: nom, prenom: prenom);
+        }
+
+        // 5. Navigation vers l'accueil (on vide l'historique pour ne pas revenir en arrière)
+        Get.offAllNamed(Routes.HOME);
+        
+      } else {
+        // Code invalide ou expiré
+        Get.snackbar("Erreur", result['message'],
+            backgroundColor: Colors.redAccent, colorText: Colors.white);
+      }
+    } catch (e) {
+      Get.back();
+      Get.snackbar("Erreur", "Une erreur est survenue lors de la vérification.",
+          backgroundColor: Colors.red, colorText: Colors.white);
+    }
   }
 
   @override

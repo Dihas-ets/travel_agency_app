@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:code_initial/navigation.dart';
 import 'package:code_initial/auth/widgets/connexion_widgets.dart';
+ import 'package:code_initial/auth/stockage_auth_local.dart';
+ import 'package:code_initial/services/auth_service.dart';
 
 class PercepteurPasswordPage extends StatefulWidget {
   const PercepteurPasswordPage({super.key});
@@ -22,25 +24,56 @@ class _PercepteurPasswordPageState extends State<PercepteurPasswordPage> {
     super.dispose();
   }
 
-  void _seConnecter() {
+
+  Future<void> _seConnecter() async {
     final password = _passwordController.text.trim();
+    final phone = (Get.arguments as Map?)?['phone']?.toString() ?? '';
 
-    if (password == _defaultPercepteurPassword) {
-      Get.offAllNamed(Routes.PERCEPTEUR_HOME);
+    if (password.isEmpty) {
+      Get.snackbar("Erreur", "Veuillez entrer votre mot de passe",
+          backgroundColor: Colors.orange, colorText: Colors.white);
       return;
     }
 
-    if (password == _defaultControleurPassword) {
-      Get.offAllNamed(Routes.CONTROLEUR_HOME);
-      return;
-    }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Mot de passe incorrect.'),
-        backgroundColor: Color(0xFF16A34A),
-      ),
+    // 1. Afficher le loader
+    Get.dialog(
+      const Center(child: CircularProgressIndicator(color: Color(0xFF16A34A))),
+      barrierDismissible: false,
     );
+
+    try {
+      // 2. Appel au backend via AuthService
+      final result = await AuthService().connexionStaff(phone, password);
+
+      // Fermer le loader
+      Get.back();
+
+      if (result['success']) {
+        // 3. Sauvegarder le Token
+        await AuthLocalStore.saveToken(result['token']);
+
+        // 4. Redirection selon le ROLE renvoyé par Laravel
+        final role = result['user']['role'];
+
+        if (role == 'percepteur') {
+          Get.offAllNamed(Routes.PERCEPTEUR_HOME);
+        } else if (role == 'controleur') {
+          Get.offAllNamed(Routes.CONTROLEUR_HOME);
+        } else {
+          // Si c'est un autre rôle (admin, chauffeur, etc.)
+          Get.offAllNamed(Routes.HOME);
+        }
+        
+      } else {
+        // Erreur d'identifiants
+        Get.snackbar("Erreur", result['message'] ?? "Identifiants incorrects",
+            backgroundColor: Colors.redAccent, colorText: Colors.white);
+      }
+    } catch (e) {
+      Get.back();
+      Get.snackbar("Erreur", "Connexion au serveur impossible",
+          backgroundColor: Colors.red, colorText: Colors.white);
+    }
   }
 
   @override

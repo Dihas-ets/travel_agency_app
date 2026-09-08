@@ -5,6 +5,8 @@ import 'package:code_initial/navigation.dart';
 // Import de tous les widgets de ce dossier
 import 'package:code_initial/auth/widgets/inscription_widgets.dart';
 
+import 'package:code_initial/services/auth_service.dart';
+
 /// Page de création de compte.
 ///
 /// Elle récupère le nom, le prénom et le téléphone de l'utilisateur avant
@@ -32,42 +34,75 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 
   /// Valide les champs obligatoires avant d'envoyer l'utilisateur au code.
+ /// Valide les champs et communique avec le backend pour envoyer l'OTP
   Future<void> _envoyerCode() async {
     final nom = _nomController.text.trim();
     final prenom = _prenomController.text.trim();
     final telephone = _telephoneController.text.trim();
 
+    // 1. VALIDATION LOCALE : On vérifie si c'est vide
     if (nom.isEmpty || prenom.isEmpty || telephone.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            "Veuillez remplir tous les champs avant d'envoyer le code.",
-          ),
-          backgroundColor: Color(0xFF16A34A),
-        ),
+      Get.snackbar(
+        "Champs requis",
+        "Veuillez remplir tous les champs.",
+        backgroundColor: Colors.redAccent,
+        colorText: Colors.white,
       );
-      return;
+      return; // On arrête tout ici si c'est vide
     }
 
-    await AuthLocalStore.saveClientPhone(telephone);
-    await AuthLocalStore.saveClientProfile(
-      phone: telephone,
-      nom: nom,
-      prenom: prenom,
+    // 2. LOADER : On affiche un cercle de chargement
+    Get.dialog(
+      const Center(child: CircularProgressIndicator(color: Color(0xFF16A34A))),
+      barrierDismissible: false,
     );
 
-    Get.toNamed(
-      Routes.VERIFY_CODE,
-      arguments: {
-        'flow': 'register',
-        'phone': telephone,
-        'nom': nom,
-        'prenom': prenom,
-      },
-    );
+    try {
+      // 3. APPEL BACKEND : On demande au serveur d'envoyer l'OTP
+      final result = await AuthService().envoyerOtp(telephone);
+
+      // On ferme le loader dès qu'on a la réponse
+      Get.back();
+
+      if (result['success']) {
+        // 4. SUCCÈS : Le backend a validé et créé l'OTP
+        await AuthLocalStore.saveClientPhone(telephone);
+        await AuthLocalStore.saveClientProfile(
+          phone: telephone,
+          nom: nom,
+          prenom: prenom,
+        );
+
+        Get.toNamed(
+          Routes.VERIFY_CODE,
+          arguments: {
+            'flow': 'register',
+            'phone': telephone,
+            'nom': nom,
+            'prenom': prenom,
+          },
+        );
+      } else {
+        // 5. ERREUR BACKEND : (ex: numéro déjà utilisé par un compte staff)
+        Get.snackbar(
+          "Attention",
+          result['message'], // Le message vient directement de Laravel
+          backgroundColor: Colors.orange,
+          colorText: Colors.white,
+        );
+      }
+    } catch (e) {
+      Get.back(); // Fermer le loader
+      Get.snackbar(
+        "Erreur",
+        "Connexion au serveur impossible.",
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    }
   }
-
-  @override
+  
+   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(

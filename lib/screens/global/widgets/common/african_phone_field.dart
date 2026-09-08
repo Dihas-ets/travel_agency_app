@@ -69,21 +69,36 @@ const List<AfricanCountry> africanCountries = [
   AfricanCountry(name: 'Zimbabwe', code: '+263', flag: '🇿🇼'),
 ];
 
-/// Champ de numéro avec un indicatif téléphonique africain sélectionnable.
 class AfricanPhoneField extends StatefulWidget {
   final TextEditingController? controller;
+  final Function(String)? onFullNumberChanged;
 
-  const AfricanPhoneField({super.key, this.controller});
+  const AfricanPhoneField({
+    super.key, 
+    this.controller, 
+    this.onFullNumberChanged,
+  });
 
   @override
   State<AfricanPhoneField> createState() => _AfricanPhoneFieldState();
 }
 
 class _AfricanPhoneFieldState extends State<AfricanPhoneField> {
-  // Le Bénin est sélectionné par défaut pour les utilisateurs locaux.
   AfricanCountry selectedCountry = africanCountries.first;
 
-  /// Affiche la liste des pays et conserve le pays choisi.
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _notifyParent());
+  }
+
+  /// Calcule le numéro complet et prévient le widget parent.
+  void _notifyParent() {
+    final localPart = widget.controller?.text.trim() ?? '';
+    // Correction du soulignement : on utilise .call()
+    widget.onFullNumberChanged?.call('${selectedCountry.code}$localPart');
+  }
+
   Future<void> _openCountryPicker() async {
     final country = await showModalBottomSheet<AfricanCountry>(
       context: context,
@@ -181,6 +196,7 @@ class _AfricanPhoneFieldState extends State<AfricanPhoneField> {
       setState(() {
         selectedCountry = country;
       });
+      _notifyParent(); 
     }
   }
 
@@ -198,7 +214,6 @@ class _AfricanPhoneFieldState extends State<AfricanPhoneField> {
       ),
       child: Row(
         children: [
-          // Seule cette zone ouvre le sélecteur : le champ reste saisissable.
           InkWell(
             onTap: _openCountryPicker,
             borderRadius: BorderRadius.circular(12),
@@ -232,13 +247,10 @@ class _AfricanPhoneFieldState extends State<AfricanPhoneField> {
             child: TextField(
               controller: widget.controller,
               keyboardType: TextInputType.phone,
+              onChanged: (_) => _notifyParent(),
               decoration: const InputDecoration(
                 hintText: '',
                 border: InputBorder.none,
-                hintStyle: TextStyle(
-                  color: Color(0xFF7B849B),
-                  fontWeight: FontWeight.w500,
-                ),
               ),
             ),
           ),

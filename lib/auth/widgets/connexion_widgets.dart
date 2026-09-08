@@ -47,14 +47,24 @@ class LoginHeader extends StatelessWidget {
 
 /// Champ de saisie du numéro de téléphone pour la connexion.
 class PhoneLoginField extends StatelessWidget {
-  /// Controleur fourni par LoginPage pour lire le numéro saisi.
   final TextEditingController? controller;
+  
+  // 1. AJOUTE CETTE LIGNE :
+  final Function(String)? onFullNumberChanged; 
 
-  const PhoneLoginField({super.key, this.controller});
+  // 2. METS À JOUR LE CONSTRUCTEUR :
+  const PhoneLoginField({
+    super.key, 
+    this.controller, 
+    this.onFullNumberChanged, // Ajouté ici
+  });
 
   @override
-  Widget build(BuildContext context) =>
-      AfricanPhoneField(controller: controller);
+  Widget build(BuildContext context) => AfricanPhoneField(
+        controller: controller,
+        // 3. TRANSMETS LE CALLBACK AU WIDGET ENFANT :
+        onFullNumberChanged: onFullNumberChanged,
+      );
 }
 
 /// Champ de mot de passe pour la connexion
