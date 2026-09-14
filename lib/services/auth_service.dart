@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 
 class AuthService {
   // Ton IP locale
-  static const String baseUrl = "http://192.168.1.73:8000/api"; 
+  static const String baseUrl = "http://192.168.1.90:8000/api"; 
 
   /// INSCRIPTION CLIENT : Envoyer l'OTP
   Future<Map<String, dynamic>> envoyerOtp(String telephone) async {

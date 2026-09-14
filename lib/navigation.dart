@@ -15,6 +15,7 @@ import 'package:code_initial/screens/controleur/controleur_home_page.dart';
 import 'package:code_initial/screens/controleur/controleur_password_page.dart';
 import 'package:code_initial/auth/mot_de_passe_oublie_page.dart';
 import 'package:code_initial/screens/client/colis/envois_effectues_page.dart';
+import 'package:code_initial/screens/chauffeur/chauffeur_home_page.dart';
 
 /// Centralise toutes les pages accessibles avec GetX.
 ///
@@ -40,6 +41,11 @@ class Nav {
     GetPage(
       name: Routes.FORGOT_PASSWORD,
       page: () => const ForgotPasswordPage(),
+    ),
+
+    GetPage(
+      name: Routes.CHAUFFEUR_HOME,
+      page: () => const ChauffeurHomePage(),
     ),
 
     GetPage(name: Routes.WELCOME, page: () => const WelcomePage()),
@@ -111,4 +117,7 @@ class Routes {
 
   /// Liste des envois effectués.
   static const ENVOIS_EFFECTUES = '/envois-effectues';
+  
+  /// Interface principale du chauffeur.
+  static const CHAUFFEUR_HOME = '/chauffeur-home';
 }

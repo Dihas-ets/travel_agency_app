@@ -14,11 +14,24 @@ import 'package:code_initial/screens/global/tarifs/tarifs_page.dart';
 import 'package:code_initial/auth/widgets/connexion_widgets.dart';
 import 'package:code_initial/screens/global/widgets/tarifs/tarifs_widgets.dart';
 
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart' as latlng;
+
+import 'package:code_initial/services/ligne_service.dart';
+
+
+import 'package:code_initial/models/agence_model.dart';
+import 'package:code_initial/services/agence_service.dart';
+
 part 'parts/location_section.dart';
 part 'parts/news_section.dart';
 part 'parts/reservation_flow.dart';
 part 'parts/history_section.dart';
 part '../../../menus/menu_client/menu_client.dart';
+
+
+
+
 
 // Page racine de l espace client: conserve les imports, les constantes partagees et le shell principal.
 
@@ -366,6 +379,9 @@ class _ConnectedHomeContentState extends State<_ConnectedHomeContent> {
 
   bool? _isLocationActive;
 
+  List<String> _villes = []; // ⬅️ AJOUT
+  bool _isLoadingVilles = true; // ⬅️ AJOUT
+
   static const Color _fofanaGreen = Color(0xFF16A34A);
   static const Color _deepBlue = Color(0xFF0B4F2A);
 
@@ -373,7 +389,22 @@ class _ConnectedHomeContentState extends State<_ConnectedHomeContent> {
   void initState() {
     super.initState();
     _checkLocationActive();
+    _loadVilles(); // ⬅️ AJOUT
   }
+
+  Future<void> _loadVilles() async {
+  try {
+    final villes = await LigneService().getVillesDisponibles();
+    if (!mounted) return;
+    setState(() {
+      _villes = villes;
+      _isLoadingVilles = false;
+    });
+  } catch (_) {
+    if (!mounted) return;
+    setState(() => _isLoadingVilles = false);
+  }
+}
 
   Future<void> _checkLocationActive() async {
     if (mounted) setState(() => _isLocationActive = null);
@@ -490,7 +521,9 @@ class _ConnectedHomeContentState extends State<_ConnectedHomeContent> {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              '${_BeninCityField._beninCities.length} villes disponibles au Bénin',
+                              _isLoadingVilles
+                              ? 'Chargement des villes...'
+                              : '${_villes.length} ville${_villes.length > 1 ? 's' : ''} disponible${_villes.length > 1 ? 's' : ''} au Bénin',
                               style: const TextStyle(
                                 fontSize: 12.5,
                                 fontWeight: FontWeight.w700,
@@ -510,13 +543,32 @@ class _ConnectedHomeContentState extends State<_ConnectedHomeContent> {
                     ],
                   ),
                 ),
+
+                if (_isLoadingVilles)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 40),
+                      child: Center(child: CircularProgressIndicator(strokeWidth: 2.5)),
+                    )
+                  else if (_villes.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 40, horizontal: 24),
+                      child: Center(
+                        child: Text(
+                          'Aucune ville disponible pour le moment.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Color(0xFF7B849B), fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    )
+                  else
+  
                 Flexible(
                   child: ListView.separated(
                     padding: const EdgeInsets.fromLTRB(16, 4, 16, 18),
-                    itemCount: _BeninCityField._beninCities.length,
+                    itemCount: _villes.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 8),
                     itemBuilder: (context, index) {
-                      final city = _BeninCityField._beninCities[index];
+                      final city = _villes[index];
                       final isSelected = controller.text.trim() == city;
 
                       return Material(

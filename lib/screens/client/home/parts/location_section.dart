@@ -2,7 +2,7 @@ part of '../home_page.dart';
 
 // Widgets de localisation et de carte des agences utilises sur l accueil client.
 
-class _BeninCityField extends StatelessWidget {
+class _BeninCityField extends StatefulWidget {
   final TextEditingController controller;
   final String label;
   final String hint;
@@ -15,80 +15,33 @@ class _BeninCityField extends StatelessWidget {
     required this.onTap,
   });
 
-  // Liste Bénin (à adapter si vous avez une liste officielle interne)
-  static const List<String> _beninCities = <String>[
-    'Cotonou',
-    'Porto-Novo',
-    'Abomey-Calavi',
-    'Sèmè-Kpodji',
-    'Akpro-Missérété',
-    'Adjarra',
-    'Avrankou',
-    'Dangbo',
-    'Adjohoun',
-    'Bonou',
-    'Abomey',
-    'Dassa-Zoumè',
-    'Glazoué',
-    'Savè',
-    'Bantè',
-    'Allada',
-    'Toffo',
-    'Tori-Bossito',
-    'Zè',
-    'Bohicon',
-    'Covè',
-    'Zagnanado',
-    'Zogbodomey',
-    'Za-Kpota',
-    'Ouinhi',
-    'Agbangnizoun',
-    'Djidja',
-    'Kétou',
-    'Pobè',
-    'Sakété',
-    'Ifangni',
-    'Savalou',
-    'Ouidah',
-    'Grand-Popo',
-    'Comè',
-    'Athiémé',
-    'Lokossa',
-    'Dogbo',
-    'Aplahoué',
-    'Azovè',
-    'Klouékanmè',
-    'Djakotomey',
-    'Toviklin',
-    'Lalo',
-    'Kandi',
-    'Banikoara',
-    'Gogounou',
-    'Ségbana',
-    'Karimama',
-    'Parakou',
-    'Tchaourou',
-    'Nikki',
-    'N’Dali',
-    'Pèrèrè',
-    'Kalalé',
-    'Sinendé',
-    'Djougou',
-    'Bassila',
-    'Copargo',
-    'Ouaké',
-    'Natitingou',
-    'Kouandé',
-    'Matéri',
-    'Cobly',
-    'Boukoumbé',
-    'Kérou',
-    'Péhunco',
-    'Toucountouna',
-    'Bembèrèkè',
-    'Malanville',
-    'Tanguiéta',
-  ];
+  @override
+  State<_BeninCityField> createState() => _BeninCityFieldState();
+}
+
+class _BeninCityFieldState extends State<_BeninCityField> {
+  List<String> _villes = [];
+  bool _isLoadingVilles = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVilles();
+  }
+
+  Future<void> _loadVilles() async {
+    try {
+      final villes = await LigneService().getVillesDisponibles();
+      if (!mounted) return;
+      setState(() {
+        _villes = villes;
+        _isLoadingVilles = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isLoadingVilles = false);
+    }
+  }
 
   Future<void> _showCityPicker(BuildContext context, String pickerTitle) async {
     await showModalBottomSheet(
@@ -98,7 +51,7 @@ class _BeninCityField extends StatelessWidget {
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),
       builder: (_) {
-        final picked = controller.text.trim();
+        final picked = widget.controller.text.trim();
         return SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -124,37 +77,53 @@ class _BeninCityField extends StatelessWidget {
                   ],
                 ),
               ),
-              Flexible(
-                child: ListView.separated(
-                  shrinkWrap: true,
-                  itemCount: _beninCities.length,
-                  separatorBuilder: (_, __) =>
-                      Divider(height: 1, color: Colors.grey.shade200),
-                  itemBuilder: (context, index) {
-                    final city = _beninCities[index];
-                    final isSelected = picked == city;
+              if (_isLoadingVilles)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 40),
+                  child: Center(child: CircularProgressIndicator(strokeWidth: 2.5)),
+                )
+              else if (_villes.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 40, horizontal: 24),
+                  child: Center(
+                    child: Text(
+                      'Aucune ville disponible pour le moment.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Color(0xFF7B849B), fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                )
+              else
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: _villes.length,
+                    separatorBuilder: (_, __) => Divider(height: 1, color: Colors.grey.shade200),
+                    itemBuilder: (context, index) {
+                      final city = _villes[index];
+                      final isSelected = picked == city;
 
-                    return CheckboxListTile(
-                      value: isSelected,
-                      onChanged: (_) {
-                        controller.text = city;
-                        Navigator.pop(context);
-                      },
-                      activeColor: const Color(0xFF16A34A),
-                      checkColor: Colors.white,
-                      controlAffinity: ListTileControlAffinity.leading,
-                      title: Text(
-                        city,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF1A1A2E),
+                      return CheckboxListTile(
+                        value: isSelected,
+                        onChanged: (_) {
+                          widget.controller.text = city;
+                          Navigator.pop(context);
+                        },
+                        activeColor: const Color(0xFF16A34A),
+                        checkColor: Colors.white,
+                        controlAffinity: ListTileControlAffinity.leading,
+                        title: Text(
+                          city,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF1A1A2E),
+                          ),
                         ),
-                      ),
-                    );
-                  },
+                      );
+                    },
+                  ),
                 ),
-              ),
             ],
           ),
         );
@@ -168,18 +137,14 @@ class _BeninCityField extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
       child: Row(
         children: [
-          const Icon(
-            Icons.location_on_outlined,
-            color: Color(0xFF16A34A),
-            size: 22,
-          ),
+          const Icon(Icons.location_on_outlined, color: Color(0xFF16A34A), size: 22),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  label,
+                  widget.label,
                   style: const TextStyle(
                     fontSize: 11,
                     color: Color(0xFF999999),
@@ -187,20 +152,20 @@ class _BeninCityField extends StatelessWidget {
                   ),
                 ),
                 TextField(
-                  controller: controller,
+                  controller: widget.controller,
                   readOnly: true,
                   showCursor: false,
                   onTap: () async {
-                    onTap();
+                    widget.onTap();
                     await _showCityPicker(
                       context,
-                      label == 'De'
+                      widget.label == 'De'
                           ? 'Choisir la ville de départ'
                           : 'Choisir la ville d’arrivée',
                     );
                   },
                   decoration: InputDecoration(
-                    hintText: hint,
+                    hintText: widget.hint,
                     hintStyle: const TextStyle(
                       color: Color(0xFF444444),
                       fontSize: 15,
@@ -225,13 +190,14 @@ class _BeninCityField extends StatelessWidget {
     );
   }
 }
-
 class _AgencyMapCard extends StatefulWidget {
   const _AgencyMapCard();
 
   @override
   State<_AgencyMapCard> createState() => _AgencyMapCardState();
 }
+
+enum _AgencesLoadState { loading, success, error }
 
 class _LocationDisabledCard extends StatelessWidget {
   final bool isLoading;
@@ -361,64 +327,85 @@ class _LocationDisabledCard extends StatelessWidget {
 }
 
 class _AgencyMapCardState extends State<_AgencyMapCard> {
-  bool _isOpeningMaps = false;
+  _AgencesLoadState _state = _AgencesLoadState.loading;
+  List<Agence> _agences = [];
+  final MapController _mapController = MapController(); // ⬅️ AJOUT
 
-  Future<void> _openGoogleMaps() async {
-    if (_isOpeningMaps) return;
+  @override
+  void initState() {
+    super.initState();
+    _loadAgences();
+  }
 
-    setState(() => _isOpeningMaps = true);
-
+  Future<void> _loadAgences() async {
+    setState(() => _state = _AgencesLoadState.loading);
     try {
+      // ⬇️ AJOUT : récupérer la position GPS de l'utilisateur
       final position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 5),
+          timeLimit: Duration(seconds: 6),
         ),
-      ).timeout(const Duration(seconds: 6));
+      ).timeout(const Duration(seconds: 8));
 
-      final query =
-          'agence Fofana proche @${position.latitude},${position.longitude}';
-      final encodedQuery = Uri.encodeComponent(query);
-      final appUri = Platform.isAndroid
-          ? Uri.parse(
-              'geo:${position.latitude},${position.longitude}?q=$encodedQuery',
-            )
-          : Uri.parse(
-              'https://www.google.com/maps/search/?api=1&query=$encodedQuery',
-            );
-      final webUri = Uri.parse(
-        'https://www.google.com/maps/search/?api=1&query=$encodedQuery',
+      // ⬇️ MODIF : on utilise l'endpoint /proches (trié par distance), avec un grand rayon pour tout couvrir
+      final agences = await AgenceService().getAgencesProches(
+        latitude: position.latitude,
+        longitude: position.longitude,
+        rayon: 1500, // large pour couvrir tout le Bénin et ses environs
       );
 
-      final opened = await launchUrl(
-        appUri,
-        mode: LaunchMode.externalApplication,
-      ).timeout(const Duration(seconds: 5), onTimeout: () => false);
+      if (!mounted) return;
+      setState(() {
+        _agences = agences
+            .where((a) => a.latitude != null && a.longitude != null)
+            .toList();
+        _state = _AgencesLoadState.success;
+      });
 
-      if (!opened) {
-        await launchUrl(
-          webUri,
-          mode: LaunchMode.externalApplication,
-        ).timeout(const Duration(seconds: 5));
-      }
-    } catch (_) {
-      final fallbackUri = Uri.parse(
-        'https://www.google.com/maps/search/?api=1&query=agence%20Fofana%20proche',
-      );
-      final opened = await launchUrl(
-        fallbackUri,
-        mode: LaunchMode.externalApplication,
-      ).timeout(const Duration(seconds: 5), onTimeout: () => false);
-
-      if (opened || !mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Impossible d'ouvrir Google Maps pour le moment."),
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _isOpeningMaps = false);
+      // ⬇️ AJOUT : ajuste la caméra pour englober tous les marqueurs
+      WidgetsBinding.instance.addPostFrameCallback((_) => _fitBounds());
+    } catch (e, stack) {
+      print('❌ ERREUR CHARGEMENT AGENCES: $e');
+      print(stack);
+      if (!mounted) return;
+      setState(() => _state = _AgencesLoadState.error);
     }
+  }
+
+  // ⬇️ AJOUT : centre + zoom automatique pour voir tous les marqueurs
+  void _fitBounds() {
+    if (_agences.isEmpty) return;
+
+    if (_agences.length == 1) {
+      _mapController.move(
+        latlng.LatLng(_agences.first.latitude!, _agences.first.longitude!),
+        13,
+      );
+      return;
+    }
+
+    final points = _agences
+        .map((a) => latlng.LatLng(a.latitude!, a.longitude!))
+        .toList();
+
+    final bounds = LatLngBounds.fromPoints(points);
+
+    _mapController.fitCamera(
+      CameraFit.bounds(
+        bounds: bounds,
+        padding: const EdgeInsets.all(40),
+      ),
+    );
+  }
+
+  void _openFullMap() {
+    if (_agences.isEmpty) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => _AgencyFullMapPage(agences: _agences),
+      ),
+    );
   }
 
   @override
@@ -430,11 +417,7 @@ class _AgencyMapCardState extends State<_AgencyMapCard> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(28),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.07),
-            blurRadius: 22,
-            offset: const Offset(0, 12),
-          ),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.07), blurRadius: 22, offset: const Offset(0, 12)),
         ],
       ),
       child: Column(
@@ -446,152 +429,39 @@ class _AgencyMapCardState extends State<_AgencyMapCard> {
                 width: 44,
                 height: 44,
                 child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: Color(0xFFEAF7EF),
-                    shape: BoxShape.circle,
-                  ),
+                  decoration: BoxDecoration(color: Color(0xFFEAF7EF), shape: BoxShape.circle),
                   child: Icon(Icons.map_rounded, color: Color(0xFF0B4F2A)),
                 ),
               ),
               const SizedBox(width: 12),
-              Expanded(
+              const Expanded(
                 child: Text(
                   'Agences proches',
-                  style: const TextStyle(
-                    color: Color(0xFF0B4F2A),
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                  ),
+                  style: TextStyle(color: Color(0xFF0B4F2A), fontSize: 18, fontWeight: FontWeight.w900),
                 ),
               ),
+              if (_state == _AgencesLoadState.success && _agences.isNotEmpty)
+                IconButton(
+                  onPressed: _openFullMap,
+                  icon: const Icon(Icons.fullscreen_rounded, color: Color(0xFF0B4F2A)),
+                  tooltip: 'Agrandir la carte',
+                ),
+              if (_state != _AgencesLoadState.loading)
+                IconButton(
+                  onPressed: _loadAgences,
+                  icon: const Icon(Icons.refresh_rounded, color: Color(0xFF0B4F2A)),
+                ),
             ],
           ),
-          const SizedBox(height: 12),
-
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: _openGoogleMaps,
-              borderRadius: BorderRadius.circular(20),
-              child: Ink(
-                height: 154,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8FBFF),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: const Color(0xFF0B4F2A).withValues(alpha: 0.08),
-                  ),
-                ),
-                child: Stack(
-                  children: [
-                    Positioned(
-                      left: -20,
-                      top: 30,
-                      right: 70,
-                      child: Transform.rotate(
-                        angle: -0.16,
-                        child: Container(
-                          height: 18,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFDDF3E5),
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      left: 70,
-                      top: -12,
-                      bottom: -10,
-                      child: Transform.rotate(
-                        angle: 0.34,
-                        child: Container(
-                          width: 18,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFE4F6EA),
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      right: -28,
-                      bottom: 26,
-                      left: 112,
-                      child: Transform.rotate(
-                        angle: 0.1,
-                        child: Container(
-                          height: 16,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFDDF3E5),
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const Positioned(
-                      left: 36,
-                      top: 28,
-                      child: _AgencyMapPin(label: 'Agence'),
-                    ),
-                    const Positioned(
-                      right: 42,
-                      bottom: 28,
-                      child: _AgencyMapPin(label: 'Fofana'),
-                    ),
-                    Positioned(
-                      right: 12,
-                      top: 12,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(14),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.08),
-                              blurRadius: 12,
-                              offset: const Offset(0, 6),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (_isOpeningMaps)
-                              const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Color(0xFF4285F4),
-                                ),
-                              )
-                            else
-                              const Icon(
-                                Icons.open_in_new_rounded,
-                                color: Color(0xFF4285F4),
-                                size: 16,
-                              ),
-                            const SizedBox(width: 6),
-                            Text(
-                              _isOpeningMaps ? 'Ouverture...' : 'Ouvrir Maps',
-                              style: const TextStyle(
-                                color: Color(0xFF0B4F2A),
-                                fontSize: 12,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: SizedBox(
+              height: 220,
+              width: double.infinity,
+              child: GestureDetector(
+                onTap: _state == _AgencesLoadState.success && _agences.isNotEmpty ? _openFullMap : null,
+                child: _buildMapBody(),
               ),
             ),
           ),
@@ -599,7 +469,69 @@ class _AgencyMapCardState extends State<_AgencyMapCard> {
       ),
     );
   }
+
+  Widget _buildMapBody() {
+    if (_state == _AgencesLoadState.loading) {
+      return const Center(child: CircularProgressIndicator(strokeWidth: 3));
+    }
+
+    if (_state == _AgencesLoadState.error) {
+      return Container(
+        color: const Color(0xFFF8FBFF),
+        child: Center(
+          child: TextButton.icon(
+            onPressed: _loadAgences,
+            icon: const Icon(Icons.refresh_rounded, color: Color(0xFF16A34A)),
+            label: const Text('Réessayer', style: TextStyle(color: Color(0xFF16A34A), fontWeight: FontWeight.w900)),
+          ),
+        ),
+      );
+    }
+
+    if (_agences.isEmpty) {
+      return Container(
+        color: const Color(0xFFF8FBFF),
+        child: const Center(
+          child: Text(
+            'Aucune agence disponible pour le moment.',
+            style: TextStyle(color: Color(0xFF5F6B86), fontWeight: FontWeight.w700),
+          ),
+        ),
+      );
+    }
+
+    final center = latlng.LatLng(_agences.first.latitude!, _agences.first.longitude!);
+
+    return FlutterMap(
+      mapController: _mapController, // ⬅️ AJOUT
+      options: MapOptions(
+        initialCenter: center,
+        initialZoom: 12,
+        interactionOptions: const InteractionOptions(
+          flags: InteractiveFlag.none,
+        ),
+      ),
+      children: [
+        TileLayer(
+          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+          userAgentPackageName: 'com.fofanavoyage.debug',
+        ),
+        MarkerLayer(
+          markers: _agences.map((agence) {
+            return Marker(
+              point: latlng.LatLng(agence.latitude!, agence.longitude!),
+              width: 60,
+              height: 60,
+              child: const Icon(Icons.location_on_rounded, color: Color(0xFF16A34A), size: 36),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
 }
+
+
 
 class _AgencyMapPin extends StatelessWidget {
   final String label;
@@ -638,6 +570,103 @@ class _AgencyMapPin extends StatelessWidget {
           size: 34,
         ),
       ],
+    );
+  }
+
+  
+}
+
+
+class _AgencyFullMapPage extends StatefulWidget {
+  final List<Agence> agences;
+
+  const _AgencyFullMapPage({required this.agences});
+
+  @override
+  State<_AgencyFullMapPage> createState() => _AgencyFullMapPageState();
+}
+
+class _AgencyFullMapPageState extends State<_AgencyFullMapPage> {
+  final MapController _mapController = MapController();
+
+  Future<void> _openGoogleMaps(Agence agence) async {
+    final uri = Uri.parse(
+      'https://www.google.com/maps/search/?api=1&query=${agence.latitude},${agence.longitude}',
+    );
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  void _fitBounds() {
+    if (widget.agences.length <= 1) return;
+
+    final points = widget.agences
+        .map((a) => latlng.LatLng(a.latitude!, a.longitude!))
+        .toList();
+
+    
+    final bounds = LatLngBounds.fromPoints(points);
+
+    _mapController.fitCamera(
+      CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(60)),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final center = latlng.LatLng(widget.agences.first.latitude!, widget.agences.first.longitude!);
+
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF0B4F2A),
+        elevation: 0,
+        title: const Text('Nos agences', style: TextStyle(fontWeight: FontWeight.w900)),
+      ),
+      body: FlutterMap(
+        mapController: _mapController,
+        options: MapOptions(
+          initialCenter: center,
+          initialZoom: 12,
+          interactionOptions: const InteractionOptions(flags: InteractiveFlag.all),
+          onMapReady: _fitBounds, // ⬅️ AJOUT : ajuste dès que la carte est prête
+        ),
+        children: [
+          TileLayer(
+            urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+            userAgentPackageName: 'com.fofanavoyage.debug',
+          ),
+          MarkerLayer(
+            markers: widget.agences.map((agence) {
+              return Marker(
+                point: latlng.LatLng(agence.latitude!, agence.longitude!),
+                width: 70,
+                height: 70,
+                child: GestureDetector(
+                  onTap: () => _openGoogleMaps(agence),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(999),
+                          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 6)],
+                        ),
+                        child: Text(
+                          agence.nomAgence,
+                          style: const TextStyle(color: Color(0xFF0B4F2A), fontSize: 10, fontWeight: FontWeight.w900),
+                        ),
+                      ),
+                      const Icon(Icons.location_on_rounded, color: Color(0xFF16A34A), size: 32),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
     );
   }
 }

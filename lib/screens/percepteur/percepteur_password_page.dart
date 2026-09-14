@@ -53,14 +53,16 @@ class _PercepteurPasswordPageState extends State<PercepteurPasswordPage> {
         await AuthLocalStore.saveToken(result['token']);
 
         // 4. Redirection selon le ROLE renvoyé par Laravel
-        final role = result['user']['role'];
+        final role = (result['user']['role'] as String? ?? '').trim().toLowerCase();
 
         if (role == 'percepteur') {
           Get.offAllNamed(Routes.PERCEPTEUR_HOME);
-        } else if (role == 'controleur') {
+        } else if (role == 'controlleur' || role == 'controleur') { // ⬅️ accepte les deux orthographes
           Get.offAllNamed(Routes.CONTROLEUR_HOME);
+        } else if (role == 'chauffeur') {
+          // à adapter si tu as déjà une route chauffeur
+          Get.offAllNamed(Routes.CHAUFFEUR_HOME); // ⬅️ à remplacer par la bonne route quand elle existera
         } else {
-          // Si c'est un autre rôle (admin, chauffeur, etc.)
           Get.offAllNamed(Routes.HOME);
         }
         

@@ -147,11 +147,16 @@ class PhoneInputField extends StatelessWidget {
   /// Controleur fourni par RegisterPage pour lire le numéro saisi.
   final TextEditingController? controller;
 
-  const PhoneInputField({super.key, this.controller});
+  // ⬇️ AJOUT : callback pour récupérer le numéro complet avec indicatif
+  final ValueChanged<String>? onFullNumberChanged;
+
+  const PhoneInputField({super.key, this.controller,
+    this.onFullNumberChanged,});
 
   @override
   Widget build(BuildContext context) =>
-      AfricanPhoneField(controller: controller);
+      AfricanPhoneField(controller: controller,
+        onFullNumberChanged: onFullNumberChanged,);
 }
 
 /// Champ de mot de passe utilisé pendant l'inscription.

@@ -23,6 +23,7 @@ class _RegisterPageState extends State<RegisterPage> {
   final TextEditingController _nomController = TextEditingController();
   final TextEditingController _prenomController = TextEditingController();
   final TextEditingController _telephoneController = TextEditingController();
+  String _numeroComplet = "";
 
   /// Libère les contrôleurs pour éviter de garder des ressources inutiles.
   @override
@@ -38,17 +39,16 @@ class _RegisterPageState extends State<RegisterPage> {
   Future<void> _envoyerCode() async {
     final nom = _nomController.text.trim();
     final prenom = _prenomController.text.trim();
-    final telephone = _telephoneController.text.trim();
+    
 
-    // 1. VALIDATION LOCALE : On vérifie si c'est vide
-    if (nom.isEmpty || prenom.isEmpty || telephone.isEmpty) {
+        if (nom.isEmpty || prenom.isEmpty || _numeroComplet.isEmpty) {
       Get.snackbar(
         "Champs requis",
         "Veuillez remplir tous les champs.",
         backgroundColor: Colors.redAccent,
         colorText: Colors.white,
       );
-      return; // On arrête tout ici si c'est vide
+      return;
     }
 
     // 2. LOADER : On affiche un cercle de chargement
@@ -59,16 +59,16 @@ class _RegisterPageState extends State<RegisterPage> {
 
     try {
       // 3. APPEL BACKEND : On demande au serveur d'envoyer l'OTP
-      final result = await AuthService().envoyerOtp(telephone);
+      final result = await AuthService().envoyerOtp(_numeroComplet);
 
       // On ferme le loader dès qu'on a la réponse
       Get.back();
 
       if (result['success']) {
         // 4. SUCCÈS : Le backend a validé et créé l'OTP
-        await AuthLocalStore.saveClientPhone(telephone);
+        await AuthLocalStore.saveClientPhone(_numeroComplet);
         await AuthLocalStore.saveClientProfile(
-          phone: telephone,
+          phone: _numeroComplet,
           nom: nom,
           prenom: prenom,
         );
@@ -77,7 +77,7 @@ class _RegisterPageState extends State<RegisterPage> {
           Routes.VERIFY_CODE,
           arguments: {
             'flow': 'register',
-            'phone': telephone,
+            'phone': _numeroComplet,
             'nom': nom,
             'prenom': prenom,
           },
@@ -207,7 +207,12 @@ class _RegisterPageState extends State<RegisterPage> {
                       const SizedBox(height: 10),
 
                       // Champ téléphone avec sélection du pays par drapeau.
-                      PhoneInputField(controller: _telephoneController),
+                      PhoneInputField(
+                        controller: _telephoneController,
+                        onFullNumberChanged: (value) {
+                          _numeroComplet = value; // ex: "+229XXXXXXXX"
+                        },
+                      ),
 
                       const SizedBox(height: 18),
 

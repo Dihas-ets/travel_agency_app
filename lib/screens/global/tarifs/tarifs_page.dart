@@ -3,6 +3,9 @@
 import 'package:flutter/material.dart';
 import 'package:code_initial/screens/global/widgets/tarifs/tarifs_widgets.dart';
 
+import 'package:code_initial/models/ligne_model.dart';
+import 'package:code_initial/models/voyage_disponibilite_model.dart';
+import 'package:code_initial/services/ligne_service.dart';
 /// Page de consultation des tarifs.
 ///
 /// Elle permet de choisir une ville de départ, une ville d'arrivée, puis de
@@ -40,6 +43,8 @@ class TarifReservationSelection {
   final String time;
   final int passengerCount;
   final int priceAmount;
+  final int? ligneId;   // ⬅️ AJOUT
+  final int? voyageId;  // ⬅️ AJOUT
 
   const TarifReservationSelection({
     required this.departure,
@@ -48,6 +53,8 @@ class TarifReservationSelection {
     required this.time,
     required this.passengerCount,
     required this.priceAmount,
+    this.ligneId,
+    this.voyageId,
   });
 }
 
@@ -56,18 +63,22 @@ class _TarifResult {
   final String to;
   final String dateDepart;
   final String heureDepart;
-  final int places;
+  final int placesRestantes; // ⬅️ MODIF (était "places")
   final int capacity;
   final int fraisCfa;
+  final int ligneId;
+  final int voyageId;
 
   const _TarifResult({
     required this.from,
     required this.to,
     required this.dateDepart,
     required this.heureDepart,
-    required this.places,
+    required this.placesRestantes, // ⬅️ MODIF
     required this.capacity,
     required this.fraisCfa,
+    required this.ligneId,
+    required this.voyageId,
   });
 }
 
@@ -78,6 +89,12 @@ class _TarifsPageState extends State<TarifsPage> {
 
   final List<_TarifResult> _results = <_TarifResult>[];
   bool _hasSearched = false;
+  bool _isSearching = false;
+
+   List<Map<String, String>> _popularDestinations = []; // ⬅️ MODIF : plus "final"
+  bool _isLoadingPopulaires = true; // ⬅️ AJOUT
+
+  DateTime _selectedDate = DateTime.now();
 
   // Palette inspirée du logo (rouge Fofana + bleu profond)
   static const Color _fofanaGreen = Color(0xFF16A34A);
@@ -88,92 +105,73 @@ class _TarifsPageState extends State<TarifsPage> {
     super.initState();
     _departController.text = widget.initialDepart ?? '';
     _destinationController.text = widget.initialDestination ?? '';
+    _loadPopulaires(); 
+    _loadVilles();
   }
 
-  // Liste des villes proposées dans la fenêtre de sélection (Bénin)
-  final List<String> _cities = [
-    'Cotonou',
-    'Porto-Novo',
-    'Abomey-Calavi',
-    'Sèmè-Kpodji',
-    'Akpro-Missérété',
-    'Adjarra',
-    'Avrankou',
-    'Dangbo',
-    'Adjohoun',
-    'Bonou',
-    'Abomey',
-    'Dassa-Zoumè',
-    'Glazoué',
-    'Savè',
-    'Bantè',
-    'Allada',
-    'Toffo',
-    'Tori-Bossito',
-    'Zè',
-    'Bohicon',
-    'Covè',
-    'Zagnanado',
-    'Zogbodomey',
-    'Za-Kpota',
-    'Ouinhi',
-    'Agbangnizoun',
-    'Djidja',
-    'Kétou',
-    'Pobè',
-    'Sakété',
-    'Ifangni',
-    'Savalou',
-    'Ouidah',
-    'Grand-Popo',
-    'Comè',
-    'Athiémé',
-    'Lokossa',
-    'Dogbo',
-    'Aplahoué',
-    'Azovè',
-    'Klouékanmè',
-    'Djakotomey',
-    'Toviklin',
-    'Lalo',
-    'Kandi',
-    'Banikoara',
-    'Gogounou',
-    'Ségbana',
-    'Karimama',
-    'Parakou',
-    'Tchaourou',
-    'Nikki',
-    'N’Dali',
-    'Pèrèrè',
-    'Kalalé',
-    'Sinendé',
-    'Djougou',
-    'Bassila',
-    'Copargo',
-    'Ouaké',
-    'Natitingou',
-    'Kouandé',
-    'Matéri',
-    'Cobly',
-    'Boukoumbé',
-    'Kérou',
-    'Péhunco',
-    'Toucountouna',
-    'Bembèrèkè',
-    'Malanville',
-    'Tanguiéta',
-  ];
 
-  // Destinations populaires (Bénin uniquement)
-  final List<Map<String, String>> _popularDestinations = [
-    {'from': 'Cotonou', 'to': 'Porto-Novo'},
-    {'from': 'Cotonou', 'to': 'Abomey-Calavi'},
-    {'from': 'Cotonou', 'to': 'Parakou'},
-    {'from': 'Abomey', 'to': 'Porto-Novo'},
-    {'from': 'Ouidah', 'to': 'Cotonou'},
-    {'from': 'Kandi', 'to': 'Parakou'},
-  ];
+  Future<void> _loadVilles() async {
+  try {
+    final villes = await LigneService().getVillesDisponibles();
+    if (!mounted) return;
+    setState(() {
+      _villes = villes;
+      _isLoadingVilles = false;
+    });
+  } catch (_) {
+    if (!mounted) return;
+    setState(() => _isLoadingVilles = false);
+  }
+}
+
+
+  Future<void> _loadPopulaires() async {
+    try {
+      final lignes = await LigneService().getPopulaires();
+      if (!mounted) return;
+      setState(() {
+        _popularDestinations = lignes.map((l) => {'from': l.trajetDepart, 'to': l.trajetArrivee}).toList();
+        _isLoadingPopulaires = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isLoadingPopulaires = false);
+    }
+  }
+
+   Future<void> _pickDate() async {
+    final now = DateTime.now();
+    final date = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate.isBefore(now) ? now : _selectedDate,
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 120)),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: const ColorScheme.light(primary: _fofanaGreen, onPrimary: Colors.white, onSurface: _deepBlue),
+        ),
+        child: child!,
+      ),
+    );
+    if (date != null) setState(() => _selectedDate = date);
+  }
+
+   // ⬇️ AJOUT
+  String get _selectedDateLabel {
+    const months = ['jan.', 'fév.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+    return '${_selectedDate.day} ${months[_selectedDate.month - 1]} ${_selectedDate.year}';
+  }
+
+  // ⬇️ AJOUT
+  double _tarifPourClasse(Ligne ligne, String busType) {
+    final estVip = busType.toLowerCase() == 'vip';
+    if (estVip) return ligne.montantVip ?? ligne.montant;
+    return ligne.montant;
+  }
+
+
+  List<String> _villes = []; // ⬅️ AJOUT : remplace _cities
+  bool _isLoadingVilles = true; // ⬅️ AJOUT
 
   /// Intervertit les valeurs des deux champs (départ ↔ destination)
   void _swapCities() {
@@ -184,67 +182,96 @@ class _TarifsPageState extends State<TarifsPage> {
     });
   }
 
-  /// Génère des résultats mockés (pour l’instant) en fonction des villes choisies.
-  List<_TarifResult> _buildMockResults({
-    required String depart,
-    required String destination,
-  }) {
-    final seed = (depart.length * 17 + destination.length * 31) % 1000;
-    final base = 4500 + seed; // CFA
-
-    final List<_TarifResult> res = <_TarifResult>[];
-    for (int i = 0; i < 3; i++) {
-      final places = 4 + ((seed + i * 3) % 9); // 4..12
-      final frais = base + (i * 2500) + (places * 300);
-      res.add(
-        _TarifResult(
-          from: depart,
-          to: destination,
-          dateDepart: i == 0
-              ? 'Aujourd’hui'
-              : (i == 1 ? 'Demain' : 'Après-demain'),
-          heureDepart: i == 0 ? '6h20' : (i == 1 ? '15h10' : '20h'),
-          places: places,
-          capacity: 30,
-          fraisCfa: frais,
-        ),
-      );
-    }
-    return res;
-  }
 
   String _formatCfa(int value) => value.toString();
 
-  void _reserveTarif(_TarifResult result) {
-    final selection = TarifReservationSelection(
-      departure: result.from,
-      destination: result.to,
-      date: result.dateDepart,
-      time: result.heureDepart,
-      passengerCount: 1,
-      priceAmount: result.fraisCfa,
-    );
+void _reserveTarif(_TarifResult result) {
+  final selection = TarifReservationSelection(
+    departure: result.from,
+    destination: result.to,
+    date: result.dateDepart,
+    time: result.heureDepart,
+    passengerCount: 1,
+    priceAmount: result.fraisCfa,
+    ligneId: result.ligneId,
+    voyageId: result.voyageId,
+  );
 
-    final createReservation = widget.onCreateReservation;
-    if (createReservation != null) {
-      createReservation(context, selection);
-      return;
-    }
-
-    final handler = widget.onReserve;
-    if (handler != null) {
-      handler(context, selection);
-      return;
-    }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
-        content: Text('Réservation : ${result.from} → ${result.to}'),
-      ),
-    );
+  final createReservation = widget.onCreateReservation;
+  if (createReservation != null) {
+    createReservation(context, selection);
+    return;
   }
+
+  final handler = widget.onReserve;
+  if (handler != null) {
+    handler(context, selection);
+    return;
+  }
+
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      behavior: SnackBarBehavior.floating,
+      duration: const Duration(seconds: 2),
+      content: Text('Réservation : ${result.from} → ${result.to}'),
+    ),
+  );
+}
+
+
+Future<void> _searchTarif({required String depart, required String destination}) async {
+  setState(() {
+    _isSearching = true;
+    _hasSearched = true;
+    _results.clear();
+  });
+
+  try {
+    final ligne = await LigneService().findTarif(depart: depart, destination: destination);
+
+    if (ligne == null) {
+      if (mounted) setState(() {});
+      return;
+    }
+
+    final disponibilites = await LigneService().rechercheDisponibilites(
+      ligneId: ligne.id,
+      date: _selectedDate,
+    );
+
+    if (!mounted) return;
+
+    final results = <_TarifResult>[];
+    for (final voyage in disponibilites) {
+      final tarif = _tarifPourClasse(ligne, voyage.busType);
+      for (final h in voyage.heures) {
+        results.add(_TarifResult(
+          from: ligne.trajetDepart,
+          to: ligne.trajetArrivee,
+          dateDepart: _selectedDateLabel,
+          heureDepart: h.heure,
+          placesRestantes: h.placesRestantes,
+          capacity: voyage.capacite,
+          fraisCfa: tarif.toInt(),
+          ligneId: ligne.id,
+          voyageId: voyage.voyageId,
+        ));
+      }
+    }
+
+    results.sort((a, b) => a.heureDepart.compareTo(b.heureDepart));
+
+    setState(() => _results.addAll(results));
+  } catch (e) {
+    //print('❌ ERREUR RECHERCHE TARIF: $e');
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Erreur lors de la recherche des tarifs.')),
+    );
+  } finally {
+    if (mounted) setState(() => _isSearching = false);
+  }
+}
 
   void _openReservationFromInput() {
     final depart = _departController.text.trim().isEmpty
@@ -340,7 +367,9 @@ class _TarifsPageState extends State<TarifsPage> {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              '${_cities.length} villes disponibles au Bénin',
+                              _isLoadingVilles
+                                ? 'Chargement des villes...'
+                                : '${_villes.length} ville${_villes.length > 1 ? 's' : ''} disponible${_villes.length > 1 ? 's' : ''}',
                               style: const TextStyle(
                                 fontSize: 12.5,
                                 fontWeight: FontWeight.w700,
@@ -360,14 +389,34 @@ class _TarifsPageState extends State<TarifsPage> {
                     ],
                   ),
                 ),
+
+
+                        // ⬇️ AJOUT : états chargement / vide
+                        if (_isLoadingVilles)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 40),
+                            child: Center(child: CircularProgressIndicator(strokeWidth: 2.5)),
+                          )
+                        else if (_villes.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 40, horizontal: 24),
+                            child: Center(
+                              child: Text(
+                                'Aucune ville disponible pour le moment.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(color: Color(0xFF7B849B), fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                          )
+              else
                 Flexible(
                   child: ListView.separated(
                     shrinkWrap: true,
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 18),
-                    itemCount: _cities.length,
+                    itemCount: _villes.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 8),
                     itemBuilder: (context, index) {
-                      final city = _cities[index];
+                      final city = _villes[index];
                       final isSelected = controller.text == city;
 
                       return Material(
@@ -382,10 +431,7 @@ class _TarifsPageState extends State<TarifsPage> {
                             Navigator.pop(context);
                           },
                           child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 12,
-                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(14),
                               border: Border.all(
@@ -397,12 +443,8 @@ class _TarifsPageState extends State<TarifsPage> {
                             child: Row(
                               children: [
                                 Icon(
-                                  isSelected
-                                      ? Icons.check_circle_rounded
-                                      : Icons.location_on_outlined,
-                                  color: isSelected
-                                      ? _fofanaGreen
-                                      : _deepBlue.withValues(alpha: 0.54),
+                                  isSelected ? Icons.check_circle_rounded : Icons.location_on_outlined,
+                                  color: isSelected ? _fofanaGreen : _deepBlue.withValues(alpha: 0.54),
                                   size: 22,
                                 ),
                                 const SizedBox(width: 12),
@@ -416,10 +458,7 @@ class _TarifsPageState extends State<TarifsPage> {
                                     ),
                                   ),
                                 ),
-                                const Icon(
-                                  Icons.chevron_right_rounded,
-                                  color: Color(0xFFB1B8C8),
-                                ),
+                                const Icon(Icons.chevron_right_rounded, color: Color(0xFFB1B8C8)),
                               ],
                             ),
                           ),
@@ -566,9 +605,9 @@ class _TarifsPageState extends State<TarifsPage> {
           ),
           const SizedBox(height: 8),
           _buildIconLine(
-            icon: Icons.event_seat_rounded,
-            label: 'Nbr de places : ${result.places}/${result.capacity}',
-          ),
+              icon: Icons.event_seat_rounded,
+              label: 'Places restantes : ${result.placesRestantes}/${result.capacity}', // ⬅️ MODIF
+            ),
           const SizedBox(height: 8),
 
           Row(
@@ -625,22 +664,21 @@ class _TarifsPageState extends State<TarifsPage> {
 
           const SizedBox(height: 14),
 
-          SizedBox(
+         SizedBox(
             width: double.infinity,
             height: 50,
             child: ElevatedButton(
-              onPressed: onReserve,
+              onPressed: result.placesRestantes > 0 ? onReserve : null, // ⬅️ MODIF
               style: ElevatedButton.styleFrom(
                 backgroundColor: _fofanaGreen,
+                disabledBackgroundColor: Colors.grey.shade300, // ⬅️ AJOUT
                 foregroundColor: Colors.white,
                 elevation: 4,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               ),
-              child: const Text(
-                'Réserver',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+              child: Text(
+                result.placesRestantes > 0 ? 'Réserver' : 'Complet', // ⬅️ MODIF
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
               ),
             ),
           ),
@@ -683,7 +721,7 @@ class _TarifsPageState extends State<TarifsPage> {
                 ],
               ),
             ),
-
+          
             const Padding(
               padding: EdgeInsets.only(bottom: 20),
               child: Text(
@@ -786,24 +824,48 @@ class _TarifsPageState extends State<TarifsPage> {
                       ),
                     ),
 
+
+                    const SizedBox(height: 14),
+                      GestureDetector(
+                        onTap: _pickDate,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: _deepBlue.withValues(alpha: 0.12)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.calendar_month_rounded, color: _fofanaGreen, size: 20),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  'Date : $_selectedDateLabel',
+                                  style: const TextStyle(color: _deepBlue, fontSize: 14.5, fontWeight: FontWeight.w900),
+                                ),
+                              ),
+                              const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFFB1B8C8)),
+                            ],
+                          ),
+                        ),
+                      ),
+
                     const SizedBox(height: 20),
 
                     // Bouton rechercher
-                    SizedBox(
+                   SizedBox(
                       width: double.infinity,
                       height: 54,
                       child: ElevatedButton(
-                        onPressed: () {
+                        onPressed: _isSearching ? null : () { // ⬅️ MODIF
                           final depart = _departController.text.trim();
-                          final destination = _destinationController.text
-                              .trim();
+                          final destination = _destinationController.text.trim();
 
                           if (depart.isEmpty || destination.isEmpty) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
-                                content: Text(
-                                  'Veuillez renseigner le départ et la destination.',
-                                ),
+                                content: Text('Veuillez renseigner le départ et la destination.'),
                                 behavior: SnackBarBehavior.floating,
                               ),
                             );
@@ -813,67 +875,56 @@ class _TarifsPageState extends State<TarifsPage> {
                           if (depart == destination) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
-                                content: Text(
-                                  'Le départ et la destination doivent être différents.',
-                                ),
+                                content: Text('Le départ et la destination doivent être différents.'),
                                 behavior: SnackBarBehavior.floating,
                               ),
                             );
                             return;
                           }
 
-                          final mock = _buildMockResults(
-                            depart: depart,
-                            destination: destination,
-                          );
-
-                          setState(() {
-                            _results
-                              ..clear()
-                              ..addAll(mock);
-                            _hasSearched = true;
-                          });
+                          _searchTarif(depart: depart, destination: destination); // ⬅️ MODIF
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _fofanaGreen,
                           foregroundColor: Colors.white,
                           elevation: 4,
                           shadowColor: _fofanaGreen.withOpacity(0.4),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                         ),
-                        child: const Text(
-                          'Rechercher',
-                          style: TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                        child: _isSearching // ⬅️ MODIF
+                            ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white))
+                            : const Text('Rechercher', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
                       ),
                     ),
 
-                    if (_hasSearched) ...[
+                   if (_hasSearched) ...[
                       const SizedBox(height: 18),
-                      Text(
-                        '${_results.length} résultats trouvés :',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w900,
-                          color: Color(0xFF1A1A2E),
+                      if (_results.isEmpty && !_isSearching) // ⬅️ AJOUT
+                        Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(color: _deepBlue.withValues(alpha: 0.08)),
+                          ),
+                          child: const Center(
+                            child: Text(
+                              'Aucun tarif trouvé pour ce trajet à cette date.\nContactez une agence pour plus d’informations.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: Color(0xFF5F6B86), fontWeight: FontWeight.w700, height: 1.4),
+                            ),
+                          ),
+                        )
+                      else if (!_isSearching) ...[ // ⬅️ AJOUT
+                        Text(
+                          '${_results.length} résultat${_results.length > 1 ? 's' : ''} trouvé${_results.length > 1 ? 's' : ''} :',
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF1A1A2E)),
                         ),
-                      ),
-                      const SizedBox(height: 14),
-                      Column(
-                        children: _results
-                            .map(
-                              (r) => _TarifResultCard(
-                                result: r,
-                                onReserve: () => _reserveTarif(r),
-                              ),
-                            )
-                            .toList(),
-                      ),
+                        const SizedBox(height: 14),
+                        Column(
+                          children: _results.map((r) => _TarifResultCard(result: r, onReserve: () => _reserveTarif(r))).toList(),
+                        ),
+                      ],
                       const SizedBox(height: 24),
                     ],
 
@@ -891,24 +942,30 @@ class _TarifsPageState extends State<TarifsPage> {
 
                     const SizedBox(height: 14),
 
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      children: _popularDestinations
-                          .map(
-                            (dest) => DestinationChip(
-                              from: dest['from']!,
-                              to: dest['to']!,
-                              onTap: () {
-                                setState(() {
-                                  _departController.text = dest['from']!;
-                                  _destinationController.text = dest['to']!;
-                                });
-                              },
-                            ),
-                          )
-                          .toList(),
-                    ),
+                    if (_isLoadingPopulaires) // ⬅️ AJOUT
+                      const Center(child: CircularProgressIndicator(strokeWidth: 2.5))
+                    else if (_popularDestinations.isEmpty) // ⬅️ AJOUT
+                      const Text(
+                        'Aucune destination populaire pour le moment.',
+                        style: TextStyle(color: Color(0xFF7B849B), fontWeight: FontWeight.w600),
+                      )
+                    else
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: _popularDestinations
+                            .map((dest) => DestinationChip(
+                                  from: dest['from']!,
+                                  to: dest['to']!,
+                                  onTap: () {
+                                    setState(() {
+                                      _departController.text = dest['from']!;
+                                      _destinationController.text = dest['to']!;
+                                    });
+                                  },
+                                ))
+                            .toList(),
+                      ),
 
                     const SizedBox(height: 100),
                   ],
