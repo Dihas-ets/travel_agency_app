@@ -6,13 +6,16 @@ import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
-
+import 'package:code_initial/services/ticket_service.dart';
 import 'package:code_initial/screens/client/colis/pages_colis.dart';
 import 'package:code_initial/models/store/colis_store.dart';
 import 'package:code_initial/data/local/session_store.dart';
 import 'package:code_initial/screens/global/tarifs/tarifs_page.dart';
 import 'package:code_initial/auth/widgets/connexion_widgets.dart';
 import 'package:code_initial/screens/global/widgets/tarifs/tarifs_widgets.dart';
+import 'package:code_initial/services/payment_service.dart';
+import 'package:code_initial/models/payment_provider_model.dart';
+
 
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' as latlng;
@@ -654,6 +657,9 @@ class _ConnectedHomeContentState extends State<_ConnectedHomeContent> {
           initialTime: selection.time,
           initialPassengerCount: selection.passengerCount,
           initialPriceAmount: selection.priceAmount,
+          ligneId: selection.ligneId,       // ⬅️ AJOUT
+          voyageId: selection.voyageId,     // ⬅️ AJOUT
+          dateVoyage: selection.dateVoyage,
         ),
       ),
     );

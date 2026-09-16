@@ -1,3 +1,4 @@
+
 part of '../home_page.dart';
 
 // Flux de reservation client: formulaires, paiement, billet genere, edition et annulation.
@@ -115,6 +116,9 @@ class _VoyageTabContent extends StatelessWidget {
                               initialTime: selection.time,
                               initialPassengerCount: selection.passengerCount,
                               initialPriceAmount: selection.priceAmount,
+                              ligneId: selection.ligneId,     // ⬅️ AJOUT
+                              voyageId: selection.voyageId,   // ⬅️ AJOUT
+                              dateVoyage: selection.dateVoyage, // ⬅️ AJOUT
                             ),
                           ),
                         );
@@ -272,6 +276,9 @@ class _ReservationPage extends StatefulWidget {
   final String? initialTime;
   final int initialPassengerCount;
   final int initialPriceAmount;
+  final int? ligneId;   // ⬅️ AJOUT
+  final int? voyageId;  // ⬅️ AJOUT
+  final DateTime? dateVoyage; // ⬅️ AJOUT
 
   const _ReservationPage({
     this.initialDeparture,
@@ -280,6 +287,9 @@ class _ReservationPage extends StatefulWidget {
     this.initialTime,
     this.initialPassengerCount = 1,
     this.initialPriceAmount = 0,
+    this.ligneId,   // ⬅️ AJOUT
+    this.voyageId,  // ⬅️ AJOUT
+    this.dateVoyage, // ⬅️ AJOUT
   });
 
   @override
@@ -306,15 +316,20 @@ class _ReservationPageState extends State<_ReservationPage> {
     _departController.text = widget.initialDeparture ?? 'Cotonou';
     _destinationController.text = widget.initialDestination ?? 'Porto-Novo';
     _passengerCount = widget.initialPassengerCount.clamp(1, 8).toInt();
-    if (_departureTimes.contains(widget.initialTime)) {
+    
+    
+    if (widget.voyageId != null && widget.initialTime != null) {
+      _selectedTime = widget.initialTime!; // ⬅️ AJOUT : accepte l'heure réelle sans filtrage
+    } else if (_departureTimes.contains(widget.initialTime)) {
       _selectedTime = widget.initialTime!;
     }
-    final initialDate = _dateFromTarifLabel(widget.initialDateLabel);
-    if (initialDate != null) {
-      _travelDate = initialDate;
-      _dateController.text =
-          '${initialDate.day.toString().padLeft(2, '0')} ${_getMonthName(initialDate.month)} ${initialDate.year}';
-    }
+    
+    
+     final initialDate = widget.dateVoyage ?? _dateFromTarifLabel(widget.initialDateLabel); // ⬅️ MODIF
+      if (initialDate != null) {
+        _travelDate = initialDate;
+        _dateController.text = '${initialDate.day.toString().padLeft(2, '0')} ${_getMonthName(initialDate.month)} ${initialDate.year}';
+      }
   }
 
   @override
@@ -484,6 +499,9 @@ class _ReservationPageState extends State<_ReservationPage> {
           priceAmount: _fare,
           passengers: _passengerCount,
           time: _selectedTime,
+          ligneId: widget.ligneId,     // ⬅️ AJOUT
+          voyageId: widget.voyageId,   // ⬅️ AJOUT
+          dateVoyage: widget.dateVoyage ?? _travelDate,
         ),
       ),
     );
@@ -738,11 +756,10 @@ class _ReservationPageState extends State<_ReservationPage> {
               Expanded(
                 child: _buildSmallField(
                   label: 'Date de départ',
-                  value: _dateController.text.isEmpty
-                      ? 'Sélectionner une date'
-                      : _dateController.text,
+                  value: _dateController.text.isEmpty ? 'Sélectionner une date' : _dateController.text,
                   icon: Icons.calendar_month_rounded,
-                  onTap: _pickDate,
+                  onTap: widget.voyageId != null ? () {} : _pickDate, // ⬅️ MODIF : verrouillé si venu d'une vraie recherche
+                  disabled: widget.voyageId != null, // ⬅️ AJOUT
                 ),
               ),
               const SizedBox(width: 10),
@@ -751,7 +768,8 @@ class _ReservationPageState extends State<_ReservationPage> {
                   label: 'Heure',
                   value: _selectedTime,
                   icon: Icons.schedule_rounded,
-                  onTap: _showTimePicker,
+                  onTap: widget.voyageId != null ? () {} : _showTimePicker, // ⬅️ MODIF
+                  disabled: widget.voyageId != null, // ⬅️ AJOUT
                 ),
               ),
             ],
@@ -1032,6 +1050,9 @@ class _PaymentDetailsPage extends StatefulWidget {
   final int priceAmount;
   final int passengers;
   final String time;
+  final int? ligneId;    // ⬅️ AJOUT
+  final int? voyageId;   // ⬅️ AJOUT
+  final DateTime? dateVoyage; // ⬅️ AJOUT
 
   const _PaymentDetailsPage({
     required this.departure,
@@ -1040,6 +1061,9 @@ class _PaymentDetailsPage extends StatefulWidget {
     required this.priceAmount,
     required this.passengers,
     this.time = '10:00',
+    this.ligneId,    // ⬅️ AJOUT
+    this.voyageId,   // ⬅️ AJOUT
+    this.dateVoyage, // ⬅️ AJOUT
   });
 
   @override
@@ -1076,7 +1100,8 @@ class _PaymentDetailsPageState extends State<_PaymentDetailsPage> {
     super.dispose();
   }
 
-  void _finishReservation() {
+  bool _isSubmitting = false; 
+  Future<void> _finishReservation() async {
     final requesterPhone = _requesterPhoneController.text.trim();
     final beneficiaryFirstName = _beneficiaryFirstNameController.text.trim();
     final beneficiaryLastName = _beneficiaryLastNameController.text.trim();
@@ -1101,14 +1126,63 @@ class _PaymentDetailsPageState extends State<_PaymentDetailsPage> {
       return;
     }
 
+    // ⬇️ AJOUT : garde-fou si on n'a pas les vraies infos backend (ex: vieux flux mock)
+    if (widget.ligneId == null || widget.voyageId == null || widget.dateVoyage == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Informations de voyage incomplètes. Relancez une recherche.')),
+      );
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    try {
+    // 1. Retrouver le bus_id réel pour ce voyage précis, à cette date
+    final programme = await TicketService().getProgrammationParDate(
+      ligneId: widget.ligneId!,
+      date: widget.dateVoyage!,
+      voyageId: widget.voyageId!,
+    );
+
+    if (programme == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Ce voyage n’est plus disponible à cette date. Veuillez relancer une recherche.')),
+      );
+      setState(() => _isSubmitting = false);
+      return;
+    }
+
+
+    // 2. Créer le ticket réel côté backend
+    final result = await TicketService().storeTicket(
+      ligneId: widget.ligneId!,
+      voyageId: widget.voyageId!,
+      busId: programme.busId,
+      villeArrivee: widget.destination,
+      dateVoyage: widget.dateVoyage!,
+      heureVoyage: widget.time,
+      tiers: _isForSomeoneElse,
+      nomPassager: _isForSomeoneElse ? beneficiaryFirstName : null,
+      prenomPassager: _isForSomeoneElse ? beneficiaryLastName : null,
+      numeroPassager: _isForSomeoneElse ? beneficiaryPhone : null,
+      nbrePlace: widget.passengers,
+    );
+
+    if (!mounted) return;
+
+    final ticketData = result['ticket'] as Map<String, dynamic>?;
     final registeredClientName = SessionStore.currentClientFullName?.trim();
+
     final beneficiaryName = _isForSomeoneElse
         ? '$beneficiaryFirstName $beneficiaryLastName'
         : (registeredClientName != null && registeredClientName.isNotEmpty)
         ? registeredClientName
         : 'Moi-même';
+
+       // 3. Construire l'objet d'affichage local à partir de la vraie réponse backend
     final reservation = _ReservationItem(
-      reference: 'TB${DateTime.now().millisecondsSinceEpoch}',
+      reference: ticketData?['reference']?.toString() ?? 'TB${DateTime.now().millisecondsSinceEpoch}',
       departure: widget.departure,
       destination: widget.destination,
       date: widget.date,
@@ -1119,16 +1193,23 @@ class _PaymentDetailsPageState extends State<_PaymentDetailsPage> {
       beneficiaryName: beneficiaryName,
       requesterPhone: requesterPhone,
       beneficiaryPhone: _isForSomeoneElse ? beneficiaryPhone : requesterPhone,
-      status: 'Confirmée',
+      status: result['statut_paiement'] == 'payé' ? 'Confirmée' : 'En attente de paiement',
     );
-    _HistoryRepository.addReservation(reservation);
 
-    Navigator.of(context).pushReplacement(
+       Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (_) => _GeneratedTicketPage(reservation: reservation),
       ),
     );
+  } catch (e) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+    );
+  } finally {
+    if (mounted) setState(() => _isSubmitting = false);
   }
+}
 
   String _formatAmount(int amount) {
     final value = amount.toString();
@@ -1240,22 +1321,21 @@ class _PaymentDetailsPageState extends State<_PaymentDetailsPage> {
                       width: double.infinity,
                       height: 52,
                       child: ElevatedButton(
-                        onPressed: _finishReservation,
+                        onPressed: _isSubmitting ? null : _finishReservation, // ⬅️ MODIF
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _fofanaGreen,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                           elevation: 0,
                         ),
-                        child: const Text(
-                          'Terminer',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16.5,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
+                        child: _isSubmitting // ⬅️ AJOUT
+                            ? const SizedBox(
+                                width: 22, height: 22,
+                                child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white),
+                              )
+                            : const Text(
+                                'Terminer',
+                                style: TextStyle(color: Colors.white, fontSize: 16.5, fontWeight: FontWeight.w900),
+                              ),
                       ),
                     ),
                     const SizedBox(height: 18),
@@ -1392,7 +1472,15 @@ class _GeneratedTicketPageState extends State<_GeneratedTicketPage> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _PaymentMethodSheet(total: _reservation.price),
+      builder: (_) => _PaymentMethodSheet(
+        total: _reservation.price,
+        ticketReference: _reservation.reference,
+        onPaymentConfirmed: () {
+          setState(() {
+            _reservation = _reservation.copyWith(status: 'Confirmée');
+          });
+        },
+      ),
     );
   }
 
@@ -1503,8 +1591,10 @@ class _GeneratedTicketPageState extends State<_GeneratedTicketPage> {
 
 class _PaymentMethodSheet extends StatefulWidget {
   final String total;
+  final String ticketReference; // ⬅️ AJOUT : nécessaire pour initier/vérifier le paiement
+  final VoidCallback? onPaymentConfirmed;
 
-  const _PaymentMethodSheet({required this.total});
+  const _PaymentMethodSheet({required this.total, required this.ticketReference, this.onPaymentConfirmed,});
 
   @override
   State<_PaymentMethodSheet> createState() => _PaymentMethodSheetState();
@@ -1514,7 +1604,128 @@ class _PaymentMethodSheetState extends State<_PaymentMethodSheet> {
   static const Color _deepBlue = Color(0xFF0B4F2A);
   static const Color _fofanaGreen = Color(0xFF16A34A);
 
+  List<PaymentProvider> _providers = [];
+  bool _isLoadingProviders = true;
+  String? _selectedProviderSlug;
   String? _selectedMethod;
+  bool _isProcessing = false;
+  Timer? _pollingTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProviders();
+  }
+
+  @override
+  void dispose() {
+    _pollingTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadProviders() async {
+    try {
+      final providers = await PaymentService().getProvidersActifs();
+      // On filtre KkiaPay pour l'instant : son intégration mobile n'est pas finalisée
+      // (pas d'URL de paiement fournie, nécessite un widget JS embarqué).
+      final usable = providers.where((p) => p.slug != 'kkiapay').toList();
+      if (!mounted) return;
+      setState(() {
+        _providers = usable;
+        _isLoadingProviders = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isLoadingProviders = false);
+    }
+  }
+
+  Future<void> _startPayment() async {
+    if (_selectedProviderSlug == null || _selectedMethod == null) return;
+
+    setState(() => _isProcessing = true);
+
+    try {
+      final result = await PaymentService().initierPaiement(
+        payableRef: widget.ticketReference,
+        provider: _selectedProviderSlug!,
+        method: _selectedMethod!,
+      );
+
+      final paymentUrl = result['payment_url']?.toString();
+
+      if (paymentUrl == null || paymentUrl.isEmpty) {
+        if (!mounted) return;
+        setState(() => _isProcessing = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Ce moyen de paiement n\'est pas disponible pour le moment.')),
+        );
+        return;
+      }
+
+      final uri = Uri.parse(paymentUrl);
+      final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+
+      if (!opened) {
+        if (!mounted) return;
+        setState(() => _isProcessing = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Impossible d\'ouvrir la page de paiement.')),
+        );
+        return;
+      }
+
+      // On démarre le polling : on vérifie le statut toutes les 4 secondes pendant 3 minutes max
+      _pollPaymentStatus();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isProcessing = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+      );
+    }
+  }
+
+  void _pollPaymentStatus() {
+    var attempts = 0;
+    const maxAttempts = 45; // 45 x 4s = 3 minutes
+
+    _pollingTimer = Timer.periodic(const Duration(seconds: 4), (timer) async {
+      attempts++;
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+
+      if (attempts > maxAttempts) {
+        timer.cancel();
+        setState(() => _isProcessing = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Délai dépassé. Vérifiez votre historique pour le statut du paiement.')),
+        );
+        return;
+      }
+
+      try {
+        final result = await PaymentService().verifierPaiement(reference: widget.ticketReference);
+        final verified = result['verified'] == true;
+
+        if (verified) {
+          timer.cancel();
+          if (!mounted) return;
+          setState(() => _isProcessing = false);
+          widget.onPaymentConfirmed?.call();
+          Navigator.of(context).pop();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Paiement confirmé ! Votre billet est prêt.')),
+          );
+        }
+        // Sinon on continue le polling silencieusement
+      } catch (_) {
+        // On ignore les erreurs transitoires de vérification et on continue le polling
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1531,157 +1742,138 @@ class _PaymentMethodSheetState extends State<_PaymentMethodSheet> {
           children: [
             const Text(
               'Effectuer le règlement',
-              style: TextStyle(
-                color: _deepBlue,
-                fontSize: 22,
-                fontWeight: FontWeight.w900,
-              ),
+              style: TextStyle(color: _deepBlue, fontSize: 22, fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Montant : ${widget.total}',
+              style: const TextStyle(color: _fofanaGreen, fontSize: 16, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 24),
-            Container(
-              height: 72,
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFE1E4EC)),
-              ),
-              child: const Row(
-                children: [
-                  Text('🇧🇯', style: TextStyle(fontSize: 24)),
-                  SizedBox(width: 12),
-                  Text(
-                    'Benin',
-                    style: TextStyle(
-                      color: _deepBlue,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w900,
+
+            if (_isLoadingProviders)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 30),
+                child: CircularProgressIndicator(strokeWidth: 2.5),
+              )
+            else if (_isProcessing)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                child: Column(
+                  children: const [
+                    CircularProgressIndicator(strokeWidth: 2.5, color: _fofanaGreen),
+                    SizedBox(height: 16),
+                    Text(
+                      'En attente de confirmation du paiement...\nRevenez ici une fois le paiement effectué.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: _deepBlue, fontWeight: FontWeight.w700, height: 1.4),
                     ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            _PaymentOptionTile(
-              value: 'moov',
-              selectedValue: _selectedMethod,
-              imagePath: 'assets/images/logo_moov.png',
-              onTap: () => setState(() => _selectedMethod = 'moov'),
-            ),
-            const SizedBox(height: 16),
-            _PaymentOptionTile(
-              value: 'mtn',
-              selectedValue: _selectedMethod,
-              imagePath: 'assets/images/logo_mtn.png',
-              onTap: () => setState(() => _selectedMethod = 'mtn'),
-            ),
-            const SizedBox(height: 16),
-            _PaymentOptionTile(
-              value: 'celtiis',
-              selectedValue: _selectedMethod,
-              imagePath: 'assets/images/logo_celtiis.png',
-              onTap: () => setState(() => _selectedMethod = 'celtiis'),
-            ),
-            const SizedBox(height: 22),
-            SizedBox(
-              width: double.infinity,
-              height: 58,
-              child: ElevatedButton(
-                onPressed: _selectedMethod == null
-                    ? null
-                    : () {
-                        Navigator.of(context).pop();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              'Paiement ${widget.total} lancé avec ${_selectedMethod!.toUpperCase()}.',
+                  ],
+                ),
+              )
+            else if (_providers.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 20),
+                child: Text(
+                  'Aucun moyen de paiement disponible pour le moment.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Color(0xFF5F6B86), fontWeight: FontWeight.w700),
+                ),
+              )
+            else ...[
+              // Sélection de l'agrégateur
+              ..._providers.map((provider) {
+                final isSelectedProvider = _selectedProviderSlug == provider.slug;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      GestureDetector(
+                        onTap: () => setState(() {
+                          _selectedProviderSlug = provider.slug;
+                          _selectedMethod = null;
+                        }),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          decoration: BoxDecoration(
+                            color: isSelectedProvider ? _fofanaGreen.withValues(alpha: 0.08) : Colors.white,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: isSelectedProvider ? _fofanaGreen : const Color(0xFFE1E4EC),
+                              width: isSelectedProvider ? 1.8 : 1,
                             ),
                           ),
-                        );
-                      },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _fofanaGreen,
-                  disabledBackgroundColor: const Color(0xFFFFBE9D),
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: const Text(
-                  'Continuer',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _PaymentOptionTile extends StatelessWidget {
-  final String value;
-  final String? selectedValue;
-  final String imagePath;
-  final VoidCallback onTap;
-
-  const _PaymentOptionTile({
-    required this.value,
-    required this.selectedValue,
-    required this.imagePath,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isSelected = selectedValue == value;
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 92,
-        padding: const EdgeInsets.symmetric(horizontal: 18),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: isSelected
-                ? const Color(0xFF16A34A)
-                : const Color(0xFFE1E4EC),
-            width: isSelected ? 1.8 : 1,
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 34,
-              height: 34,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: isSelected
-                      ? const Color(0xFF16A34A)
-                      : const Color(0xFFD8DCE6),
-                  width: 2,
-                ),
-              ),
-              child: isSelected
-                  ? Center(
-                      child: Container(
-                        width: 18,
-                        height: 18,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF16A34A),
-                          shape: BoxShape.circle,
+                          child: Row(
+                            children: [
+                              Icon(
+                                isSelectedProvider ? Icons.check_circle_rounded : Icons.circle_outlined,
+                                color: isSelectedProvider ? _fofanaGreen : const Color(0xFFB1B8C8),
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                provider.name,
+                                style: const TextStyle(color: _deepBlue, fontWeight: FontWeight.w900, fontSize: 15),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    )
-                  : null,
-            ),
-            const Spacer(),
-            Image.asset(imagePath, width: 104, height: 58, fit: BoxFit.contain),
-            const Spacer(flex: 2),
+                      if (isSelectedProvider) ...[
+                        const SizedBox(height: 8),
+                        Padding(
+                          padding: const EdgeInsets.only(left: 8),
+                          child: Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: provider.methods.entries
+                                .where((m) => m.key != 'all')
+                                .map((m) {
+                              final isSelectedMethod = _selectedMethod == m.key;
+                              return GestureDetector(
+                                onTap: () => setState(() => _selectedMethod = m.key),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                                  decoration: BoxDecoration(
+                                    color: isSelectedMethod ? _fofanaGreen : const Color(0xFFF2F4F7),
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  child: Text(
+                                    m.value,
+                                    style: TextStyle(
+                                      color: isSelectedMethod ? Colors.white : _deepBlue,
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 12.5,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                );
+              }),
+
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                height: 54,
+                child: ElevatedButton(
+                  onPressed: (_selectedProviderSlug != null && _selectedMethod != null) ? _startPayment : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _fofanaGreen,
+                    disabledBackgroundColor: const Color(0xFFDDE3EE),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  child: const Text('Continuer', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+                ),
+              ),
+            ],
           ],
         ),
       ),

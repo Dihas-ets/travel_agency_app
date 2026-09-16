@@ -45,6 +45,7 @@ class TarifReservationSelection {
   final int priceAmount;
   final int? ligneId;   // ⬅️ AJOUT
   final int? voyageId;  // ⬅️ AJOUT
+  final DateTime? dateVoyage;
 
   const TarifReservationSelection({
     required this.departure,
@@ -55,6 +56,7 @@ class TarifReservationSelection {
     required this.priceAmount,
     this.ligneId,
     this.voyageId,
+    this.dateVoyage,
   });
 }
 
@@ -62,6 +64,7 @@ class _TarifResult {
   final String from;
   final String to;
   final String dateDepart;
+  final DateTime dateVoyage;
   final String heureDepart;
   final int placesRestantes; // ⬅️ MODIF (était "places")
   final int capacity;
@@ -73,6 +76,7 @@ class _TarifResult {
     required this.from,
     required this.to,
     required this.dateDepart,
+     required this.dateVoyage,
     required this.heureDepart,
     required this.placesRestantes, // ⬅️ MODIF
     required this.capacity,
@@ -190,6 +194,7 @@ void _reserveTarif(_TarifResult result) {
     departure: result.from,
     destination: result.to,
     date: result.dateDepart,
+    dateVoyage: result.dateVoyage,
     time: result.heureDepart,
     passengerCount: 1,
     priceAmount: result.fraisCfa,
@@ -249,6 +254,7 @@ Future<void> _searchTarif({required String depart, required String destination})
           from: ligne.trajetDepart,
           to: ligne.trajetArrivee,
           dateDepart: _selectedDateLabel,
+          dateVoyage: _selectedDate,
           heureDepart: h.heure,
           placesRestantes: h.placesRestantes,
           capacity: voyage.capacite,
@@ -273,32 +279,32 @@ Future<void> _searchTarif({required String depart, required String destination})
   }
 }
 
+  // APRÈS
   void _openReservationFromInput() {
-    final depart = _departController.text.trim().isEmpty
-        ? 'Cotonou'
-        : _departController.text.trim();
-    final destination = _destinationController.text.trim().isEmpty
-        ? 'Porto-Novo'
-        : _destinationController.text.trim();
-    final selection = TarifReservationSelection(
-      departure: depart,
-      destination: destination,
-      date: 'Aujourd’hui',
-      time: '6h20',
-      passengerCount: 1,
-      priceAmount: 0,
-    );
+    final depart = _departController.text.trim();
+    final destination = _destinationController.text.trim();
 
-    final createReservation = widget.onCreateReservation;
-    if (createReservation != null) {
-      createReservation(context, selection);
+    if (depart.isEmpty || destination.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Renseignez le départ et la destination, puis lancez une recherche.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
       return;
     }
 
-    final reserve = widget.onReserve;
-    if (reserve != null) {
-      reserve(context, selection);
+    if (depart == destination) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Le départ et la destination doivent être différents.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
     }
+
+    _searchTarif(depart: depart, destination: destination);
   }
 
   /// Ouvre une liste de villes en bas de l'écran.

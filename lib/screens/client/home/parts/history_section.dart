@@ -558,13 +558,21 @@ class _ReservationTicketPageState extends State<_ReservationTicketPage> {
   }
 
   void _showPaymentSheet() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _PaymentMethodSheet(total: _reservation.price),
-    );
-  }
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (_) => _PaymentMethodSheet(
+      total: _reservation.price,
+      ticketReference: _reservation.reference, // ⬅️ AJOUT
+      onPaymentConfirmed: () {
+        setState(() {
+          _reservation = _reservation.copyWith(status: 'Confirmée');
+        });
+      },
+    ),
+  );
+}
 
   Future<void> _confirmCancel() async {
     final shouldCancel = await _showCancelReservationDialog(context);

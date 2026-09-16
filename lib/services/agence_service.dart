@@ -6,7 +6,7 @@ import 'package:code_initial/auth/stockage_auth_local.dart';
 
 class AgenceService {
   // ⚠️ Même base URL que AuthService — pense à la mettre à jour au même endroit si tu changes d'environnement
-  static const String baseUrl = "http://192.168.1.90:8000/api";
+  static const String baseUrl = "http://10.0.2.2:8000/api";
 
   Future<List<Agence>> getAgencesProches({
   required double latitude,
