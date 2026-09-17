@@ -1,10 +1,11 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:code_initial/config/app_config.dart';
 import 'package:code_initial/models/ligne_model.dart';
 import 'package:code_initial/models/voyage_disponibilite_model.dart';
 
 class LigneService {
-  static const String baseUrl = "http://10.0.2.2:8000/api";
+  static const String baseUrl = AppConfig.apiBaseUrl;
 
   /// Cherche une ligne correspondant exactement au trajet départ → arrivée.
   /// ⬅️ MODIF : utilise la route publique (pas de token requis)

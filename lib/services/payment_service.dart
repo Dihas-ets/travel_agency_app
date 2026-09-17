@@ -1,11 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:code_initial/config/app_config.dart';
 import 'package:code_initial/models/payment_provider_model.dart';
 import 'package:code_initial/auth/stockage_auth_local.dart';
 
 class PaymentService {
-  static const String baseUrl = "http://10.0.2.2:8000/api";
+  static const String baseUrl = AppConfig.apiBaseUrl;
 
   Future<Map<String, String>> _headers() async {
     final token = await AuthLocalStore.getToken();
@@ -34,17 +35,18 @@ class PaymentService {
         .toList();
   }
 
-  /// Initie un paiement pour un ticket donné.
+  /// Initie un paiement pour une entité payable donnée (ticket ou colis).
   Future<Map<String, dynamic>> initierPaiement({
     required String payableRef,
     required String provider,
     required String method,
+    String payableType = 'ticket',
     String? clientEmail,
   }) async {
     final uri = Uri.parse('$baseUrl/paiements/initier');
 
     final body = {
-      'payable_type': 'ticket',
+      'payable_type': payableType,
       'payable_ref': payableRef,
       'provider': provider,
       'method': method,
@@ -64,12 +66,22 @@ class PaymentService {
     return data as Map<String, dynamic>;
   }
 
-  /// Vérifie le statut du paiement (à appeler en polling après ouverture du lien de paiement).
-  Future<Map<String, dynamic>> verifierPaiement({required String reference}) async {
+  /// Vérifie le statut du paiement.
+  Future<Map<String, dynamic>> verifierPaiement({
+    required String reference,
+    String payableType = 'ticket',
+    String? externalId,
+  }) async {
     final uri = Uri.parse('$baseUrl/paiements/verifier');
 
+    final body = {
+      'reference': reference,
+      'payable_type': payableType,
+      if (externalId != null && externalId.isNotEmpty) 'external_id': externalId,
+    };
+
     final response = await http
-        .post(uri, headers: await _headers(), body: jsonEncode({'reference': reference}))
+        .post(uri, headers: await _headers(), body: jsonEncode(body))
         .timeout(const Duration(seconds: 10));
 
     final data = jsonDecode(response.body);

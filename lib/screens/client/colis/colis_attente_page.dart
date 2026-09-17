@@ -1,9 +1,14 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:code_initial/data/local/session_store.dart';
 import 'package:code_initial/screens/client/colis/billet_page.dart';
 import 'package:code_initial/models/store/colis_store.dart';
+import 'package:code_initial/models/payment_provider_model.dart';
+import 'package:code_initial/services/payment_service.dart';
+import 'package:code_initial/services/feexpay_service.dart';
 
 const Color _deepBlue = Color(0xFF0B4F2A);
 const Color _logoRed = Color(0xFFE53935);
@@ -172,7 +177,163 @@ class _ParcelPaymentPage extends StatefulWidget {
 }
 
 class _ParcelPaymentPageState extends State<_ParcelPaymentPage> {
+  List<PaymentProvider> _providers = [];
+  bool _isLoadingProviders = true;
+  String? _selectedProviderSlug;
   String? _selectedMethod;
+  bool _isProcessing = false;
+  Timer? _pollingTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProviders();
+  }
+
+  @override
+  void dispose() {
+    _pollingTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadProviders() async {
+    try {
+      final providers = await PaymentService().getProvidersActifs();
+      if (!mounted) return;
+      setState(() {
+        _providers = providers;
+        _isLoadingProviders = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isLoadingProviders = false);
+    }
+  }
+
+  Future<void> _startParcelPayment() async {
+    if (_selectedProviderSlug == null || _selectedMethod == null) return;
+
+    setState(() => _isProcessing = true);
+
+    try {
+      final result = await PaymentService().initierPaiement(
+        payableRef: widget.parcel.code,
+        provider: _selectedProviderSlug!,
+        method: _selectedMethod!,
+        payableType: 'colis',
+      );
+
+      final transaction = result['transaction'] as Map<String, dynamic>?;
+      final transactionReference = transaction?['reference']?.toString();
+      if (transactionReference == null || transactionReference.isEmpty) {
+        throw Exception('La référence de transaction est absente.');
+      }
+
+      if (result['provider'] == 'feexpay') {
+        if (!mounted) return;
+        await FeexPayService.openPayment(
+          context: context,
+          amount: num.tryParse(result['amount']?.toString() ?? '') ?? 0,
+          token: result['token']?.toString() ?? '',
+          shopId: result['shop_id']?.toString() ?? '',
+          reference: transactionReference,
+          onResult: (paymentResult) async {
+            if (!paymentResult.isSuccess) {
+              if (mounted) {
+                setState(() => _isProcessing = false);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(paymentResult.message ?? 'Paiement échoué.'),
+                  ),
+                );
+              }
+              return;
+            }
+            final verification = await PaymentService().verifierPaiement(
+              reference: transactionReference,
+              payableType: 'colis',
+              externalId: paymentResult.reference,
+            );
+            if (mounted && verification['verified'] == true) {
+              setState(() => _isProcessing = false);
+              _registerParcel('Paiement effectué');
+            }
+          },
+        );
+        return;
+      }
+
+      final paymentUrl = result['payment_url']?.toString();
+
+      if (paymentUrl != null && paymentUrl.isNotEmpty) {
+        final uri = Uri.parse(paymentUrl);
+        final opened = await launchUrl(
+          uri,
+          mode: LaunchMode.externalApplication,
+        );
+
+        if (!opened) {
+          if (!mounted) return;
+          setState(() => _isProcessing = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Impossible d\'ouvrir la page de paiement.'),
+            ),
+          );
+          return;
+        }
+      }
+
+      _pollParcelPaymentStatus(transactionReference);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isProcessing = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+      );
+    }
+  }
+
+  void _pollParcelPaymentStatus(String transactionReference) {
+    var attempts = 0;
+    const maxAttempts = 45; // 3 minutes
+
+    _pollingTimer = Timer.periodic(const Duration(seconds: 4), (timer) async {
+      attempts++;
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+
+      if (attempts > maxAttempts) {
+        timer.cancel();
+        setState(() => _isProcessing = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Délai dépassé. Vérifiez le statut du colis.'),
+          ),
+        );
+        return;
+      }
+
+      try {
+        final result = await PaymentService().verifierPaiement(
+          reference: transactionReference,
+          payableType: 'colis',
+        );
+        final verified = result['verified'] == true;
+
+        if (verified) {
+          timer.cancel();
+          if (!mounted) return;
+          setState(() => _isProcessing = false);
+          _registerParcel('Paiement effectué');
+        }
+      } catch (_) {
+        // Continue polling
+      }
+    });
+  }
 
   void _registerParcel(String status) {
     ParcelStore.registerParcel(widget.parcel, status: status);
@@ -216,7 +377,7 @@ class _ParcelPaymentPageState extends State<_ParcelPaymentPage> {
               _PaymentSummary(parcel: widget.parcel),
               const SizedBox(height: 22),
               const Text(
-                'Moyen de paiement',
+                'Choix de l\'agrégateur',
                 style: TextStyle(
                   color: _deepBlue,
                   fontSize: 18,
@@ -224,37 +385,163 @@ class _ParcelPaymentPageState extends State<_ParcelPaymentPage> {
                 ),
               ),
               const SizedBox(height: 14),
-              _PaymentMethodTile(
-                value: 'moov',
-                label: 'Moov Money',
-                icon: Icons.phone_android_rounded,
-                selectedValue: _selectedMethod,
-                onTap: () => setState(() => _selectedMethod = 'moov'),
-              ),
-              const SizedBox(height: 12),
-              _PaymentMethodTile(
-                value: 'mtn',
-                label: 'MTN Mobile Money',
-                icon: Icons.phone_iphone_rounded,
-                selectedValue: _selectedMethod,
-                onTap: () => setState(() => _selectedMethod = 'mtn'),
-              ),
-              const SizedBox(height: 12),
-              _PaymentMethodTile(
-                value: 'celtiis',
-                label: 'Celtiis Cash',
-                icon: Icons.account_balance_wallet_rounded,
-                selectedValue: _selectedMethod,
-                onTap: () => setState(() => _selectedMethod = 'celtiis'),
-              ),
+
+              if (_isLoadingProviders)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24),
+                    child: CircularProgressIndicator(strokeWidth: 2.5),
+                  ),
+                )
+              else if (_isProcessing)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 20),
+                  child: Column(
+                    children: const [
+                      CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        color: _deepBlue,
+                      ),
+                      SizedBox(height: 16),
+                      Text(
+                        'En attente de confirmation du paiement par le backend...\nRevenez ici une fois le paiement effectué.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: _deepBlue,
+                          fontWeight: FontWeight.w700,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else if (_providers.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: Text(
+                    'Aucun agrégateur de paiement disponible.',
+                    style: TextStyle(
+                      color: _mutedText,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                )
+              else ...[
+                ..._providers.map((provider) {
+                  final isSelected = _selectedProviderSlug == provider.slug;
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        GestureDetector(
+                          onTap: () => setState(() {
+                            _selectedProviderSlug = provider.slug;
+                            _selectedMethod = null;
+                          }),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? _deepBlue.withValues(alpha: 0.08)
+                                  : Colors.white,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: isSelected
+                                    ? _deepBlue
+                                    : const Color(0xFFE1E4EC),
+                                width: isSelected ? 1.8 : 1,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  isSelected
+                                      ? Icons.check_circle_rounded
+                                      : Icons.circle_outlined,
+                                  color: isSelected
+                                      ? _deepBlue
+                                      : const Color(0xFFB1B8C8),
+                                ),
+                                const SizedBox(width: 12),
+                                Text(
+                                  provider.name,
+                                  style: const TextStyle(
+                                    color: _deepBlue,
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 15,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        if (isSelected) ...[
+                          const SizedBox(height: 8),
+                          Padding(
+                            padding: const EdgeInsets.only(left: 8),
+                            child: Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: provider.methods.entries
+                                  .where((m) => m.key != 'all')
+                                  .map((m) {
+                                    final isSelectedMethod =
+                                        _selectedMethod == m.key;
+                                    return GestureDetector(
+                                      onTap: () => setState(
+                                        () => _selectedMethod = m.key,
+                                      ),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 14,
+                                          vertical: 9,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: isSelectedMethod
+                                              ? _deepBlue
+                                              : const Color(0xFFF2F4F7),
+                                          borderRadius: BorderRadius.circular(
+                                            999,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          m.value,
+                                          style: TextStyle(
+                                            color: isSelectedMethod
+                                                ? Colors.white
+                                                : _deepBlue,
+                                            fontWeight: FontWeight.w800,
+                                            fontSize: 12.5,
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  })
+                                  .toList(),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  );
+                }),
+              ],
+
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
                 height: 56,
                 child: ElevatedButton(
-                  onPressed: _selectedMethod == null
-                      ? null
-                      : () => _registerParcel('Paiement effectué'),
+                  onPressed:
+                      (_selectedProviderSlug != null &&
+                          _selectedMethod != null &&
+                          !_isProcessing)
+                      ? _startParcelPayment
+                      : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _logoRed,
                     disabledBackgroundColor: _logoRed.withValues(alpha: 0.38),
@@ -268,7 +555,7 @@ class _ParcelPaymentPageState extends State<_ParcelPaymentPage> {
                       fontWeight: FontWeight.w900,
                     ),
                   ),
-                  child: const Text('Payer'),
+                  child: const Text('Payer en ligne'),
                 ),
               ),
               const SizedBox(height: 12),
@@ -276,7 +563,9 @@ class _ParcelPaymentPageState extends State<_ParcelPaymentPage> {
                 width: double.infinity,
                 height: 56,
                 child: OutlinedButton(
-                  onPressed: () => _registerParcel('À la livraison'),
+                  onPressed: _isProcessing
+                      ? null
+                      : () => _registerParcel('À la livraison'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: _deepBlue,
                     side: const BorderSide(color: _deepBlue, width: 1.4),

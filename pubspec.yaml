@@ -53,6 +53,10 @@ dependencies:
   http: ^1.6.0
  
 
+  feexpay_flutter_v2: ^1.1.2
+  random_string: ^2.3.1
+
+
 
 dev_dependencies:
   flutter_test:

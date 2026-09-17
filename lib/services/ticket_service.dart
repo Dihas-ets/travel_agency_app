@@ -1,10 +1,11 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:code_initial/config/app_config.dart';
 import 'package:code_initial/models/voyage_programme_model.dart';
 import 'package:code_initial/auth/stockage_auth_local.dart';
 
 class TicketService {
-  static const String baseUrl = "http://10.0.2.2:8000/api"; // ⬅️ garde ton IP actuelle
+  static const String baseUrl = AppConfig.apiBaseUrl;
 
   Future<Map<String, String>> _headers() async {
     final token = await AuthLocalStore.getToken();

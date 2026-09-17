@@ -16,6 +16,8 @@ import 'package:code_initial/screens/controleur/controleur_password_page.dart';
 import 'package:code_initial/auth/mot_de_passe_oublie_page.dart';
 import 'package:code_initial/screens/client/colis/envois_effectues_page.dart';
 import 'package:code_initial/screens/chauffeur/chauffeur_home_page.dart';
+import 'package:code_initial/pages/payment_success_page.dart';
+import 'package:code_initial/pages/payment_error_page.dart';
 
 /// Centralise toutes les pages accessibles avec GetX.
 ///
@@ -66,6 +68,15 @@ class Nav {
     GetPage(
       name: Routes.ENVOIS_EFFECTUES,
       page: () => const EnvoisEffectuesPage(),
+    ),
+    GetPage(
+      name: '/payment-success',
+      page: () => const PaymentSuccessPage(),
+    ),
+
+    GetPage(
+      name: '/payment-error',
+      page: () => const PaymentErrorPage(),
     ),
   ];
 }

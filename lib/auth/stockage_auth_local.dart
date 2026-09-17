@@ -1,11 +1,13 @@
 import 'dart:convert';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthLocalStore {
   static const _clientPhonesKey = 'client_phone_numbers';
   static const _clientProfilesKey = 'client_profiles';
   // 1. On ajoute la clé pour le Token
-  static const _tokenKey = 'auth_token'; 
+  static const _tokenKey = 'auth_token';
+  static const _secureStorage = FlutterSecureStorage();
 
   static String normalizePhone(String phone) {
     return phone.replaceAll(RegExp(r'\s+'), '').trim();
@@ -15,20 +17,17 @@ class AuthLocalStore {
 
   /// Sauvegarde le token d'authentification (Laravel Sanctum)
   static Future<void> saveToken(String token) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_tokenKey, token);
+    await _secureStorage.write(key: _tokenKey, value: token);
   }
 
   /// Récupère le token pour les appels API futurs
   static Future<String?> getToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_tokenKey);
+    return _secureStorage.read(key: _tokenKey);
   }
 
   /// Supprime le token (pour la déconnexion)
   static Future<void> removeToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_tokenKey);
+    await _secureStorage.delete(key: _tokenKey);
   }
 
   // --- TES MÉTHODES EXISTANTES (NE PAS CHANGER) ---

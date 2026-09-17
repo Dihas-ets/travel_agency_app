@@ -1,12 +1,12 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:code_initial/models/agence_model.dart';
+import 'package:code_initial/config/app_config.dart';
 
 import 'package:code_initial/auth/stockage_auth_local.dart';
 
 class AgenceService {
-  // ⚠️ Même base URL que AuthService — pense à la mettre à jour au même endroit si tu changes d'environnement
-  static const String baseUrl = "http://10.0.2.2:8000/api";
+  static const String baseUrl = AppConfig.apiBaseUrl;
 
   Future<List<Agence>> getAgencesProches({
   required double latitude,

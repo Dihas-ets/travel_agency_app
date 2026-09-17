@@ -1,4 +1,3 @@
-
 part of '../home_page.dart';
 
 // Flux de reservation client: formulaires, paiement, billet genere, edition et annulation.
@@ -116,8 +115,8 @@ class _VoyageTabContent extends StatelessWidget {
                               initialTime: selection.time,
                               initialPassengerCount: selection.passengerCount,
                               initialPriceAmount: selection.priceAmount,
-                              ligneId: selection.ligneId,     // ⬅️ AJOUT
-                              voyageId: selection.voyageId,   // ⬅️ AJOUT
+                              ligneId: selection.ligneId, // ⬅️ AJOUT
+                              voyageId: selection.voyageId, // ⬅️ AJOUT
                               dateVoyage: selection.dateVoyage, // ⬅️ AJOUT
                             ),
                           ),
@@ -276,8 +275,8 @@ class _ReservationPage extends StatefulWidget {
   final String? initialTime;
   final int initialPassengerCount;
   final int initialPriceAmount;
-  final int? ligneId;   // ⬅️ AJOUT
-  final int? voyageId;  // ⬅️ AJOUT
+  final int? ligneId; // ⬅️ AJOUT
+  final int? voyageId; // ⬅️ AJOUT
   final DateTime? dateVoyage; // ⬅️ AJOUT
 
   const _ReservationPage({
@@ -287,8 +286,8 @@ class _ReservationPage extends StatefulWidget {
     this.initialTime,
     this.initialPassengerCount = 1,
     this.initialPriceAmount = 0,
-    this.ligneId,   // ⬅️ AJOUT
-    this.voyageId,  // ⬅️ AJOUT
+    this.ligneId, // ⬅️ AJOUT
+    this.voyageId, // ⬅️ AJOUT
     this.dateVoyage, // ⬅️ AJOUT
   });
 
@@ -316,20 +315,22 @@ class _ReservationPageState extends State<_ReservationPage> {
     _departController.text = widget.initialDeparture ?? 'Cotonou';
     _destinationController.text = widget.initialDestination ?? 'Porto-Novo';
     _passengerCount = widget.initialPassengerCount.clamp(1, 8).toInt();
-    
-    
+
     if (widget.voyageId != null && widget.initialTime != null) {
-      _selectedTime = widget.initialTime!; // ⬅️ AJOUT : accepte l'heure réelle sans filtrage
+      _selectedTime = widget
+          .initialTime!; // ⬅️ AJOUT : accepte l'heure réelle sans filtrage
     } else if (_departureTimes.contains(widget.initialTime)) {
       _selectedTime = widget.initialTime!;
     }
-    
-    
-     final initialDate = widget.dateVoyage ?? _dateFromTarifLabel(widget.initialDateLabel); // ⬅️ MODIF
-      if (initialDate != null) {
-        _travelDate = initialDate;
-        _dateController.text = '${initialDate.day.toString().padLeft(2, '0')} ${_getMonthName(initialDate.month)} ${initialDate.year}';
-      }
+
+    final initialDate =
+        widget.dateVoyage ??
+        _dateFromTarifLabel(widget.initialDateLabel); // ⬅️ MODIF
+    if (initialDate != null) {
+      _travelDate = initialDate;
+      _dateController.text =
+          '${initialDate.day.toString().padLeft(2, '0')} ${_getMonthName(initialDate.month)} ${initialDate.year}';
+    }
   }
 
   @override
@@ -499,8 +500,8 @@ class _ReservationPageState extends State<_ReservationPage> {
           priceAmount: _fare,
           passengers: _passengerCount,
           time: _selectedTime,
-          ligneId: widget.ligneId,     // ⬅️ AJOUT
-          voyageId: widget.voyageId,   // ⬅️ AJOUT
+          ligneId: widget.ligneId, // ⬅️ AJOUT
+          voyageId: widget.voyageId, // ⬅️ AJOUT
           dateVoyage: widget.dateVoyage ?? _travelDate,
         ),
       ),
@@ -756,9 +757,13 @@ class _ReservationPageState extends State<_ReservationPage> {
               Expanded(
                 child: _buildSmallField(
                   label: 'Date de départ',
-                  value: _dateController.text.isEmpty ? 'Sélectionner une date' : _dateController.text,
+                  value: _dateController.text.isEmpty
+                      ? 'Sélectionner une date'
+                      : _dateController.text,
                   icon: Icons.calendar_month_rounded,
-                  onTap: widget.voyageId != null ? () {} : _pickDate, // ⬅️ MODIF : verrouillé si venu d'une vraie recherche
+                  onTap: widget.voyageId != null
+                      ? () {}
+                      : _pickDate, // ⬅️ MODIF : verrouillé si venu d'une vraie recherche
                   disabled: widget.voyageId != null, // ⬅️ AJOUT
                 ),
               ),
@@ -768,7 +773,9 @@ class _ReservationPageState extends State<_ReservationPage> {
                   label: 'Heure',
                   value: _selectedTime,
                   icon: Icons.schedule_rounded,
-                  onTap: widget.voyageId != null ? () {} : _showTimePicker, // ⬅️ MODIF
+                  onTap: widget.voyageId != null
+                      ? () {}
+                      : _showTimePicker, // ⬅️ MODIF
                   disabled: widget.voyageId != null, // ⬅️ AJOUT
                 ),
               ),
@@ -1050,8 +1057,8 @@ class _PaymentDetailsPage extends StatefulWidget {
   final int priceAmount;
   final int passengers;
   final String time;
-  final int? ligneId;    // ⬅️ AJOUT
-  final int? voyageId;   // ⬅️ AJOUT
+  final int? ligneId; // ⬅️ AJOUT
+  final int? voyageId; // ⬅️ AJOUT
   final DateTime? dateVoyage; // ⬅️ AJOUT
 
   const _PaymentDetailsPage({
@@ -1061,8 +1068,8 @@ class _PaymentDetailsPage extends StatefulWidget {
     required this.priceAmount,
     required this.passengers,
     this.time = '10:00',
-    this.ligneId,    // ⬅️ AJOUT
-    this.voyageId,   // ⬅️ AJOUT
+    this.ligneId, // ⬅️ AJOUT
+    this.voyageId, // ⬅️ AJOUT
     this.dateVoyage, // ⬅️ AJOUT
   });
 
@@ -1100,7 +1107,7 @@ class _PaymentDetailsPageState extends State<_PaymentDetailsPage> {
     super.dispose();
   }
 
-  bool _isSubmitting = false; 
+  bool _isSubmitting = false;
   Future<void> _finishReservation() async {
     final requesterPhone = _requesterPhoneController.text.trim();
     final beneficiaryFirstName = _beneficiaryFirstNameController.text.trim();
@@ -1127,9 +1134,15 @@ class _PaymentDetailsPageState extends State<_PaymentDetailsPage> {
     }
 
     // ⬇️ AJOUT : garde-fou si on n'a pas les vraies infos backend (ex: vieux flux mock)
-    if (widget.ligneId == null || widget.voyageId == null || widget.dateVoyage == null) {
+    if (widget.ligneId == null ||
+        widget.voyageId == null ||
+        widget.dateVoyage == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Informations de voyage incomplètes. Relancez une recherche.')),
+        const SnackBar(
+          content: Text(
+            'Informations de voyage incomplètes. Relancez une recherche.',
+          ),
+        ),
       );
       return;
     }
@@ -1137,79 +1150,86 @@ class _PaymentDetailsPageState extends State<_PaymentDetailsPage> {
     setState(() => _isSubmitting = true);
 
     try {
-    // 1. Retrouver le bus_id réel pour ce voyage précis, à cette date
-    final programme = await TicketService().getProgrammationParDate(
-      ligneId: widget.ligneId!,
-      date: widget.dateVoyage!,
-      voyageId: widget.voyageId!,
-    );
+      // 1. Retrouver le bus_id réel pour ce voyage précis, à cette date
+      final programme = await TicketService().getProgrammationParDate(
+        ligneId: widget.ligneId!,
+        date: widget.dateVoyage!,
+        voyageId: widget.voyageId!,
+      );
 
-    if (programme == null) {
+      if (programme == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Ce voyage n’est plus disponible à cette date. Veuillez relancer une recherche.',
+            ),
+          ),
+        );
+        setState(() => _isSubmitting = false);
+        return;
+      }
+
+      // 2. Créer le ticket réel côté backend
+      final result = await TicketService().storeTicket(
+        ligneId: widget.ligneId!,
+        voyageId: widget.voyageId!,
+        busId: programme.busId,
+        villeArrivee: widget.destination,
+        dateVoyage: widget.dateVoyage!,
+        heureVoyage: widget.time,
+        tiers: _isForSomeoneElse,
+        nomPassager: _isForSomeoneElse ? beneficiaryFirstName : null,
+        prenomPassager: _isForSomeoneElse ? beneficiaryLastName : null,
+        numeroPassager: _isForSomeoneElse ? beneficiaryPhone : null,
+        nbrePlace: widget.passengers,
+      );
+
+      if (!mounted) return;
+
+      final ticketData = result['ticket'] as Map<String, dynamic>?;
+      final registeredClientName = SessionStore.currentClientFullName?.trim();
+
+      final beneficiaryName = _isForSomeoneElse
+          ? '$beneficiaryFirstName $beneficiaryLastName'
+          : (registeredClientName != null && registeredClientName.isNotEmpty)
+          ? registeredClientName
+          : 'Moi-même';
+
+      // 3. Construire l'objet d'affichage local à partir de la vraie réponse backend
+      final reservation = _ReservationItem(
+        reference:
+            ticketData?['reference']?.toString() ??
+            'TB${DateTime.now().millisecondsSinceEpoch}',
+        departure: widget.departure,
+        destination: widget.destination,
+        date: widget.date,
+        time: widget.time,
+        seat: '${(widget.passengers % 12 == 0 ? 12 : widget.passengers)}A',
+        price: '${_formatAmount(widget.priceAmount)} CFA',
+        passengerCount: widget.passengers,
+        beneficiaryName: beneficiaryName,
+        requesterPhone: requesterPhone,
+        beneficiaryPhone: _isForSomeoneElse ? beneficiaryPhone : requesterPhone,
+        status: result['statut_paiement'] == 'payé'
+            ? 'Confirmée'
+            : 'En attente de paiement',
+      );
+
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => _GeneratedTicketPage(reservation: reservation),
+        ),
+      );
+    } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ce voyage n’est plus disponible à cette date. Veuillez relancer une recherche.')),
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
       );
-      setState(() => _isSubmitting = false);
-      return;
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
     }
-
-
-    // 2. Créer le ticket réel côté backend
-    final result = await TicketService().storeTicket(
-      ligneId: widget.ligneId!,
-      voyageId: widget.voyageId!,
-      busId: programme.busId,
-      villeArrivee: widget.destination,
-      dateVoyage: widget.dateVoyage!,
-      heureVoyage: widget.time,
-      tiers: _isForSomeoneElse,
-      nomPassager: _isForSomeoneElse ? beneficiaryFirstName : null,
-      prenomPassager: _isForSomeoneElse ? beneficiaryLastName : null,
-      numeroPassager: _isForSomeoneElse ? beneficiaryPhone : null,
-      nbrePlace: widget.passengers,
-    );
-
-    if (!mounted) return;
-
-    final ticketData = result['ticket'] as Map<String, dynamic>?;
-    final registeredClientName = SessionStore.currentClientFullName?.trim();
-
-    final beneficiaryName = _isForSomeoneElse
-        ? '$beneficiaryFirstName $beneficiaryLastName'
-        : (registeredClientName != null && registeredClientName.isNotEmpty)
-        ? registeredClientName
-        : 'Moi-même';
-
-       // 3. Construire l'objet d'affichage local à partir de la vraie réponse backend
-    final reservation = _ReservationItem(
-      reference: ticketData?['reference']?.toString() ?? 'TB${DateTime.now().millisecondsSinceEpoch}',
-      departure: widget.departure,
-      destination: widget.destination,
-      date: widget.date,
-      time: widget.time,
-      seat: '${(widget.passengers % 12 == 0 ? 12 : widget.passengers)}A',
-      price: '${_formatAmount(widget.priceAmount)} CFA',
-      passengerCount: widget.passengers,
-      beneficiaryName: beneficiaryName,
-      requesterPhone: requesterPhone,
-      beneficiaryPhone: _isForSomeoneElse ? beneficiaryPhone : requesterPhone,
-      status: result['statut_paiement'] == 'payé' ? 'Confirmée' : 'En attente de paiement',
-    );
-
-       Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (_) => _GeneratedTicketPage(reservation: reservation),
-      ),
-    );
-  } catch (e) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
-    );
-  } finally {
-    if (mounted) setState(() => _isSubmitting = false);
   }
-}
 
   String _formatAmount(int amount) {
     final value = amount.toString();
@@ -1321,20 +1341,33 @@ class _PaymentDetailsPageState extends State<_PaymentDetailsPage> {
                       width: double.infinity,
                       height: 52,
                       child: ElevatedButton(
-                        onPressed: _isSubmitting ? null : _finishReservation, // ⬅️ MODIF
+                        onPressed: _isSubmitting
+                            ? null
+                            : _finishReservation, // ⬅️ MODIF
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _fofanaGreen,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
                           elevation: 0,
                         ),
-                        child: _isSubmitting // ⬅️ AJOUT
+                        child:
+                            _isSubmitting // ⬅️ AJOUT
                             ? const SizedBox(
-                                width: 22, height: 22,
-                                child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white),
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.4,
+                                  color: Colors.white,
+                                ),
                               )
                             : const Text(
                                 'Terminer',
-                                style: TextStyle(color: Colors.white, fontSize: 16.5, fontWeight: FontWeight.w900),
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16.5,
+                                  fontWeight: FontWeight.w900,
+                                ),
                               ),
                       ),
                     ),
@@ -1591,10 +1624,15 @@ class _GeneratedTicketPageState extends State<_GeneratedTicketPage> {
 
 class _PaymentMethodSheet extends StatefulWidget {
   final String total;
-  final String ticketReference; // ⬅️ AJOUT : nécessaire pour initier/vérifier le paiement
+  final String
+  ticketReference; // ⬅️ AJOUT : nécessaire pour initier/vérifier le paiement
   final VoidCallback? onPaymentConfirmed;
 
-  const _PaymentMethodSheet({required this.total, required this.ticketReference, this.onPaymentConfirmed,});
+  const _PaymentMethodSheet({
+    required this.total,
+    required this.ticketReference,
+    this.onPaymentConfirmed,
+  });
 
   @override
   State<_PaymentMethodSheet> createState() => _PaymentMethodSheetState();
@@ -1626,12 +1664,9 @@ class _PaymentMethodSheetState extends State<_PaymentMethodSheet> {
   Future<void> _loadProviders() async {
     try {
       final providers = await PaymentService().getProvidersActifs();
-      // On filtre KkiaPay pour l'instant : son intégration mobile n'est pas finalisée
-      // (pas d'URL de paiement fournie, nécessite un widget JS embarqué).
-      final usable = providers.where((p) => p.slug != 'kkiapay').toList();
       if (!mounted) return;
       setState(() {
-        _providers = usable;
+        _providers = providers;
         _isLoadingProviders = false;
       });
     } catch (_) {
@@ -1650,33 +1685,73 @@ class _PaymentMethodSheetState extends State<_PaymentMethodSheet> {
         payableRef: widget.ticketReference,
         provider: _selectedProviderSlug!,
         method: _selectedMethod!,
+        payableType: 'ticket',
       );
+
+      final transaction = result['transaction'] as Map<String, dynamic>?;
+      final transactionReference = transaction?['reference']?.toString();
+      if (transactionReference == null || transactionReference.isEmpty) {
+        throw Exception('La référence de transaction est absente.');
+      }
+
+      if (result['provider'] == 'feexpay') {
+        if (!mounted) return;
+        await FeexPayService.openPayment(
+          context: context,
+          amount: num.tryParse(result['amount']?.toString() ?? '') ?? 0,
+          token: result['token']?.toString() ?? '',
+          shopId: result['shop_id']?.toString() ?? '',
+          reference: transactionReference,
+          onResult: (paymentResult) async {
+            if (!paymentResult.isSuccess) {
+              if (mounted) {
+                setState(() => _isProcessing = false);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(paymentResult.message ?? 'Paiement échoué.'),
+                  ),
+                );
+              }
+              return;
+            }
+            final verification = await PaymentService().verifierPaiement(
+              reference: transactionReference,
+              payableType: 'ticket',
+              externalId: paymentResult.reference,
+            );
+            if (mounted && verification['verified'] == true) {
+              setState(() => _isProcessing = false);
+              widget.onPaymentConfirmed?.call();
+              Navigator.of(context).pop();
+            }
+          },
+        );
+        return;
+      }
 
       final paymentUrl = result['payment_url']?.toString();
 
-      if (paymentUrl == null || paymentUrl.isEmpty) {
-        if (!mounted) return;
-        setState(() => _isProcessing = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Ce moyen de paiement n\'est pas disponible pour le moment.')),
+      if (paymentUrl != null && paymentUrl.isNotEmpty) {
+        final uri = Uri.parse(paymentUrl);
+        final opened = await launchUrl(
+          uri,
+          mode: LaunchMode.externalApplication,
         );
-        return;
+
+        if (!opened) {
+          if (!mounted) return;
+          setState(() => _isProcessing = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Impossible d\'ouvrir la page de paiement.'),
+            ),
+          );
+          return;
+        }
       }
 
-      final uri = Uri.parse(paymentUrl);
-      final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
-
-      if (!opened) {
-        if (!mounted) return;
-        setState(() => _isProcessing = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Impossible d\'ouvrir la page de paiement.')),
-        );
-        return;
-      }
-
-      // On démarre le polling : on vérifie le statut toutes les 4 secondes pendant 3 minutes max
-      _pollPaymentStatus();
+      // On démarre le polling : on vérifie le statut auprès du backend
+      _pollPaymentStatus(transactionReference);
     } catch (e) {
       if (!mounted) return;
       setState(() => _isProcessing = false);
@@ -1686,7 +1761,7 @@ class _PaymentMethodSheetState extends State<_PaymentMethodSheet> {
     }
   }
 
-  void _pollPaymentStatus() {
+  void _pollPaymentStatus(String transactionReference) {
     var attempts = 0;
     const maxAttempts = 45; // 45 x 4s = 3 minutes
 
@@ -1701,13 +1776,20 @@ class _PaymentMethodSheetState extends State<_PaymentMethodSheet> {
         timer.cancel();
         setState(() => _isProcessing = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Délai dépassé. Vérifiez votre historique pour le statut du paiement.')),
+          const SnackBar(
+            content: Text(
+              'Délai dépassé. Vérifiez votre historique pour le statut du paiement.',
+            ),
+          ),
         );
         return;
       }
 
       try {
-        final result = await PaymentService().verifierPaiement(reference: widget.ticketReference);
+        final result = await PaymentService().verifierPaiement(
+          reference: transactionReference,
+          payableType: 'ticket',
+        );
         final verified = result['verified'] == true;
 
         if (verified) {
@@ -1717,7 +1799,9 @@ class _PaymentMethodSheetState extends State<_PaymentMethodSheet> {
           widget.onPaymentConfirmed?.call();
           Navigator.of(context).pop();
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Paiement confirmé ! Votre billet est prêt.')),
+            const SnackBar(
+              content: Text('Paiement confirmé ! Votre billet est prêt.'),
+            ),
           );
         }
         // Sinon on continue le polling silencieusement
@@ -1742,12 +1826,20 @@ class _PaymentMethodSheetState extends State<_PaymentMethodSheet> {
           children: [
             const Text(
               'Effectuer le règlement',
-              style: TextStyle(color: _deepBlue, fontSize: 22, fontWeight: FontWeight.w900),
+              style: TextStyle(
+                color: _deepBlue,
+                fontSize: 22,
+                fontWeight: FontWeight.w900,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
               'Montant : ${widget.total}',
-              style: const TextStyle(color: _fofanaGreen, fontSize: 16, fontWeight: FontWeight.w800),
+              style: const TextStyle(
+                color: _fofanaGreen,
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+              ),
             ),
             const SizedBox(height: 24),
 
@@ -1761,12 +1853,19 @@ class _PaymentMethodSheetState extends State<_PaymentMethodSheet> {
                 padding: const EdgeInsets.symmetric(vertical: 20),
                 child: Column(
                   children: const [
-                    CircularProgressIndicator(strokeWidth: 2.5, color: _fofanaGreen),
+                    CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: _fofanaGreen,
+                    ),
                     SizedBox(height: 16),
                     Text(
                       'En attente de confirmation du paiement...\nRevenez ici une fois le paiement effectué.',
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: _deepBlue, fontWeight: FontWeight.w700, height: 1.4),
+                      style: TextStyle(
+                        color: _deepBlue,
+                        fontWeight: FontWeight.w700,
+                        height: 1.4,
+                      ),
                     ),
                   ],
                 ),
@@ -1777,13 +1876,17 @@ class _PaymentMethodSheetState extends State<_PaymentMethodSheet> {
                 child: Text(
                   'Aucun moyen de paiement disponible pour le moment.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Color(0xFF5F6B86), fontWeight: FontWeight.w700),
+                  style: TextStyle(
+                    color: Color(0xFF5F6B86),
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               )
             else ...[
               // Sélection de l'agrégateur
               ..._providers.map((provider) {
-                final isSelectedProvider = _selectedProviderSlug == provider.slug;
+                final isSelectedProvider =
+                    _selectedProviderSlug == provider.slug;
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: Column(
@@ -1795,25 +1898,40 @@ class _PaymentMethodSheetState extends State<_PaymentMethodSheet> {
                           _selectedMethod = null;
                         }),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 14,
+                          ),
                           decoration: BoxDecoration(
-                            color: isSelectedProvider ? _fofanaGreen.withValues(alpha: 0.08) : Colors.white,
+                            color: isSelectedProvider
+                                ? _fofanaGreen.withValues(alpha: 0.08)
+                                : Colors.white,
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(
-                              color: isSelectedProvider ? _fofanaGreen : const Color(0xFFE1E4EC),
+                              color: isSelectedProvider
+                                  ? _fofanaGreen
+                                  : const Color(0xFFE1E4EC),
                               width: isSelectedProvider ? 1.8 : 1,
                             ),
                           ),
                           child: Row(
                             children: [
                               Icon(
-                                isSelectedProvider ? Icons.check_circle_rounded : Icons.circle_outlined,
-                                color: isSelectedProvider ? _fofanaGreen : const Color(0xFFB1B8C8),
+                                isSelectedProvider
+                                    ? Icons.check_circle_rounded
+                                    : Icons.circle_outlined,
+                                color: isSelectedProvider
+                                    ? _fofanaGreen
+                                    : const Color(0xFFB1B8C8),
                               ),
                               const SizedBox(width: 12),
                               Text(
                                 provider.name,
-                                style: const TextStyle(color: _deepBlue, fontWeight: FontWeight.w900, fontSize: 15),
+                                style: const TextStyle(
+                                  color: _deepBlue,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 15,
+                                ),
                               ),
                             ],
                           ),
@@ -1829,26 +1947,38 @@ class _PaymentMethodSheetState extends State<_PaymentMethodSheet> {
                             children: provider.methods.entries
                                 .where((m) => m.key != 'all')
                                 .map((m) {
-                              final isSelectedMethod = _selectedMethod == m.key;
-                              return GestureDetector(
-                                onTap: () => setState(() => _selectedMethod = m.key),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-                                  decoration: BoxDecoration(
-                                    color: isSelectedMethod ? _fofanaGreen : const Color(0xFFF2F4F7),
-                                    borderRadius: BorderRadius.circular(999),
-                                  ),
-                                  child: Text(
-                                    m.value,
-                                    style: TextStyle(
-                                      color: isSelectedMethod ? Colors.white : _deepBlue,
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 12.5,
+                                  final isSelectedMethod =
+                                      _selectedMethod == m.key;
+                                  return GestureDetector(
+                                    onTap: () =>
+                                        setState(() => _selectedMethod = m.key),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 14,
+                                        vertical: 9,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: isSelectedMethod
+                                            ? _fofanaGreen
+                                            : const Color(0xFFF2F4F7),
+                                        borderRadius: BorderRadius.circular(
+                                          999,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        m.value,
+                                        style: TextStyle(
+                                          color: isSelectedMethod
+                                              ? Colors.white
+                                              : _deepBlue,
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 12.5,
+                                        ),
+                                      ),
                                     ),
-                                  ),
-                                ),
-                              );
-                            }).toList(),
+                                  );
+                                })
+                                .toList(),
                           ),
                         ),
                       ],
@@ -1862,15 +1992,23 @@ class _PaymentMethodSheetState extends State<_PaymentMethodSheet> {
                 width: double.infinity,
                 height: 54,
                 child: ElevatedButton(
-                  onPressed: (_selectedProviderSlug != null && _selectedMethod != null) ? _startPayment : null,
+                  onPressed:
+                      (_selectedProviderSlug != null && _selectedMethod != null)
+                      ? _startPayment
+                      : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _fofanaGreen,
                     disabledBackgroundColor: const Color(0xFFDDE3EE),
                     foregroundColor: Colors.white,
                     elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                   ),
-                  child: const Text('Continuer', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+                  child: const Text(
+                    'Continuer',
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
+                  ),
                 ),
               ),
             ],
