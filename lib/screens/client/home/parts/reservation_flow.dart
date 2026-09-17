@@ -1729,6 +1729,43 @@ class _PaymentMethodSheetState extends State<_PaymentMethodSheet> {
         return;
       }
 
+      if (result['provider'] == 'kkiapay') {
+        if (!mounted) return;
+        final customer = result['customer'] as Map<String, dynamic>?;
+        final externalId = await KkiapayService.openPayment(
+          context: context,
+          amount: int.tryParse(result['amount']?.toString() ?? '') ?? 0,
+          publicKey: result['public_key']?.toString() ?? '',
+          sandbox: result['environment']?.toString() != 'live',
+          reference: transactionReference,
+          phone: customer?['phone']?.toString(),
+          name:
+              '${customer?['firstname']?.toString() ?? ''} ${customer?['lastname']?.toString() ?? ''}'
+                  .trim(),
+          email: customer?['email']?.toString(),
+        );
+        if (externalId == null || externalId.isEmpty) {
+          if (mounted) {
+            setState(() => _isProcessing = false);
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Paiement Kkiapay annulé ou échoué.')),
+            );
+          }
+          return;
+        }
+        final verification = await PaymentService().verifierPaiement(
+          reference: transactionReference,
+          payableType: 'ticket',
+          externalId: externalId,
+        );
+        if (mounted && verification['verified'] == true) {
+          setState(() => _isProcessing = false);
+          widget.onPaymentConfirmed?.call();
+          Navigator.of(context).pop();
+        }
+        return;
+      }
+
       final paymentUrl = result['payment_url']?.toString();
 
       if (paymentUrl != null && paymentUrl.isNotEmpty) {

@@ -9,6 +9,7 @@ import 'package:code_initial/models/store/colis_store.dart';
 import 'package:code_initial/models/payment_provider_model.dart';
 import 'package:code_initial/services/payment_service.dart';
 import 'package:code_initial/services/feexpay_service.dart';
+import 'package:code_initial/services/kkiapay_service.dart';
 
 const Color _deepBlue = Color(0xFF0B4F2A);
 const Color _logoRed = Color(0xFFE53935);
@@ -260,6 +261,42 @@ class _ParcelPaymentPageState extends State<_ParcelPaymentPage> {
             }
           },
         );
+        return;
+      }
+
+      if (result['provider'] == 'kkiapay') {
+        if (!mounted) return;
+        final customer = result['customer'] as Map<String, dynamic>?;
+        final externalId = await KkiapayService.openPayment(
+          context: context,
+          amount: int.tryParse(result['amount']?.toString() ?? '') ?? 0,
+          publicKey: result['public_key']?.toString() ?? '',
+          sandbox: result['environment']?.toString() != 'live',
+          reference: transactionReference,
+          phone: customer?['phone']?.toString(),
+          name:
+              '${customer?['firstname']?.toString() ?? ''} ${customer?['lastname']?.toString() ?? ''}'
+                  .trim(),
+          email: customer?['email']?.toString(),
+        );
+        if (externalId == null || externalId.isEmpty) {
+          if (mounted) {
+            setState(() => _isProcessing = false);
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Paiement Kkiapay annulé ou échoué.')),
+            );
+          }
+          return;
+        }
+        final verification = await PaymentService().verifierPaiement(
+          reference: transactionReference,
+          payableType: 'colis',
+          externalId: externalId,
+        );
+        if (mounted && verification['verified'] == true) {
+          setState(() => _isProcessing = false);
+          _registerParcel('Paiement effectué');
+        }
         return;
       }
 

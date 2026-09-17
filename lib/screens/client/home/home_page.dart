@@ -15,6 +15,7 @@ import 'package:code_initial/auth/widgets/connexion_widgets.dart';
 import 'package:code_initial/screens/global/widgets/tarifs/tarifs_widgets.dart';
 import 'package:code_initial/services/payment_service.dart';
 import 'package:code_initial/services/feexpay_service.dart';
+import 'package:code_initial/services/kkiapay_service.dart';
 import 'package:code_initial/models/payment_provider_model.dart';
 
 import 'package:flutter_map/flutter_map.dart';
