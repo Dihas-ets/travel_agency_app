@@ -88,7 +88,27 @@ class _VoyageTabContent extends StatelessWidget {
             _VoyageActionsCard(
               onReservation: () {
                 Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const _ReservationPage()),
+                  MaterialPageRoute(
+                    builder: (_) => TarifsPage(
+                      onCreateReservation: (context, selection) {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => _ReservationPage(
+                              initialDeparture: selection.departure,
+                              initialDestination: selection.destination,
+                              initialDateLabel: selection.date,
+                              initialTime: selection.time,
+                              initialPassengerCount: selection.passengerCount,
+                              initialPriceAmount: selection.priceAmount,
+                              ligneId: selection.ligneId,
+                              voyageId: selection.voyageId,
+                              dateVoyage: selection.dateVoyage,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
                 );
               },
               onReprogram: () {
@@ -306,8 +326,13 @@ class _ReservationPageState extends State<_ReservationPage> {
   DateTime? _travelDate;
   String _selectedTime = '6h20';
 
-  final List<String> _cities = _beninCities;
-  static const List<String> _departureTimes = ['6h20', '15h10', '20h'];
+  List<String> _cities = _beninCities;
+  final Map<String, int> _voyageByTime = {};
+  List<String> _availableTimes = [];
+  int? _selectedLigneId;
+  int? _selectedVoyageId;
+  int _dynamicPrice = 0;
+  bool _isLoadingAvailability = false;
 
   @override
   void initState() {
@@ -319,8 +344,6 @@ class _ReservationPageState extends State<_ReservationPage> {
     if (widget.voyageId != null && widget.initialTime != null) {
       _selectedTime = widget
           .initialTime!; // ⬅️ AJOUT : accepte l'heure réelle sans filtrage
-    } else if (_departureTimes.contains(widget.initialTime)) {
-      _selectedTime = widget.initialTime!;
     }
 
     final initialDate =
@@ -330,6 +353,28 @@ class _ReservationPageState extends State<_ReservationPage> {
       _travelDate = initialDate;
       _dateController.text =
           '${initialDate.day.toString().padLeft(2, '0')} ${_getMonthName(initialDate.month)} ${initialDate.year}';
+    }
+    if (widget.ligneId != null) {
+      _selectedLigneId = widget.ligneId;
+      _selectedVoyageId = widget.voyageId;
+    } else {
+      final today = DateTime.now();
+      _travelDate = DateTime(today.year, today.month, today.day);
+      _dateController.text =
+          '${today.day.toString().padLeft(2, '0')} ${_getMonthName(today.month)} ${today.year}';
+      _loadDynamicCities();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _refreshAvailability();
+      });
+    }
+  }
+
+  Future<void> _loadDynamicCities() async {
+    try {
+      final cities = await LigneService().getVillesDisponibles();
+      if (mounted && cities.isNotEmpty) setState(() => _cities = cities);
+    } catch (_) {
+      // Les villes locales restent disponibles en cas d'erreur réseau.
     }
   }
 
@@ -368,6 +413,69 @@ class _ReservationPageState extends State<_ReservationPage> {
         _dateController.text =
             '${date.day.toString().padLeft(2, '0')} ${_getMonthName(date.month)} ${date.year}';
       });
+      await _refreshAvailability();
+    }
+  }
+
+  Future<void> _refreshAvailability() async {
+    if (widget.ligneId != null ||
+        _travelDate == null ||
+        _departController.text.trim().isEmpty ||
+        _destinationController.text.trim().isEmpty ||
+        _departController.text.trim() == _destinationController.text.trim()) {
+      return;
+    }
+
+    setState(() {
+      _isLoadingAvailability = true;
+      _availableTimes = [];
+      _voyageByTime.clear();
+      _selectedLigneId = null;
+      _selectedVoyageId = null;
+      _dynamicPrice = 0;
+    });
+
+    try {
+      final ligne = await LigneService().findTarif(
+        depart: _departController.text.trim(),
+        destination: _destinationController.text.trim(),
+      );
+      if (ligne == null) return;
+
+      final disponibilites = await LigneService().rechercheDisponibilites(
+        ligneId: ligne.id,
+        date: _travelDate!,
+      );
+      final options = <String>[];
+      for (final voyage in disponibilites) {
+        for (final heure in voyage.heures) {
+          if (heure.placesRestantes > 0) {
+            options.add(heure.heure);
+            _voyageByTime[heure.heure] = voyage.voyageId;
+          }
+        }
+      }
+      if (!mounted) return;
+      setState(() {
+        _selectedLigneId = ligne.id;
+        _dynamicPrice = ligne.montant.toInt();
+        _availableTimes = options.toSet().toList()..sort();
+        if (_availableTimes.isNotEmpty &&
+            !_availableTimes.contains(_selectedTime)) {
+          _selectedTime = _availableTimes.first;
+        }
+        _selectedVoyageId = _voyageByTime[_selectedTime];
+      });
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Impossible de charger les voyages disponibles.'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoadingAvailability = false);
     }
   }
 
@@ -444,6 +552,7 @@ class _ReservationPageState extends State<_ReservationPage> {
                         onTap: () {
                           controller.text = city;
                           Navigator.of(context).pop();
+                          _refreshAvailability();
                         },
                       );
                     },
@@ -461,19 +570,15 @@ class _ReservationPageState extends State<_ReservationPage> {
     if (widget.initialPriceAmount > 0) {
       return widget.initialPriceAmount * _passengerCount;
     }
-    if (_departController.text.isEmpty || _destinationController.text.isEmpty) {
-      return 0;
-    }
-    final seed =
-        _departController.text.length + _destinationController.text.length;
-    final base = 8000 + (seed % 5) * 500;
-    return base + _passengerCount * 1200;
+    return _dynamicPrice * _passengerCount;
   }
 
   Future<void> _confirmReservation() async {
     if (_departController.text.isEmpty ||
         _destinationController.text.isEmpty ||
         _travelDate == null ||
+        _selectedLigneId == null ||
+        _selectedVoyageId == null ||
         _passengerCount < 1) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Veuillez compléter tous les champs.')),
@@ -490,6 +595,16 @@ class _ReservationPageState extends State<_ReservationPage> {
       return;
     }
 
+    if (_fare <= 0 ||
+        (widget.ligneId == null && _availableTimes.isEmpty)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Aucun voyage disponible pour ce trajet et cette date.'),
+        ),
+      );
+      return;
+    }
+
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => _PaymentDetailsPage(
@@ -500,9 +615,9 @@ class _ReservationPageState extends State<_ReservationPage> {
           priceAmount: _fare,
           passengers: _passengerCount,
           time: _selectedTime,
-          ligneId: widget.ligneId, // ⬅️ AJOUT
-          voyageId: widget.voyageId, // ⬅️ AJOUT
-          dateVoyage: widget.dateVoyage ?? _travelDate,
+          ligneId: _selectedLigneId,
+          voyageId: _selectedVoyageId,
+          dateVoyage: _travelDate,
         ),
       ),
     );
@@ -763,20 +878,26 @@ class _ReservationPageState extends State<_ReservationPage> {
                   icon: Icons.calendar_month_rounded,
                   onTap: widget.voyageId != null
                       ? () {}
-                      : _pickDate, // ⬅️ MODIF : verrouillé si venu d'une vraie recherche
-                  disabled: widget.voyageId != null, // ⬅️ AJOUT
+                      : _pickDate,
+                  disabled: widget.voyageId != null,
                 ),
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: _buildSmallField(
                   label: 'Heure',
-                  value: _selectedTime,
+                  value: widget.voyageId != null
+                      ? _selectedTime
+                      : _isLoadingAvailability
+                      ? 'Chargement...'
+                      : (_availableTimes.isEmpty
+                          ? 'Choisir une date et un trajet'
+                          : _selectedTime),
                   icon: Icons.schedule_rounded,
-                  onTap: widget.voyageId != null
+                  onTap: widget.voyageId != null || _availableTimes.isEmpty
                       ? () {}
-                      : _showTimePicker, // ⬅️ MODIF
-                  disabled: widget.voyageId != null, // ⬅️ AJOUT
+                      : _showTimePicker,
+                  disabled: widget.voyageId != null || _availableTimes.isEmpty,
                 ),
               ),
             ],
@@ -787,7 +908,7 @@ class _ReservationPageState extends State<_ReservationPage> {
           SizedBox(
             height: 52,
             child: ElevatedButton(
-              onPressed: _confirmReservation,
+              onPressed: _isLoadingAvailability ? null : _confirmReservation,
               style: ElevatedButton.styleFrom(
                 backgroundColor: _fofanaGreen,
                 shape: RoundedRectangleBorder(
@@ -815,6 +936,7 @@ class _ReservationPageState extends State<_ReservationPage> {
     _departController.text = _destinationController.text;
     _destinationController.text = first;
     setState(() {});
+    _refreshAvailability();
   }
 
   void _showTimePicker() {
@@ -842,7 +964,7 @@ class _ReservationPageState extends State<_ReservationPage> {
                 ),
               ),
               const SizedBox(height: 14),
-              ..._departureTimes.map(
+              ..._availableTimes.map(
                 (time) => Padding(
                   padding: const EdgeInsets.only(bottom: 10),
                   child: ListTile(
@@ -869,7 +991,10 @@ class _ReservationPageState extends State<_ReservationPage> {
                       ),
                     ),
                     onTap: () {
-                      setState(() => _selectedTime = time);
+                      setState(() {
+                        _selectedTime = time;
+                        _selectedVoyageId = _voyageByTime[time];
+                      });
                       Navigator.of(context).pop();
                     },
                   ),
@@ -1198,12 +1323,16 @@ class _PaymentDetailsPageState extends State<_PaymentDetailsPage> {
 
       // 3. Construire l'objet d'affichage local à partir de la vraie réponse backend
       final reservation = _ReservationItem(
+        ticketId: int.tryParse(ticketData?['id']?.toString() ?? ''),
+         voyageId: widget.voyageId, // ⬅️ AJOUT
         reference:
             ticketData?['reference']?.toString() ??
             'TB${DateTime.now().millisecondsSinceEpoch}',
         departure: widget.departure,
         destination: widget.destination,
-        date: widget.date,
+        date: '${widget.dateVoyage!.day.toString().padLeft(2, '0')}/'
+              '${widget.dateVoyage!.month.toString().padLeft(2, '0')}/'
+              '${widget.dateVoyage!.year}',
         time: widget.time,
         seat: '${(widget.passengers % 12 == 0 ? 12 : widget.passengers)}A',
         price: '${_formatAmount(widget.priceAmount)} CFA',
@@ -1211,6 +1340,7 @@ class _PaymentDetailsPageState extends State<_PaymentDetailsPage> {
         beneficiaryName: beneficiaryName,
         requesterPhone: requesterPhone,
         beneficiaryPhone: _isForSomeoneElse ? beneficiaryPhone : requesterPhone,
+        isPaymentPending: result['statut_paiement'] != 'payé',
         status: result['statut_paiement'] == 'payé'
             ? 'Confirmée'
             : 'En attente de paiement',
@@ -1518,30 +1648,80 @@ class _GeneratedTicketPageState extends State<_GeneratedTicketPage> {
   }
 
   void _editReservation() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _EditReservationSheet(
-        reservation: _reservation,
-        onSave: (updated) {
-          _HistoryRepository.updateReservation(updated);
-          setState(() => _reservation = updated);
-        },
-      ),
-    );
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (_) => _EditReservationSheet(
+      reservation: _reservation,
+      onSave: (updated) async {
+        await _updateReservation(updated);
+      },
+    ),
+  );
+}
+
+Future<void> _updateReservation(_ReservationItem updated) async {
+  final ticketId = _reservation.ticketId;
+  final voyageId = _reservation.voyageId;
+  if (ticketId == null || voyageId == null) {
+    _showActionError('Réservation introuvable sur le serveur.');
+    return;
   }
+
+  final dateParts = updated.date.split('/');
+  if (dateParts.length != 3) {
+    _showActionError('Format de date invalide.');
+    return;
+  }
+
+  try {
+    await TicketService().reprogrammer(
+      ticketId: ticketId,
+      nouvelleDate: '${dateParts[2]}-${dateParts[1].padLeft(2, '0')}-${dateParts[0].padLeft(2, '0')}',
+      nouvelleHeure: _reservation.time,
+      nouveauVoyageId: voyageId,
+    );
+    if (mounted) setState(() => _reservation = updated);
+  } catch (error) {
+    _showActionError(error.toString().replaceFirst('Exception: ', ''));
+  }
+}
+
+void _showActionError(String message) {
+  if (!mounted) return;
+  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+}
 
   Future<void> _confirmCancel() async {
     final shouldCancel = await _showCancelReservationDialog(context);
     if (shouldCancel != true) return;
 
+    final ticketId = _reservation.ticketId;
+    if (ticketId == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Réservation introuvable sur le serveur.')),
+      );
+      return;
+    }
+
+    try {
+      await TicketService().annulerClient(ticketId);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.toString().replaceFirst('Exception: ', ''))),
+      );
+      return;
+    }
+
     _HistoryRepository.removeReservation(_reservation.reference);
     if (!mounted) return;
     Navigator.of(context).pop();
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Réservation annulée.')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Réservation annulée.')),
+    );
   }
 
   @override
@@ -1596,6 +1776,11 @@ class _GeneratedTicketPageState extends State<_GeneratedTicketPage> {
                       ),
                     ),
                     const SizedBox(height: 18),
+                    _ReservationPaymentCard(
+                      amount: _reservation.price,
+                      onPay: _showPaymentSheet,
+                    ),
+                    const SizedBox(height: 20),
                     _TicketVisual(
                       departure: _reservation.departure,
                       destination: _reservation.destination,
@@ -1606,8 +1791,7 @@ class _GeneratedTicketPageState extends State<_GeneratedTicketPage> {
                       beneficiaryName: _reservation.beneficiaryName,
                       total: _reservation.price,
                       reference: _reservation.reference,
-                      primaryActionLabel: 'Effectuer le règlement',
-                      onPrimaryAction: _showPaymentSheet,
+                      primaryActionLabel: '',
                       onEdit: _editReservation,
                       onCancel: _confirmCancel,
                     ),
@@ -1617,6 +1801,86 @@ class _GeneratedTicketPageState extends State<_GeneratedTicketPage> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ReservationPaymentCard extends StatelessWidget {
+  final String amount;
+  final VoidCallback onPay;
+
+  const _ReservationPaymentCard({
+    required this.amount,
+    required this.onPay,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const deepBlue = Color(0xFF0B4F2A);
+    const green = Color(0xFF16A34A);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [deepBlue, Color(0xFF116B3B)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: deepBlue.withValues(alpha: 0.2),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Montant à payer',
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            amount,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 32,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            height: 54,
+            child: ElevatedButton.icon(
+              onPressed: onPay,
+              icon: const Icon(Icons.lock_rounded, size: 19),
+              label: const Text('Effectuer le paiement'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: green,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                textStyle: const TextStyle(
+                  fontSize: 15.5,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1645,9 +1909,22 @@ class _PaymentMethodSheetState extends State<_PaymentMethodSheet> {
   List<PaymentProvider> _providers = [];
   bool _isLoadingProviders = true;
   String? _selectedProviderSlug;
-  String? _selectedMethod;
+  String _selectedMethod = 'all';
   bool _isProcessing = false;
   Timer? _pollingTimer;
+
+  IconData _providerIcon(String slug) {
+    switch (slug.toLowerCase()) {
+      case 'feexpay':
+        return Icons.phone_android_rounded;
+      case 'fedapay':
+        return Icons.account_balance_wallet_rounded;
+      case 'kkiapay':
+        return Icons.credit_card_rounded;
+      default:
+        return Icons.payments_rounded;
+    }
+  }
 
   @override
   void initState() {
@@ -1676,7 +1953,7 @@ class _PaymentMethodSheetState extends State<_PaymentMethodSheet> {
   }
 
   Future<void> _startPayment() async {
-    if (_selectedProviderSlug == null || _selectedMethod == null) return;
+    if (_selectedProviderSlug == null) return;
 
     setState(() => _isProcessing = true);
 
@@ -1684,7 +1961,7 @@ class _PaymentMethodSheetState extends State<_PaymentMethodSheet> {
       final result = await PaymentService().initierPaiement(
         payableRef: widget.ticketReference,
         provider: _selectedProviderSlug!,
-        method: _selectedMethod!,
+        method: _selectedMethod,
         payableType: 'ticket',
       );
 
@@ -1932,7 +2209,7 @@ class _PaymentMethodSheetState extends State<_PaymentMethodSheet> {
                       GestureDetector(
                         onTap: () => setState(() {
                           _selectedProviderSlug = provider.slug;
-                          _selectedMethod = null;
+                          _selectedMethod = 'all';
                         }),
                         child: Container(
                           padding: const EdgeInsets.symmetric(
@@ -1962,6 +2239,14 @@ class _PaymentMethodSheetState extends State<_PaymentMethodSheet> {
                                     : const Color(0xFFB1B8C8),
                               ),
                               const SizedBox(width: 12),
+                              Icon(
+                                _providerIcon(provider.slug),
+                                color: isSelectedProvider
+                                    ? _fofanaGreen
+                                    : _deepBlue,
+                                size: 28,
+                              ),
+                              const SizedBox(width: 12),
                               Text(
                                 provider.name,
                                 style: const TextStyle(
@@ -1974,51 +2259,6 @@ class _PaymentMethodSheetState extends State<_PaymentMethodSheet> {
                           ),
                         ),
                       ),
-                      if (isSelectedProvider) ...[
-                        const SizedBox(height: 8),
-                        Padding(
-                          padding: const EdgeInsets.only(left: 8),
-                          child: Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: provider.methods.entries
-                                .where((m) => m.key != 'all')
-                                .map((m) {
-                                  final isSelectedMethod =
-                                      _selectedMethod == m.key;
-                                  return GestureDetector(
-                                    onTap: () =>
-                                        setState(() => _selectedMethod = m.key),
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 14,
-                                        vertical: 9,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: isSelectedMethod
-                                            ? _fofanaGreen
-                                            : const Color(0xFFF2F4F7),
-                                        borderRadius: BorderRadius.circular(
-                                          999,
-                                        ),
-                                      ),
-                                      child: Text(
-                                        m.value,
-                                        style: TextStyle(
-                                          color: isSelectedMethod
-                                              ? Colors.white
-                                              : _deepBlue,
-                                          fontWeight: FontWeight.w800,
-                                          fontSize: 12.5,
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                })
-                                .toList(),
-                          ),
-                        ),
-                      ],
                     ],
                   ),
                 );
@@ -2030,7 +2270,7 @@ class _PaymentMethodSheetState extends State<_PaymentMethodSheet> {
                 height: 54,
                 child: ElevatedButton(
                   onPressed:
-                      (_selectedProviderSlug != null && _selectedMethod != null)
+                      _selectedProviderSlug != null
                       ? _startPayment
                       : null,
                   style: ElevatedButton.styleFrom(
@@ -2058,7 +2298,7 @@ class _PaymentMethodSheetState extends State<_PaymentMethodSheet> {
 
 class _EditReservationSheet extends StatefulWidget {
   final _ReservationItem reservation;
-  final ValueChanged<_ReservationItem> onSave;
+  final Future<void> Function(_ReservationItem) onSave;
 
   const _EditReservationSheet({
     required this.reservation,
@@ -2159,7 +2399,7 @@ class _EditReservationSheetState extends State<_EditReservationSheet> {
     );
   }
 
-  void _save() {
+  Future<void> _save() async {
     if (_departureController.text.trim().isEmpty ||
         _destinationController.text.trim().isEmpty ||
         _dateController.text.trim().isEmpty ||
@@ -2181,7 +2421,7 @@ class _EditReservationSheetState extends State<_EditReservationSheet> {
       return;
     }
 
-    widget.onSave(
+    await widget.onSave(
       widget.reservation.copyWith(
         departure: _departureController.text.trim(),
         destination: _destinationController.text.trim(),
@@ -2191,7 +2431,7 @@ class _EditReservationSheetState extends State<_EditReservationSheet> {
         beneficiaryPhone: _phoneController.text.trim(),
       ),
     );
-    Navigator.of(context).pop();
+    if (mounted) Navigator.of(context).pop();
   }
 
   @override

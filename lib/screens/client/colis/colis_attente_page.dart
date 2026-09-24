@@ -181,9 +181,22 @@ class _ParcelPaymentPageState extends State<_ParcelPaymentPage> {
   List<PaymentProvider> _providers = [];
   bool _isLoadingProviders = true;
   String? _selectedProviderSlug;
-  String? _selectedMethod;
+  String _selectedMethod = 'all';
   bool _isProcessing = false;
   Timer? _pollingTimer;
+
+  IconData _providerIcon(String slug) {
+    switch (slug.toLowerCase()) {
+      case 'feexpay':
+        return Icons.phone_android_rounded;
+      case 'fedapay':
+        return Icons.account_balance_wallet_rounded;
+      case 'kkiapay':
+        return Icons.credit_card_rounded;
+      default:
+        return Icons.payments_rounded;
+    }
+  }
 
   @override
   void initState() {
@@ -212,7 +225,7 @@ class _ParcelPaymentPageState extends State<_ParcelPaymentPage> {
   }
 
   Future<void> _startParcelPayment() async {
-    if (_selectedProviderSlug == null || _selectedMethod == null) return;
+    if (_selectedProviderSlug == null) return;
 
     setState(() => _isProcessing = true);
 
@@ -220,7 +233,7 @@ class _ParcelPaymentPageState extends State<_ParcelPaymentPage> {
       final result = await PaymentService().initierPaiement(
         payableRef: widget.parcel.code,
         provider: _selectedProviderSlug!,
-        method: _selectedMethod!,
+        method: _selectedMethod,
         payableType: 'colis',
       );
 
@@ -474,7 +487,7 @@ class _ParcelPaymentPageState extends State<_ParcelPaymentPage> {
                         GestureDetector(
                           onTap: () => setState(() {
                             _selectedProviderSlug = provider.slug;
-                            _selectedMethod = null;
+                            _selectedMethod = 'all';
                           }),
                           child: Container(
                             padding: const EdgeInsets.symmetric(
@@ -504,6 +517,14 @@ class _ParcelPaymentPageState extends State<_ParcelPaymentPage> {
                                       : const Color(0xFFB1B8C8),
                                 ),
                                 const SizedBox(width: 12),
+                                Icon(
+                                  _providerIcon(provider.slug),
+                                  color: isSelected
+                                      ? _deepBlue
+                                      : _deepBlue.withValues(alpha: 0.7),
+                                  size: 28,
+                                ),
+                                const SizedBox(width: 12),
                                 Text(
                                   provider.name,
                                   style: const TextStyle(
@@ -516,52 +537,6 @@ class _ParcelPaymentPageState extends State<_ParcelPaymentPage> {
                             ),
                           ),
                         ),
-                        if (isSelected) ...[
-                          const SizedBox(height: 8),
-                          Padding(
-                            padding: const EdgeInsets.only(left: 8),
-                            child: Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: provider.methods.entries
-                                  .where((m) => m.key != 'all')
-                                  .map((m) {
-                                    final isSelectedMethod =
-                                        _selectedMethod == m.key;
-                                    return GestureDetector(
-                                      onTap: () => setState(
-                                        () => _selectedMethod = m.key,
-                                      ),
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 14,
-                                          vertical: 9,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: isSelectedMethod
-                                              ? _deepBlue
-                                              : const Color(0xFFF2F4F7),
-                                          borderRadius: BorderRadius.circular(
-                                            999,
-                                          ),
-                                        ),
-                                        child: Text(
-                                          m.value,
-                                          style: TextStyle(
-                                            color: isSelectedMethod
-                                                ? Colors.white
-                                                : _deepBlue,
-                                            fontWeight: FontWeight.w800,
-                                            fontSize: 12.5,
-                                          ),
-                                        ),
-                                      ),
-                                    );
-                                  })
-                                  .toList(),
-                            ),
-                          ),
-                        ],
                       ],
                     ),
                   );
@@ -574,9 +549,7 @@ class _ParcelPaymentPageState extends State<_ParcelPaymentPage> {
                 height: 56,
                 child: ElevatedButton(
                   onPressed:
-                      (_selectedProviderSlug != null &&
-                          _selectedMethod != null &&
-                          !_isProcessing)
+                      (_selectedProviderSlug != null && !_isProcessing)
                       ? _startParcelPayment
                       : null,
                   style: ElevatedButton.styleFrom(

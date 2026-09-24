@@ -34,12 +34,6 @@ class AgenceService {
       )
       .timeout(const Duration(seconds: 8));
 
-      // 🔍 AJOUT TEMPORAIRE : voir exactement ce que répond le serveur
-      print('➡️ URL appelée: $uri');
-      print('➡️ Token présent: ${token != null}');
-      print('⬅️ Status code: ${response.statusCode}');
-      print('⬅️ Body: ${response.body}');
-
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final List agencesJson = data['agences'] ?? [];

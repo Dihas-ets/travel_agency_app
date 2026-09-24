@@ -30,6 +30,7 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
   final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
   Timer? _resendTimer;
   int _resendRemaining = 90;
+  bool _isResending = false;
 
   @override
   void initState() {
@@ -63,14 +64,60 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
     });
   }
 
-  void _renvoyerCode() {
-    _startResendTimer();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Code renvoyé.'),
-        backgroundColor: Color(0xFF16A34A),
-      ),
-    );
+  Future<void> _renvoyerCode() async {
+    if (_resendRemaining > 0 || _isResending) return;
+
+    final arguments = Get.arguments as Map<String, dynamic>? ?? {};
+    String phone = arguments['phone']?.toString() ?? '';
+    String flow = arguments['flow']?.toString() ?? 'login';
+
+    if (phone.isEmpty) {
+      phone = SessionStore.currentClientPhone ?? '';
+    }
+    if (phone.isEmpty) {
+      Get.snackbar(
+        'Numéro introuvable',
+        'Aucun numéro n’a été trouvé pour renvoyer le code.',
+        backgroundColor: Colors.redAccent,
+        colorText: Colors.white,
+      );
+      return;
+    }
+
+    setState(() => _isResending = true);
+    try {
+      final result = await AuthService().renvoyerOtp(
+        telephone: phone,
+        flow: flow,
+      );
+      if (!mounted) return;
+      if (result['success'] == true) {
+        _startResendTimer();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Un nouveau code vient d’être envoyé.'),
+            backgroundColor: Color(0xFF16A34A),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result['message']?.toString() ?? 'Échec du renvoi.'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Impossible de renvoyer le code. Réessayez.'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isResending = false);
+    }
   }
 
   /// Gère le passage automatique d'une case à l'autre.
@@ -380,12 +427,24 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
                               )
                             : TextButton.icon(
                                 key: const ValueKey('resend-button'),
-                                onPressed: _renvoyerCode,
-                                icon: const Icon(
-                                  Icons.refresh_rounded,
-                                  size: 18,
+                                onPressed: _isResending ? null : _renvoyerCode,
+                                icon: _isResending
+                                    ? const SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Icon(
+                                        Icons.refresh_rounded,
+                                        size: 18,
+                                      ),
+                                label: Text(
+                                  _isResending
+                                      ? 'Envoi en cours...'
+                                      : 'Renvoyer le code',
                                 ),
-                                label: const Text('Renvoyer'),
                                 style: TextButton.styleFrom(
                                   foregroundColor: const Color(0xFF16A34A),
                                   textStyle: const TextStyle(

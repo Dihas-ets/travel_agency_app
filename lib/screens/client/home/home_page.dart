@@ -1,12 +1,19 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
+import 'package:http/http.dart' as http;
+import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:code_initial/services/ticket_service.dart';
+import 'package:code_initial/services/ticket_print_settings_service.dart';
 import 'package:code_initial/screens/client/colis/pages_colis.dart';
 import 'package:code_initial/models/store/colis_store.dart';
 import 'package:code_initial/data/local/session_store.dart';

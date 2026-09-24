@@ -50,7 +50,8 @@ class _WelcomePageState extends State<WelcomePage> {
         ),
         action: SnackBarAction(
           label: 'Activer',
-          textColor: Colors.white,
+           textColor: Colors.white,
+           backgroundColor: const Color(0xFF16A34A),
           onPressed: _requestLocationActivation,
         ),
       ),

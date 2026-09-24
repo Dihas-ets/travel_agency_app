@@ -199,7 +199,7 @@ class _AgencyMapCard extends StatefulWidget {
 
 enum _AgencesLoadState { loading, success, error }
 
-class _LocationDisabledCard extends StatelessWidget {
+class _LocationDisabledCard extends StatefulWidget {
   final bool isLoading;
   final VoidCallback onEnableLocation;
 
@@ -209,7 +209,34 @@ class _LocationDisabledCard extends StatelessWidget {
   });
 
   @override
+  State<_LocationDisabledCard> createState() => _LocationDisabledCardState();
+}
+
+class _LocationDisabledCardState extends State<_LocationDisabledCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _attentionController;
+
+  @override
+  void initState() {
+    super.initState();
+    _attentionController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _attentionController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final pulse = CurvedAnimation(
+      parent: _attentionController,
+      curve: Curves.easeInOut,
+    );
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
@@ -260,7 +287,7 @@ class _LocationDisabledCard extends StatelessWidget {
           Material(
             color: Colors.transparent,
             child: InkWell(
-              onTap: isLoading ? null : onEnableLocation,
+              onTap: widget.isLoading ? null : widget.onEnableLocation,
               borderRadius: BorderRadius.circular(20),
               child: Ink(
                 height: 140,
@@ -273,47 +300,76 @@ class _LocationDisabledCard extends StatelessWidget {
                   ),
                 ),
                 child: Center(
-                  child: isLoading
+                  child: widget.isLoading
                       ? const SizedBox(
                           width: 26,
                           height: 26,
                           child: CircularProgressIndicator(strokeWidth: 3),
                         )
-                      : const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 16),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                'Activez la localisation pour voir les agences proches.',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: Color(0xFF5F6B86),
-                                  fontSize: 14.5,
-                                  fontWeight: FontWeight.w700,
+                      : Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: AnimatedBuilder(
+                            animation: pulse,
+                            builder: (context, child) => Transform.scale(
+                              scale: 1 + (pulse.value * 0.05),
+                              child: child,
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Text(
+                                  'Activez la localisation pour voir les agences proches.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: Color(0xFF5F6B86),
+                                    fontSize: 14.5,
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ),
-                              ),
-                              SizedBox(height: 12),
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.my_location_rounded,
-                                    color: Color(0xFF16A34A),
-                                    size: 18,
+                                const SizedBox(height: 14),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 18,
+                                    vertical: 11,
                                   ),
-                                  SizedBox(width: 8),
-                                  Text(
-                                    'Réessayer',
-                                    style: TextStyle(
-                                      color: Color(0xFF16A34A),
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w900,
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      colors: [Color(0xFF16A34A), Color(0xFF0F9F4A)],
+                                      begin: Alignment.centerLeft,
+                                      end: Alignment.centerRight,
                                     ),
+                                    borderRadius: BorderRadius.circular(16),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: const Color(0xFF16A34A).withValues(alpha: 0.32),
+                                        blurRadius: 14,
+                                        offset: const Offset(0, 8),
+                                      ),
+                                    ],
                                   ),
-                                ],
-                              ),
-                            ],
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.my_location_rounded,
+                                        color: Colors.white,
+                                        size: 18,
+                                      ),
+                                      SizedBox(width: 8),
+                                      Text(
+                                        'Activé',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w900,
+                                          letterSpacing: 0.3,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                 ),
@@ -365,9 +421,7 @@ class _AgencyMapCardState extends State<_AgencyMapCard> {
 
       // ⬇️ AJOUT : ajuste la caméra pour englober tous les marqueurs
       WidgetsBinding.instance.addPostFrameCallback((_) => _fitBounds());
-    } catch (e, stack) {
-      print('❌ ERREUR CHARGEMENT AGENCES: $e');
-      print(stack);
+    } catch (_) {
       if (!mounted) return;
       setState(() => _state = _AgencesLoadState.error);
     }
@@ -531,50 +585,6 @@ class _AgencyMapCardState extends State<_AgencyMapCard> {
   }
 }
 
-
-
-class _AgencyMapPin extends StatelessWidget {
-  final String label;
-
-  const _AgencyMapPin({required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(999),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.08),
-                blurRadius: 10,
-                offset: const Offset(0, 5),
-              ),
-            ],
-          ),
-          child: Text(
-            label,
-            style: const TextStyle(
-              color: Color(0xFF0B4F2A),
-              fontSize: 11,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ),
-        const Icon(
-          Icons.location_on_rounded,
-          color: Color(0xFF16A34A),
-          size: 34,
-        ),
-      ],
-    );
-  }
-
-  
-}
 
 
 class _AgencyFullMapPage extends StatefulWidget {

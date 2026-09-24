@@ -13,12 +13,214 @@ class _HistoryPage extends StatefulWidget {
 
 class _HistoryPageState extends State<_HistoryPage> {
   _HistoryScope _scope = _HistoryScope.reservations;
+  String _ticketStatus = 'passé';
+  bool _isLoading = true;
+  String? _loadError;
 
   static const Color _deepBlue = Color(0xFF0B4F2A);
   static const Color _fofanaGreen = Color(0xFF16A34A);
 
-  List<_ReservationItem> get _reservations => _HistoryRepository.reservations;
-  List<_TicketItem> get _tickets => _HistoryRepository.tickets;
+  List<_ReservationItem> _reservations = [];
+  List<_ReservationItem> _allTickets = [];
+
+  List<_ReservationItem> get _tickets => _allTickets
+      .where((item) => _normalizedStatus(item.status) == _ticketStatus)
+      .toList();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHistory();
+  }
+
+  String _normalizedStatus(String status) {
+    final normalized = status.trim().toLowerCase();
+    if (normalized == 'en_cours' ||
+        normalized == 'en cours' ||
+        normalized == 'encours') {
+      return 'en_cours';
+    }
+    if (normalized.contains('attente')) return 'en_attente';
+    if (normalized.contains('annul')) return 'annulé';
+    if (normalized.contains('pass')) return 'passé';
+    if (normalized.contains('termin')) return 'terminé';
+    if (normalized == 'passe') return 'passé';
+    if (normalized == 'annule') return 'annulé';
+    if (normalized.contains('utilis')) return 'passé'; //
+    return 'en_cours';
+  }
+
+  _ReservationItem _itemFromJson(Map<String, dynamic> json) {
+    final ligne = json['ligne'] as Map<String, dynamic>?;
+    final paymentStatus = _normalizeStatusValue(json['statut_paiement']);
+    
+    final ticketStatus = _normalizedStatus(
+      json['statut']?.toString() ?? 'en_cours',
+    );
+    final mecef = json['mecef_response'] is Map
+        ? Map<String, dynamic>.from(json['mecef_response'] as Map)
+        : const <String, dynamic>{};
+    return _ReservationItem(
+      ticketId: int.tryParse(json['id']?.toString() ?? ''),
+      voyageId: int.tryParse(json['voyage_id']?.toString() ?? ''),
+      reference: json['reference']?.toString() ?? '',
+      departure: ligne?['trajet_depart']?.toString() ?? '',
+      destination: ligne?['trajet_arrivee']?.toString() ?? '',
+      date: _formatTravelDate(json['date_voyage']?.toString() ?? ''),
+      time: _formatTravelTime(json['heure_voyage']?.toString() ?? ''),
+      seat: 'x${json['nbre_place'] ?? 1}',
+      price: _formatMoney(json['tarif_total']),
+      amountBase: _formatMoney(json['montant_base'] ?? json['tarif_total']),
+      taxAmount: _formatMoney(json['montant_taxe'] ?? 0),
+      taxRate: json['taxe_taux']?.toString() ?? '0',
+      passengerCount: int.tryParse(json['nbre_place']?.toString() ?? '') ?? 1,
+      beneficiaryName:
+          '${json['prenom_passager'] ?? ''} ${json['nom_passager'] ?? ''}'.trim(),
+      requesterPhone: json['numero_passager']?.toString() ?? '',
+      beneficiaryPhone: json['numero_passager']?.toString() ?? '',
+      issuerName: _issuerName(json['emetteur']),
+      qrData: _isPaidPaymentStatus(paymentStatus)
+          ? _mecefQrData(json['mecef_response'])
+          : null,
+      mecefCode: mecef['code_mecef']?.toString(),
+      mecefNim: mecef['nim']?.toString(),
+      mecefCounters: mecef['counters']?.toString(),
+      mecefDate: mecef['date_mecef']?.toString(),
+      isPaymentPending: paymentStatus != 'paye' &&
+          paymentStatus != 'paid' &&
+          paymentStatus != 'success' &&
+          paymentStatus != 'successful',
+      status: _isPaidPaymentStatus(paymentStatus)
+          ? ticketStatus
+          : 'en_attente',
+    );
+  }
+
+  bool _isPaidPaymentStatus(String status) {
+    return status == 'paye' ||
+        status == 'paid' ||
+        status == 'success' ||
+        status == 'successful';
+  }
+
+  String? _mecefQrData(dynamic rawResponse) {
+    if (rawResponse is! Map) return null;
+    final response = Map<String, dynamic>.from(rawResponse);
+    final status = _normalizeStatusValue(response['status']);
+    if (status != 'confirmed') return null;
+    final qrCode = response['qr_code']?.toString().trim();
+    if (qrCode != null && qrCode.isNotEmpty && qrCode != 'null') {
+      return qrCode;
+    }
+    final code = response['code_mecef']?.toString().trim();
+    return code == null || code.isEmpty || code == 'null' ? null : code;
+  }
+
+  String _normalizeStatusValue(dynamic value) {
+    return value
+        ?.toString()
+        .trim()
+        .toLowerCase()
+        .replaceAll('é', 'e')
+        .replaceAll('è', 'e')
+        .replaceAll('ê', 'e')
+        .replaceAll(RegExp(r'[\s-]+'), '_') ??
+        '';
+  }
+
+  String _formatMoney(dynamic value) {
+    final amount = double.tryParse(value?.toString() ?? '') ?? 0;
+    final raw = amount.toStringAsFixed(
+      amount.truncateToDouble() == amount ? 0 : 2,
+    );
+    final parts = raw.split('.');
+    final grouped = parts.first.replaceAllMapped(
+      RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
+      (match) => '${match.group(1)} ',
+    );
+    return '${parts.length == 1 ? grouped : '$grouped,${parts[1]}'} FCFA';
+  }
+
+  String _issuerName(dynamic value) {
+    if (value is! Map) return '';
+    final emetteur = Map<String, dynamic>.from(value);
+    return '${emetteur['prenom'] ?? ''} ${emetteur['nom'] ?? ''}'.trim();
+  }
+
+  String _formatTravelDate(String value) {
+    final raw = value.trim();
+    final match = RegExp(r'^(\d{4})-(\d{2})-(\d{2})').firstMatch(raw);
+    if (match != null) {
+      return '${match.group(3)}/${match.group(2)}/${match.group(1)}';
+    }
+    final slashMatch = RegExp(r'^(\d{1,2})/(\d{1,2})/(\d{4})').firstMatch(raw);
+    if (slashMatch != null) {
+      return '${slashMatch.group(1)!.padLeft(2, '0')}/${slashMatch.group(2)!.padLeft(2, '0')}/${slashMatch.group(3)}';
+    }
+    return raw;
+  }
+
+  String _formatTravelTime(String value) {
+    final raw = value.trim();
+    final match = RegExp(r'(\d{1,2}):(\d{2})').firstMatch(raw);
+    if (match != null) {
+      return '${match.group(1)!.padLeft(2, '0')}:${match.group(2)}';
+    }
+    final hourMatch = RegExp(r'^(\d{1,2})h(\d{0,2})$').firstMatch(raw);
+    if (hourMatch != null) {
+      return '${hourMatch.group(1)!.padLeft(2, '0')}:${(hourMatch.group(2)!.isEmpty ? '00' : hourMatch.group(2)!).padLeft(2, '0')}';
+    }
+    return raw;
+  }
+
+Future<void> _loadHistory({bool showLoader = true}) async {
+  if (showLoader && mounted) {
+    setState(() {
+      _isLoading = true;
+      _loadError = null;
+    });
+  }
+
+  try {
+    final rows = await TicketService().getHistoriqueClient();
+
+    final items = rows
+        .map(_itemFromJson)
+        .where((item) => item.reference.isNotEmpty)
+        .toList();
+
+    if (!mounted) return;
+
+    final reservations = items
+        .where(
+          (item) =>
+              item.status == 'en_attente' ||
+              item.status == 'en_cours',
+        )
+        .toList()
+      ..sort(
+        (a, b) => (a.status == 'en_attente' ? 1 : 0).compareTo(
+          b.status == 'en_attente' ? 1 : 0,
+        ),
+      );
+
+    setState(() {
+      _allTickets = items;
+      _reservations = reservations;
+      _isLoading = false;
+      _loadError = null;
+    });
+  } catch (error) {
+    if (!mounted) return;
+
+    setState(() {
+      _loadError = error.toString().replaceFirst('Exception: ', '');
+      _isLoading = false;
+    });
+  }
+}
+
+
 
   Future<void> _openReservationTicket(_ReservationItem reservation) async {
     await Navigator.of(context).push(
@@ -26,7 +228,7 @@ class _HistoryPageState extends State<_HistoryPage> {
         builder: (_) => _ReservationTicketPage(reservation: reservation),
       ),
     );
-    if (mounted) setState(() {});
+    if (mounted) await _loadHistory();
   }
 
   @override
@@ -103,7 +305,14 @@ class _HistoryPageState extends State<_HistoryPage> {
                       const SizedBox(height: 18),
                       _buildScopeSwitcher(),
                       const SizedBox(height: 18),
-                      if (_scope == _HistoryScope.reservations)
+                      if (_isLoading)
+                        const Center(child: CircularProgressIndicator())
+                      else if (_loadError != null)
+                        _buildEmptyState(
+                          title: 'Historique indisponible',
+                          message: _loadError!,
+                        )
+                      else if (_scope == _HistoryScope.reservations)
                         _buildReservationSection()
                       else
                         _buildTicketSection(),
@@ -198,9 +407,11 @@ class _HistoryPageState extends State<_HistoryPage> {
           )
         else
           ..._reservations.map(
-            (item) => _ReservationCard(
+            (item) => _ReservationSummaryCard(
               item: item,
-              onTicketNow: () => _openReservationTicket(item),
+              onPay: item.isPaymentPending
+                  ? () => _openReservationTicket(item)
+                  : null,
             ),
           ),
       ],
@@ -220,16 +431,51 @@ class _HistoryPageState extends State<_HistoryPage> {
           ),
         ),
         const SizedBox(height: 14),
+        _buildStatusTabs(),
+        const SizedBox(height: 14),
         if (_tickets.isEmpty)
           _buildEmptyState(
-            title: 'Aucun billet disponible',
-            message: 'Vos billets apparaîtront ici après une réservation.',
+            title: 'Aucun billet dans cette catégorie',
+            message: 'Les billets correspondants apparaîtront ici.',
           )
         else
           ..._tickets.map(
-            (item) => _TicketCard(item: item, onChanged: () => setState(() {})),
+            (item) => _ReservationCard(
+              item: item,
+              onTicketNow: null,
+            ),
           ),
       ],
+    );
+  }
+
+  Widget _buildStatusTabs() {
+    const statuses = ['passé', 'annulé', 'terminé'];
+    const labels = {
+      'passé': 'Passé',
+      'annulé': 'Annulé',
+      'terminé': 'Terminé',
+    };
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: statuses.map((status) {
+          final selected = status == _ticketStatus;
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: ChoiceChip(
+              label: Text(labels[status]!),
+              selected: selected,
+              onSelected: (_) => setState(() => _ticketStatus = status),
+              selectedColor: _fofanaGreen,
+              labelStyle: TextStyle(
+                color: selected ? Colors.white : _deepBlue,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          );
+        }).toList(),
+      ),
     );
   }
 
@@ -268,6 +514,8 @@ class _HistoryPageState extends State<_HistoryPage> {
 }
 
 class _ReservationItem {
+  final int? ticketId;
+  final int? voyageId;
   final String reference;
   final String departure;
   final String destination;
@@ -275,13 +523,25 @@ class _ReservationItem {
   final String time;
   final String seat;
   final String price;
+  final String amountBase;
+  final String taxAmount;
+  final String taxRate;
   final int passengerCount;
   final String beneficiaryName;
   final String requesterPhone;
   final String beneficiaryPhone;
+  final String issuerName;
+  final String? qrData;
+  final String? mecefCode;
+  final String? mecefNim;
+  final String? mecefCounters;
+  final String? mecefDate;
+  final bool isPaymentPending;
   final String status;
 
   const _ReservationItem({
+    this.ticketId,
+    this.voyageId,
     required this.reference,
     required this.departure,
     required this.destination,
@@ -289,29 +549,53 @@ class _ReservationItem {
     required this.time,
     required this.seat,
     required this.price,
+    this.amountBase = '0 FCFA',
+    this.taxAmount = '0 FCFA',
+    this.taxRate = '0',
     required this.passengerCount,
     required this.beneficiaryName,
     required this.requesterPhone,
     required this.beneficiaryPhone,
+    this.issuerName = '',
+    this.qrData,
+    this.mecefCode,
+    this.mecefNim,
+    this.mecefCounters,
+    this.mecefDate,
+    required this.isPaymentPending,
     required this.status,
   });
 
   String get route => '$departure → $destination';
 
   _ReservationItem copyWith({
+    int? ticketId,
+    int? voyageId,
     String? departure,
     String? destination,
     String? date,
     String? time,
     String? seat,
     String? price,
+    String? amountBase,
+    String? taxAmount,
+    String? taxRate,
     int? passengerCount,
     String? beneficiaryName,
     String? requesterPhone,
     String? beneficiaryPhone,
+    String? issuerName,
+    String? qrData,
+    String? mecefCode,
+    String? mecefNim,
+    String? mecefCounters,
+    String? mecefDate,
+    bool? isPaymentPending,
     String? status,
   }) {
     return _ReservationItem(
+      ticketId: ticketId ?? this.ticketId,
+      voyageId: voyageId ?? this.voyageId,
       reference: reference,
       departure: departure ?? this.departure,
       destination: destination ?? this.destination,
@@ -319,10 +603,20 @@ class _ReservationItem {
       time: time ?? this.time,
       seat: seat ?? this.seat,
       price: price ?? this.price,
+      amountBase: amountBase ?? this.amountBase,
+      taxAmount: taxAmount ?? this.taxAmount,
+      taxRate: taxRate ?? this.taxRate,
       passengerCount: passengerCount ?? this.passengerCount,
       beneficiaryName: beneficiaryName ?? this.beneficiaryName,
       requesterPhone: requesterPhone ?? this.requesterPhone,
       beneficiaryPhone: beneficiaryPhone ?? this.beneficiaryPhone,
+      issuerName: issuerName ?? this.issuerName,
+      qrData: qrData ?? this.qrData,
+      mecefCode: mecefCode ?? this.mecefCode,
+      mecefNim: mecefNim ?? this.mecefNim,
+      mecefCounters: mecefCounters ?? this.mecefCounters,
+      mecefDate: mecefDate ?? this.mecefDate,
+      isPaymentPending: isPaymentPending ?? this.isPaymentPending,
       status: status ?? this.status,
     );
   }
@@ -358,6 +652,87 @@ class _TicketItem {
   });
 
   String get route => '$departure → $destination';
+}
+
+class _ReservationSummaryCard extends StatelessWidget {
+  final _ReservationItem item;
+  final VoidCallback? onPay;
+
+  const _ReservationSummaryCard({required this.item, this.onPay});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 18),
+      child: Column(
+        children: [
+          _TicketVisual(
+            departure: item.departure,
+            destination: item.destination,
+            date: item.date,
+            time: item.time,
+            passengerCount: item.passengerCount,
+            ticketIndex: 1,
+            beneficiaryName: item.beneficiaryName,
+            total: item.price,
+            reference: item.reference,
+            qrData: item.qrData,
+            mecefCode: item.mecefCode,
+            mecefNim: item.mecefNim,
+            mecefCounters: item.mecefCounters,
+            primaryActionLabel: '',
+            showCancelAction: false,
+          ),
+          if (onPay != null) ...[
+            const SizedBox(height: 12),
+            _ReservationPaymentCard(
+              amount: item.price,
+              onPay: onPay!,
+            ),
+          ],
+          if (onPay == null && item.qrData != null) ...[
+            const SizedBox(height: 12),
+            _PrintTicketButton(item: item),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _PrintTicketButton extends StatelessWidget {
+  final _ReservationItem item;
+
+  const _PrintTicketButton({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: 50,
+      child: OutlinedButton.icon(
+        onPressed: () async {
+          try {
+            await _printTicket(item);
+          } catch (error) {
+            if (!context.mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  error.toString().replaceFirst('Exception: ', ''),
+                ),
+              ),
+            );
+          }
+        },
+        icon: const Icon(Icons.print_rounded),
+        label: const Text(
+          'Imprimer le billet',
+          style: TextStyle(fontWeight: FontWeight.w900),
+        ),
+      ),
+    );
+  }
 }
 
 class _ReservationCard extends StatelessWidget {
@@ -504,7 +879,7 @@ class _ReservationCard extends StatelessWidget {
                   ),
                 ),
                 child: const Text(
-                  'Billet maintenant',
+                  'Procéder au paiement',
                   style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w900),
                 ),
               ),
@@ -549,9 +924,8 @@ class _ReservationTicketPageState extends State<_ReservationTicketPage> {
       backgroundColor: Colors.transparent,
       builder: (_) => _EditReservationSheet(
         reservation: _reservation,
-        onSave: (updated) {
-          _HistoryRepository.updateReservation(updated);
-          setState(() => _reservation = updated);
+        onSave: (updated) async {
+          await _updateReservation(updated);
         },
       ),
     );
@@ -578,12 +952,58 @@ class _ReservationTicketPageState extends State<_ReservationTicketPage> {
     final shouldCancel = await _showCancelReservationDialog(context);
     if (shouldCancel != true) return;
 
+    final ticketId = _reservation.ticketId;
+    if (ticketId == null) {
+      _showActionError('Réservation introuvable sur le serveur.');
+      return;
+    }
+
+    try {
+      await TicketService().annulerClient(ticketId);
+    } catch (error) {
+      _showActionError(error.toString().replaceFirst('Exception: ', ''));
+      return;
+    }
+
     _HistoryRepository.removeReservation(_reservation.reference);
     if (!mounted) return;
     Navigator.of(context).pop();
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text('Réservation annulée.')));
+  }
+
+  Future<void> _updateReservation(_ReservationItem updated) async {
+    final ticketId = _reservation.ticketId;
+    final voyageId = _reservation.voyageId;
+    if (ticketId == null || voyageId == null) {
+      _showActionError('Réservation introuvable sur le serveur.');
+      return;
+    }
+
+    final dateParts = updated.date.split('/');
+    if (dateParts.length != 3) {
+      _showActionError('Format de date invalide.');
+      return;
+    }
+
+    try {
+      await TicketService().reprogrammer(
+        ticketId: ticketId,
+        nouvelleDate: '${dateParts[2]}-${dateParts[1].padLeft(2, '0')}-${dateParts[0].padLeft(2, '0')}',
+        nouvelleHeure: _reservation.time,
+        nouveauVoyageId: voyageId,
+      );
+      _HistoryRepository.updateReservation(updated);
+      if (mounted) setState(() => _reservation = updated);
+    } catch (error) {
+      _showActionError(error.toString().replaceFirst('Exception: ', ''));
+    }
+  }
+
+  void _showActionError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -630,6 +1050,13 @@ class _ReservationTicketPageState extends State<_ReservationTicketPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (_reservation.isPaymentPending) ...[
+                      _ReservationPaymentCard(
+                        amount: _reservation.price,
+                        onPay: _showPaymentSheet,
+                      ),
+                      const SizedBox(height: 20),
+                    ],
                     _TicketVisual(
                       departure: _reservation.departure,
                       destination: _reservation.destination,
@@ -640,11 +1067,16 @@ class _ReservationTicketPageState extends State<_ReservationTicketPage> {
                       beneficiaryName: _reservation.beneficiaryName,
                       total: _reservation.price,
                       reference: _reservation.reference,
-                      primaryActionLabel: 'Effectuer le règlement',
-                      onPrimaryAction: _showPaymentSheet,
+                      qrData: _reservation.qrData,
+                      primaryActionLabel: '',
                       onEdit: _editReservation,
                       onCancel: _confirmCancel,
                     ),
+                    if (!_reservation.isPaymentPending &&
+                        _reservation.qrData != null) ...[
+                      const SizedBox(height: 12),
+                      _PrintTicketButton(item: _reservation),
+                    ],
                   ],
                 ),
               ),
@@ -654,6 +1086,496 @@ class _ReservationTicketPageState extends State<_ReservationTicketPage> {
       ),
     );
   }
+}
+
+Future<void> _printTicket(_ReservationItem ticket) async {
+  final qrData = ticket.qrData;
+  if (qrData == null || qrData.isEmpty) return;
+
+  final settings = await TicketPrintSettingsService().getSettings();
+  if (!settings.enabled) {
+    throw Exception('L’impression des billets est désactivée.');
+  }
+
+  final qrImageData = await QrPainter(
+    data: qrData,
+    version: QrVersions.auto,
+    gapless: true,
+  ).toImageData(480, format: ui.ImageByteFormat.png);
+  if (qrImageData == null) {
+    throw Exception('Impossible de préparer le QR code du billet.');
+  }
+
+  final document = pw.Document();
+  final qrImage = pw.MemoryImage(qrImageData.buffer.asUint8List());
+  pw.MemoryImage? logoImage;
+  final logoUrl = settings.agencyLogo;
+  if (logoUrl != null && logoUrl.startsWith('http')) {
+    try {
+      final logoResponse = await http
+          .get(Uri.parse(logoUrl))
+          .timeout(const Duration(seconds: 5));
+      if (logoResponse.statusCode == 200 && logoResponse.bodyBytes.isNotEmpty) {
+        logoImage = pw.MemoryImage(logoResponse.bodyBytes);
+      }
+    } catch (_) {
+      logoImage = null;
+    }
+  }
+  if (logoImage == null) {
+    try {
+      final logoBytes = await rootBundle.load(
+        'assets/images/logo_fofana_no_background.png',
+      );
+      logoImage = pw.MemoryImage(logoBytes.buffer.asUint8List());
+    } catch (_) {
+      logoImage = null;
+    }
+  }
+  final accent = PdfColor.fromHex(settings.accentColor);
+  final pageFormat =
+      settings.width == '58mm' ? PdfPageFormat.roll57 : PdfPageFormat.roll80;
+  final cancellationNotice =
+      'Annulation possible jusqu\'à ${settings.cancellationDelayDays} jour${settings.cancellationDelayDays > 1 ? 's' : ''} avant le départ. '
+      'Au-delà, une retenue de ${settings.cancellationPenaltyPercent}% peut être appliquée sur le remboursement.';
+
+  document.addPage(
+    pw.Page(
+      pageFormat: pageFormat,
+      theme: pw.ThemeData.withFont(
+        base: pw.Font.courier(),
+        bold: pw.Font.courierBold(),
+      ),
+      margin: pw.EdgeInsets.zero,
+      build: (_) => pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+        children: [
+          _printTornEdge(pageFormat.width),
+          pw.Padding(
+            padding: const pw.EdgeInsets.fromLTRB(12.8, 12.8, 12.8, 6.4),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+              children: [
+          if (logoImage != null)
+            pw.Center(
+              child: pw.Container(
+                width: 32,
+                height: 32,
+                decoration: pw.BoxDecoration(
+                  shape: pw.BoxShape.circle,
+                  border: pw.Border.all(color: PdfColors.grey300),
+                ),
+                child: pw.ClipOval(child: pw.Image(logoImage)),
+              ),
+            ),
+          pw.Center(
+            child: pw.Text(
+              settings.agencyName.toUpperCase(),
+              style: pw.TextStyle(
+                color: PdfColors.grey800,
+                fontSize: 9.6,
+                fontWeight: pw.FontWeight.bold,
+              ),
+            ),
+          ),
+          pw.SizedBox(height: 0.8),
+          pw.Center(
+            child: pw.Text(
+              ticket.mecefCode?.isNotEmpty == true
+                  ? 'FACTURE NORMALISÉE'
+                  : (settings.headerText.isEmpty
+                      ? settings.title
+                      : settings.headerText),
+              style: pw.TextStyle(
+                color: accent,
+                fontSize: 11.2,
+                fontWeight: pw.FontWeight.bold,
+              ),
+            ),
+          ),
+          if (settings.showEmetteur)
+            _printRow('Émetteur', settings.agencyName),
+          if (settings.showContact && settings.telephone.isNotEmpty)
+            _printRow('Tél', settings.telephone),
+          if (settings.showContact && settings.email.isNotEmpty)
+            _printRow('Email', settings.email),
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Text(
+                'N° ${ticket.reference}',
+                style: const pw.TextStyle(
+                  color: PdfColors.grey600,
+                  fontSize: 8,
+                ),
+              ),
+              pw.Text(
+                _printDate(DateTime.now()),
+                style: const pw.TextStyle(
+                  color: PdfColors.grey600,
+                  fontSize: 8,
+                ),
+              ),
+            ],
+          ),
+          _printDashedLine(accent),
+          _printRow('Passager', ticket.beneficiaryName),
+          _printRouteRow(ticket.departure, ticket.destination),
+          _printRow('Départ', '${ticket.date} · ${ticket.time}'),
+          _printRow('Places', '${ticket.passengerCount} place(s)'),
+          if (ticket.beneficiaryPhone.isNotEmpty)
+            _printRow('Tél', ticket.beneficiaryPhone),
+          _printDashedLine(accent),
+          _printRow('Montant HT', ticket.amountBase),
+          _printRow('Taxe (${ticket.taxRate}%)', ticket.taxAmount),
+          pw.Padding(
+            padding: const pw.EdgeInsets.symmetric(vertical: 4),
+            child: pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Text(
+                  'TOTAL TTC',
+                  style: pw.TextStyle(
+                    color: accent,
+                    fontSize: 10,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+                pw.Text(
+                  ticket.price,
+                  style: pw.TextStyle(
+                    color: accent,
+                    fontSize: 10,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (settings.showEnregistrePar && ticket.issuerName.isNotEmpty)
+            _printCentered(
+              'Facture enregistrée par : ${ticket.issuerName}',
+              PdfColors.grey500,
+              7,
+            ),
+          if (settings.showDgi) ...[
+            pw.SizedBox(height: 6),
+            if (ticket.mecefCode?.isNotEmpty == true)
+              pw.Container(
+                padding: const pw.EdgeInsets.all(6),
+                decoration: pw.BoxDecoration(
+                  color: PdfColors.grey100,
+                  border: pw.Border.all(color: PdfColors.grey400),
+                  borderRadius: const pw.BorderRadius.all(
+                    pw.Radius.circular(4),
+                  ),
+                ),
+                child: pw.Column(
+                  children: [
+                    pw.Text(
+                      'ÉLÉMENTS DE SÉCURITÉ DGI',
+                      style: pw.TextStyle(
+                        color: PdfColors.grey600,
+                        fontSize: 7,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
+                    if (ticket.mecefCode?.isNotEmpty == true)
+                      _printSingleLineRow('CODE', ticket.mecefCode!),
+                    if (ticket.mecefNim?.isNotEmpty == true)
+                      _printRow('NIM', ticket.mecefNim!),
+                    if (ticket.mecefCounters?.isNotEmpty == true)
+                      _printRow('COMPTEURS', ticket.mecefCounters!),
+                    if (ticket.mecefDate?.isNotEmpty == true)
+                      _printRow('DATE', _printMecefDate(ticket.mecefDate!)),
+                  ],
+                ),
+              )
+            else
+              pw.Container(
+                padding: const pw.EdgeInsets.all(6),
+                decoration: pw.BoxDecoration(
+                  border: pw.Border.all(
+                    color: PdfColors.grey300,
+                    style: pw.BorderStyle.dashed,
+                  ),
+                ),
+                child: pw.Center(
+                  child: pw.Text(
+                    'REÇU SIMPLE\n(Document non normalisé DGI)',
+                    textAlign: pw.TextAlign.center,
+                    style: const pw.TextStyle(
+                      color: PdfColors.grey500,
+                      fontSize: 7,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+          if (settings.showBarcode) ...[
+            pw.SizedBox(height: 6),
+            pw.Center(
+              child: pw.Container(
+                width: 77.76,
+                height: 77.76,
+                padding: const pw.EdgeInsets.all(6.48),
+                decoration: pw.BoxDecoration(
+                  color: PdfColors.white,
+                  border: pw.Border.all(color: PdfColors.grey300),
+                  borderRadius: const pw.BorderRadius.all(
+                    pw.Radius.circular(9.6),
+                  ),
+                ),
+                child: pw.Image(qrImage, width: 58.32, height: 58.32),
+              ),
+            ),
+            pw.SizedBox(height: 6.4),
+            pw.Center(
+              child: pw.Text(
+                ticket.mecefCode?.isNotEmpty == true
+                    ? 'VÉRIFIER SUR EFACTURE.IMPOTS.BJ'
+                    : ticket.reference,
+                style: pw.TextStyle(
+                  color: accent,
+                  fontSize: 6.4,
+                ),
+                textAlign: pw.TextAlign.center,
+              ),
+            ),
+          ],
+          pw.SizedBox(height: 6.4),
+          pw.Center(
+            child: pw.Text(
+              settings.footerText,
+              style: pw.TextStyle(              fontSize: 8,
+              color: PdfColors.grey600,
+              ),
+            ),
+          ),
+          if (settings.showCancellationNotice) ...[
+            pw.SizedBox(height: 3.2),
+            pw.Center(
+              child: pw.Text(
+                cancellationNotice,
+                textAlign: pw.TextAlign.center,
+                style: const pw.TextStyle(fontSize: 6.4),
+              ),
+            ),
+          ],
+              ],
+            ),
+          ),
+          _printTornEdge(pageFormat.width),
+        ],
+      ),
+    ),
+  );
+
+  await Printing.layoutPdf(
+    onLayout: (_) async => document.save(),
+    name: 'billet-${ticket.reference}.pdf',
+    format: pageFormat,
+    usePrinterSettings: true,
+  );
+}
+
+pw.Widget _printTornEdge(double width) {
+  return pw.SizedBox(
+    height: 7,
+    width: width,
+    child: pw.CustomPaint(
+      size: PdfPoint(width, 7),
+      painter: (canvas, size) {
+        const teeth = 16;
+        final toothWidth = size.x / teeth;
+        canvas
+          ..setFillColor(PdfColors.grey400)
+          ..moveTo(0, 0);
+        for (var i = 0; i < teeth; i++) {
+          final x1 = i * toothWidth + toothWidth / 2;
+          final x2 = (i + 1) * toothWidth;
+          canvas
+            ..lineTo(x1, size.y)
+            ..lineTo(x2, 0);
+        }
+        canvas
+          ..lineTo(size.x, size.y)
+          ..lineTo(0, size.y)
+          ..fillPath();
+      },
+    ),
+  );
+}
+
+pw.Widget _printRow(String label, String value) {
+  return pw.Padding(
+    padding: const pw.EdgeInsets.symmetric(vertical: 2.4),
+    child: pw.Row(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.Expanded(
+          flex: 5,
+          child: pw.Text(
+            label,
+            style: pw.TextStyle(
+              color: PdfColors.grey500,
+              fontSize: 8.8,
+            ),
+          ),
+        ),
+        pw.Expanded(
+          flex: 7,
+          child: pw.Text(
+            value,
+            textAlign: pw.TextAlign.right,
+            style: pw.TextStyle(
+              fontSize: 8.8,
+              fontWeight: pw.FontWeight.bold,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+pw.Widget _printSingleLineRow(String label, String value) {
+  return pw.Padding(
+    padding: const pw.EdgeInsets.symmetric(vertical: 2.4),
+    child: pw.Row(
+      crossAxisAlignment: pw.CrossAxisAlignment.center,
+      children: [
+        pw.Expanded(
+          flex: 5,
+          child: pw.Text(
+            label,
+            style: const pw.TextStyle(color: PdfColors.grey500, fontSize: 7.5),
+          ),
+        ),
+        pw.Expanded(
+          flex: 7,
+          child: pw.FittedBox(
+            fit: pw.BoxFit.scaleDown,
+            alignment: pw.Alignment.centerRight,
+            child: pw.Text(
+              value,
+              style: pw.TextStyle(
+                fontSize: 7.5,
+                fontWeight: pw.FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+pw.Widget _printRouteRow(String departure, String destination) {
+  return pw.Padding(
+    padding: const pw.EdgeInsets.symmetric(vertical: 2.4),
+    child: pw.Row(
+      crossAxisAlignment: pw.CrossAxisAlignment.center,
+      children: [
+        pw.Expanded(
+          flex: 5,
+          child: pw.Text(
+            'Trajet',
+            style: const pw.TextStyle(color: PdfColors.grey500, fontSize: 7.5),
+          ),
+        ),
+        pw.Expanded(
+          flex: 7,
+          child: pw.FittedBox(
+            fit: pw.BoxFit.scaleDown,
+            alignment: pw.Alignment.centerRight,
+            child: pw.Row(
+              mainAxisSize: pw.MainAxisSize.min,
+              children: [
+                pw.Text(
+                  departure,
+                  style: pw.TextStyle(
+                    fontSize: 7.5,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+                pw.Padding(
+                  padding: const pw.EdgeInsets.symmetric(horizontal: 4),
+                  child: pw.SizedBox(
+                    width: 10,
+                    height: 8,
+                    child: pw.CustomPaint(
+                      painter: (canvas, size) {
+                        canvas
+                          ..setStrokeColor(PdfColors.grey800)
+                          ..setLineWidth(1)
+                          ..moveTo(0, size.y / 2)
+                          ..lineTo(size.x - 3, size.y / 2)
+                          ..strokePath()
+                          ..moveTo(size.x - 5, 1)
+                          ..lineTo(size.x, size.y / 2)
+                          ..lineTo(size.x - 5, size.y - 1)
+                          ..closePath()
+                          ..setFillColor(PdfColors.grey800)
+                          ..fillPath();
+                      },
+                    ),
+                  ),
+                ),
+                pw.Text(
+                  destination,
+                  style: pw.TextStyle(
+                    fontSize: 7.5,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+pw.Widget _printDashedLine(PdfColor color) {
+  return pw.Padding(
+    padding: const pw.EdgeInsets.symmetric(vertical: 5.6),
+    child: pw.Container(
+      height: 0.8,
+      decoration: pw.BoxDecoration(
+        border: pw.Border(
+          top: pw.BorderSide(
+            color: PdfColors.grey500,
+            width: 0.8,
+            style: pw.BorderStyle.dashed,
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+String _printMecefDate(String value) {
+  final parsed = DateTime.tryParse(value);
+  if (parsed == null) return value;
+  return '${_printDate(parsed)} ${parsed.hour.toString().padLeft(2, '0')}:'
+      '${parsed.minute.toString().padLeft(2, '0')}';
+}
+
+pw.Widget _printCentered(String value, PdfColor color, double fontSize) {
+  return pw.Center(
+    child: pw.Text(
+      value,
+      textAlign: pw.TextAlign.center,
+      style: pw.TextStyle(color: color, fontSize: fontSize),
+    ),
+  );
+}
+
+String _printDate(DateTime value) {
+  return '${value.day.toString().padLeft(2, '0')}/'
+      '${value.month.toString().padLeft(2, '0')}/${value.year}';
 }
 
 class _ReprogramPage extends StatefulWidget {
@@ -748,7 +1670,7 @@ class _ReprogramPageState extends State<_ReprogramPage> {
       backgroundColor: Colors.transparent,
       builder: (_) => _EditReservationSheet(
         reservation: reservation,
-        onSave: (updated) {
+        onSave: (updated) async{
           _HistoryRepository.updateReservation(updated);
           setState(() {
             _foundTicket = _findTicket(_ticketNumberController.text.trim());
@@ -919,7 +1841,6 @@ class _ReprogramPageState extends State<_ReprogramPage> {
                         reference: _foundTicket!.reference,
                         primaryActionLabel: '',
                         onEdit: _editFoundTicket,
-                        showPrimaryAction: false,
                         showCancelAction: false,
                         editActionLabel: 'Modifier',
                       ),
@@ -979,55 +1900,6 @@ class _ReprogramTextField extends StatelessWidget {
   }
 }
 
-class _TicketCard extends StatelessWidget {
-  final _TicketItem item;
-  final VoidCallback onChanged;
-
-  const _TicketCard({required this.item, required this.onChanged});
-
-  void _editReservation(BuildContext context) {
-    final reservation = _HistoryRepository.reservations.firstWhere(
-      (item) => item.reference == this.item.reference,
-    );
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _EditReservationSheet(
-        reservation: reservation,
-        onSave: (updated) {
-          _HistoryRepository.updateReservation(updated);
-          onChanged();
-        },
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: _TicketVisual(
-        departure: item.departure,
-        destination: item.destination,
-        date: item.date,
-        time: item.time,
-        passengerCount: item.passengerCount,
-        ticketIndex: item.ticketIndex,
-        beneficiaryName: item.passenger,
-        total: item.price,
-        reference: item.reference,
-        primaryActionLabel: '',
-        onEdit: () => _editReservation(context),
-        compact: true,
-        showPrimaryAction: false,
-        showCancelAction: false,
-        editActionLabel: 'Modifier',
-      ),
-    );
-  }
-}
-
 class _TicketVisual extends StatelessWidget {
   final String departure;
   final String destination;
@@ -1037,13 +1909,14 @@ class _TicketVisual extends StatelessWidget {
   final String beneficiaryName;
   final String total;
   final String reference;
+  final String? qrData;
+  final String? mecefCode;
+  final String? mecefNim;
+  final String? mecefCounters;
   final String primaryActionLabel;
   final int ticketIndex;
-  final VoidCallback? onPrimaryAction;
   final VoidCallback? onEdit;
   final VoidCallback? onCancel;
-  final bool compact;
-  final bool showPrimaryAction;
   final bool showCancelAction;
   final String? editActionLabel;
 
@@ -1056,13 +1929,14 @@ class _TicketVisual extends StatelessWidget {
     required this.beneficiaryName,
     required this.total,
     required this.reference,
+    this.qrData,
+    this.mecefCode,
+    this.mecefNim,
+    this.mecefCounters,
     required this.primaryActionLabel,
     required this.ticketIndex,
-    this.onPrimaryAction,
     this.onEdit,
     this.onCancel,
-    this.compact = false,
-    this.showPrimaryAction = true,
     this.showCancelAction = true,
     this.editActionLabel,
   });
@@ -1074,7 +1948,7 @@ class _TicketVisual extends StatelessWidget {
     const muted = Color(0xFF9AA3B8);
 
     return Container(
-      padding: EdgeInsets.fromLTRB(20, compact ? 22 : 28, 20, 22),
+      padding: const EdgeInsets.fromLTRB(20, 28, 20, 22),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
@@ -1138,15 +2012,6 @@ class _TicketVisual extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'N° $ticketIndex',
-                    style: const TextStyle(
-                      color: deepBlue,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
                 ],
               ),
               const SizedBox(width: 10),
@@ -1198,19 +2063,6 @@ class _TicketVisual extends StatelessWidget {
                     ),
                     const SizedBox(height: 22),
                     _TicketInfoBlock(
-                      label: 'N° de billet',
-                      value: '#${reference.replaceAll(RegExp(r'[^0-9]'), '')}',
-                    ),
-                    const SizedBox(height: 22),
-                    const Row(
-                      children: [
-                        Icon(Icons.wifi_rounded, color: Color(0xFF99A4C0)),
-                        SizedBox(width: 8),
-                        Icon(Icons.ac_unit_rounded, color: Color(0xFF99A4C0)),
-                      ],
-                    ),
-                    const SizedBox(height: 22),
-                    _TicketInfoBlock(
                       label: 'Total',
                       value: total,
                       valueColor: red,
@@ -1221,39 +2073,23 @@ class _TicketVisual extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 26),
-          _TicketQrCode(
-            data: '$reference-$ticketIndex-$departure-$destination',
-          ),
+          if (qrData != null && qrData!.isNotEmpty) ...[
+            const SizedBox(height: 26),
+            _TicketQrCode(data: qrData!),
+            const SizedBox(height: 12),
+            Text(
+              'Référence : $reference',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: deepBlue,
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
           const SizedBox(height: 20),
           Divider(color: deepBlue.withValues(alpha: 0.12), height: 1),
           const SizedBox(height: 20),
-          if (showPrimaryAction) ...[
-            SizedBox(
-              width: double.infinity,
-              height: 54,
-              child: ElevatedButton(
-                onPressed: onPrimaryAction,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: red,
-                  disabledBackgroundColor: red.withValues(alpha: 0.82),
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-                child: Text(
-                  primaryActionLabel,
-                  style: const TextStyle(
-                    fontSize: 15.5,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 14),
-          ],
           if (showCancelAction)
             Row(
               children: [

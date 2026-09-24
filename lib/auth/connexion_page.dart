@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:code_initial/auth/stockage_auth_local.dart';
 import 'package:code_initial/navigation.dart';
 import 'package:code_initial/auth/widgets/connexion_widgets.dart';
 
@@ -54,12 +53,20 @@ Future<void> _continuer() async {
             'phone': _numeroComplet // On passe le numéro complet
           },
         );
-      } else {
+      } else if (result['isStaff'] == true) {
         Get.toNamed(
           Routes.PERCEPTEUR_PASSWORD, 
           arguments: {
             'phone': _numeroComplet // On passe le numéro complet
           }
+        );
+      } else {
+        Get.snackbar(
+          "Compte introuvable",
+          result['message']?.toString() ??
+              "Ce numéro n'est associé à aucun compte. Veuillez vous inscrire.",
+          backgroundColor: Colors.orange,
+          colorText: Colors.white,
         );
       }
     } catch (e) {
@@ -173,6 +180,12 @@ Future<void> _continuer() async {
                 ),
 
                 const SizedBox(height: 24),
+                Center(
+                  child: TextButton(
+                    onPressed: () => Get.offNamed(Routes.REGISTER),
+                    child: const Text('Vous n’avez pas encore de compte ? S’inscrire'),
+                  ),
+                ),
               ],
             ),
           ),

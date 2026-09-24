@@ -58,6 +58,20 @@ class _RegisterPageState extends State<RegisterPage> {
     );
 
     try {
+      final availability =
+          await AuthService().verifierNumeroInscription(_numeroComplet);
+      if (!availability['success']) {
+        Get.back();
+        Get.snackbar(
+          "Numéro déjà utilisé",
+          availability['message'],
+          backgroundColor: Colors.orange,
+          colorText: Colors.white,
+          duration: const Duration(seconds: 6),
+        );
+        return;
+      }
+
       // 3. APPEL BACKEND : On demande au serveur d'envoyer l'OTP
       final result = await AuthService().envoyerOtp(_numeroComplet);
 
@@ -228,6 +242,12 @@ class _RegisterPageState extends State<RegisterPage> {
                 SubmitButton(onPressed: _envoyerCode),
 
                 const SizedBox(height: 24),
+                Center(
+                  child: TextButton(
+                    onPressed: () => Get.offNamed(Routes.LOGIN),
+                    child: const Text('Vous avez déjà un compte ? Se connecter'),
+                  ),
+                ),
               ],
             ),
           ),

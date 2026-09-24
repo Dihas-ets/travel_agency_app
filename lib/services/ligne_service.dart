@@ -3,6 +3,8 @@ import 'package:http/http.dart' as http;
 import 'package:code_initial/config/app_config.dart';
 import 'package:code_initial/models/ligne_model.dart';
 import 'package:code_initial/models/voyage_disponibilite_model.dart';
+import 'package:code_initial/auth/stockage_auth_local.dart';
+import 'package:code_initial/models/voyage_du_jour_model.dart';
 
 class LigneService {
   static const String baseUrl = AppConfig.apiBaseUrl;
@@ -108,5 +110,24 @@ Future<List<String>> getVillesDisponibles() async {
 
   final liste = villes.toList()..sort();
   return liste;
+}
+
+Future<List<VoyageDuJour>> getVoyagesDuJour({int limit = 8}) async {
+  final uri = Uri.parse('$baseUrl/voyages/du-jour') // ⬅️ MODIF : cohérent avec les autres routes publiques
+      .replace(queryParameters: {'limit': limit.toString()});
+
+  final response = await http
+    .get(uri, headers: {'Accept': 'application/json'}) // ⬅️ MODIF
+    .timeout(const Duration(seconds: 8));
+
+  if (response.statusCode != 200) {
+    throw Exception('Erreur lors du chargement des voyages du jour.');
+  }
+
+  final data = jsonDecode(response.body);
+  final List voyagesJson = data['voyages'] ?? [];
+  return voyagesJson
+      .map((e) => VoyageDuJour.fromJson(e as Map<String, dynamic>))
+      .toList();
 }
 }

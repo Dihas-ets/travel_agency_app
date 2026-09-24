@@ -16,6 +16,84 @@ class TicketService {
     };
   }
 
+  Future<List<Map<String, dynamic>>> getHistoriqueClient() async {
+    final response = await http
+        .get(
+          Uri.parse('$baseUrl/auth/client/tickets/historique'),
+          headers: await _headers(),
+        )
+        .timeout(const Duration(seconds: 10));
+    if (response.statusCode != 200) {
+      throw Exception('Impossible de charger votre historique.');
+    }
+
+    final decoded = jsonDecode(response.body);
+    final data = decoded is Map<String, dynamic> ? decoded['data'] : decoded;
+    if (data is! List) return [];
+    return data
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
+  }
+
+  /// Annule une réservation/un ticket côté client.
+  /// Annule une réservation exactement comme le Web.
+  Future<Map<String, dynamic>> annulerClient(int ticketId) async {
+    final response = await http
+        .put(
+          Uri.parse('$baseUrl/tickets/$ticketId/annuler'),
+          headers: await _headers(),
+        )
+        .timeout(const Duration(seconds: 10));
+
+    Map<String, dynamic> data = {};
+
+    try {
+      final decoded = jsonDecode(response.body);
+
+      if (decoded is Map<String, dynamic>) {
+        data = decoded;
+      }
+    } catch (_) {
+      // Réponse non JSON
+    }
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(
+        data['message']?.toString() ??
+            'Impossible d’annuler la réservation.',
+      );
+    }
+
+    return data;
+  }
+
+  /// Reprogramme une réservation/un ticket côté client.
+  Future<void> reprogrammer({
+    required int ticketId,
+    required String nouvelleDate,
+    required String nouvelleHeure,
+    required int nouveauVoyageId,
+  }) async {
+    final response = await http
+        .put(
+          Uri.parse('$baseUrl/auth/client/tickets/$ticketId/reprogrammer'),
+          headers: await _headers(),
+          body: jsonEncode({
+            'nouvelle_date': nouvelleDate,
+            'nouvelle_heure': nouvelleHeure,
+            'nouveau_voyage_id': nouveauVoyageId,
+          }),
+        )
+        .timeout(const Duration(seconds: 12));
+    final data = jsonDecode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(
+        data['message']?.toString() ?? 'Impossible de modifier la réservation.',
+      );
+    }
+  }
+
   /// Retrouve le vrai bus_id (et les heures fraîches) pour un voyage donné,
   /// juste avant de finaliser la réservation.
   Future<VoyageProgramme?> getProgrammationParDate({
@@ -39,7 +117,8 @@ class TicketService {
     }
 
     final List data = jsonDecode(response.body);
-    final voyages = data.map((e) => VoyageProgramme.fromJson(e as Map<String, dynamic>)).toList();
+    final voyages =
+        data.map((e) => VoyageProgramme.fromJson(e as Map<String, dynamic>)).toList();
 
     try {
       return voyages.firstWhere((v) => v.id == voyageId);
