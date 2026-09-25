@@ -585,8 +585,13 @@ class _MainMenuSheetState extends State<_MainMenuSheet> {
     );
   }
 
-  void _logout() {
-    Navigator.of(context).pushNamedAndRemoveUntil('/welcomepage', (_) => false);
+  Future<void> _logout() async {
+    try {
+      await AuthService().deconnexion();
+    } catch (_) {}
+    if (mounted) {
+      Navigator.of(context).pushNamedAndRemoveUntil('/welcomepage', (_) => false);
+    }
   }
 
   @override
@@ -674,19 +679,34 @@ class _MainMenuView extends StatelessWidget {
             height: 62,
           ),
           const SizedBox(height: 10),
-          const CircleAvatar(
-            radius: 48,
-            backgroundColor: Color(0xFF58648D),
-            child: Icon(Icons.person_rounded, color: Colors.white, size: 62),
+          ValueListenableBuilder<UserModel?>(
+            valueListenable: SessionStore.currentUserNotifier,
+            builder: (context, user, _) {
+              final photoUrl = user?.photoUrl;
+              return CircleAvatar(
+                radius: 48,
+                backgroundColor: const Color(0xFF58648D),
+                backgroundImage:
+                    photoUrl != null && photoUrl.isNotEmpty ? NetworkImage(photoUrl) : null,
+                child: photoUrl == null || photoUrl.isEmpty
+                    ? const Icon(Icons.person_rounded, color: Colors.white, size: 62)
+                    : null,
+              );
+            },
           ),
           const SizedBox(height: 16),
-          const Text(
-            'Client Fofana',
-            style: TextStyle(
-              color: Color(0xFF0B4F2A),
-              fontSize: 27,
-              fontWeight: FontWeight.w900,
-            ),
+          ValueListenableBuilder<UserModel?>(
+            valueListenable: SessionStore.currentUserNotifier,
+            builder: (context, user, _) {
+              return Text(
+                user?.fullName ?? 'Client Fofana',
+                style: const TextStyle(
+                  color: Color(0xFF0B4F2A),
+                  fontSize: 27,
+                  fontWeight: FontWeight.w900,
+                ),
+              );
+            },
           ),
           const SizedBox(height: 26),
           const _MenuSectionTitle(
@@ -851,9 +871,21 @@ class _AccountMenuViewState extends State<_AccountMenuView> {
     setState(() => _pickedAvatar = file);
   }
 
+  ImageProvider? _buildAvatarImage() {
+    if (_pickedAvatar != null) {
+      return FileImage(File(_pickedAvatar!.path));
+    }
+    final photoUrl = SessionStore.currentUser?.photoUrl;
+    if (photoUrl != null && photoUrl.isNotEmpty) {
+      return NetworkImage(photoUrl);
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final avatarImage = _buildAvatarImage();
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -906,10 +938,8 @@ class _AccountMenuViewState extends State<_AccountMenuView> {
                         CircleAvatar(
                           radius: 52,
                           backgroundColor: const Color(0xFF58648D),
-                          backgroundImage: _pickedAvatar == null
-                              ? null
-                              : FileImage(File(_pickedAvatar!.path)),
-                          child: _pickedAvatar == null
+                          backgroundImage: avatarImage,
+                          child: avatarImage == null
                               ? const Icon(
                                   Icons.person_rounded,
                                   color: Colors.white,
@@ -938,17 +968,22 @@ class _AccountMenuViewState extends State<_AccountMenuView> {
                   ),
                 ),
                 const SizedBox(height: 14),
-                const Text(
-                  'Profil client',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Color(0xFF0B4F2A),
-                    fontSize: 24,
-                    fontWeight: FontWeight.w900,
-                  ),
+                ValueListenableBuilder<UserModel?>(
+                  valueListenable: SessionStore.currentUserNotifier,
+                  builder: (context, user, _) {
+                    return Text(
+                      user?.fullName ?? 'Profil client',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Color(0xFF0B4F2A),
+                        fontSize: 24,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    );
+                  },
                 ),
                 const SizedBox(height: 18),
-                const _AccountPanel(),
+                _AccountPanel(onAvatarPicked: _pickedAvatar),
               ],
             ),
           ),
@@ -1035,7 +1070,8 @@ class _TermsSheet extends StatelessWidget {
 }
 
 class _AccountPanel extends StatefulWidget {
-  const _AccountPanel();
+  final XFile? onAvatarPicked;
+  const _AccountPanel({this.onAvatarPicked});
 
   @override
   State<_AccountPanel> createState() => _AccountPanelState();
@@ -1043,6 +1079,7 @@ class _AccountPanel extends StatefulWidget {
 
 class _AccountPanelState extends State<_AccountPanel> {
   bool _isEditing = false;
+  bool _isSaving = false;
 
   late final TextEditingController _nameController;
   late final TextEditingController _emailController;
@@ -1052,10 +1089,41 @@ class _AccountPanelState extends State<_AccountPanel> {
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController(text: 'Client Fofana');
-    _emailController = TextEditingController(text: 'client@example.com');
-    _countryController = TextEditingController(text: 'Bénin');
-    _phoneController = TextEditingController(text: '+229 01 00 00 00 00');
+    // Initialize with session data first for instant display
+    final user = SessionStore.currentUser;
+    _nameController = TextEditingController(text: user?.fullName ?? '');
+    _emailController = TextEditingController(text: user?.email ?? '');
+    _countryController = TextEditingController(text: user?.country ?? '');
+    _phoneController = TextEditingController(text: user?.numero ?? '');
+    // Load fresh profile from backend in background
+    _loadProfile();
+  }
+
+  Future<void> _loadProfile() async {
+    // Try to get from local cache first if session is empty
+    if (SessionStore.currentUser == null) {
+      final cached = await AuthLocalStore.getCurrentUser();
+      if (cached != null && mounted) {
+        _applyUser(cached);
+      }
+    }
+    // Then fetch fresh data from API
+    try {
+      final fresh = await AuthService().getProfile();
+      if (fresh != null && mounted) {
+        _applyUser(fresh);
+      }
+    } catch (_) {}
+  }
+
+  void _applyUser(UserModel user) {
+    if (!mounted) return;
+    setState(() {
+      _nameController.text = user.fullName;
+      _emailController.text = user.email ?? '';
+      _countryController.text = user.country ?? '';
+      _phoneController.text = user.numero;
+    });
   }
 
   @override
@@ -1067,17 +1135,42 @@ class _AccountPanelState extends State<_AccountPanel> {
     super.dispose();
   }
 
-  void _toggleEdit() {
-    setState(() => _isEditing = !_isEditing);
+  Future<void> _toggleEdit() async {
+    if (_isEditing) {
+      // Saving
+      setState(() => _isSaving = true);
+      // Parse nom/prenom from the full name field
+      final parts = _nameController.text.trim().split(' ');
+      final prenom = parts.isNotEmpty ? parts.first : '';
+      final nom = parts.length > 1 ? parts.sublist(1).join(' ') : '';
 
-    if (_isEditing) return;
+      final result = await AuthService().updateProfile(
+        nom: nom.isNotEmpty ? nom : prenom,
+        prenom: parts.length > 1 ? prenom : null,
+        email: _emailController.text.trim().isNotEmpty ? _emailController.text.trim() : null,
+        country: _countryController.text.trim().isNotEmpty ? _countryController.text.trim() : null,
+        photo: widget.onAvatarPicked != null ? File(widget.onAvatarPicked!.path) : null,
+      );
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Informations du compte enregistrées'),
-        backgroundColor: Color(0xFF0B4F2A),
-      ),
-    );
+      if (!mounted) return;
+      setState(() {
+        _isSaving = false;
+        _isEditing = false;
+      });
+      if (result['user'] != null) {
+        _applyUser(result['user'] as UserModel);
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result['success'] == true
+              ? (result['message'] ?? 'Profil mis à jour avec succès.')
+              : (result['message'] ?? 'Erreur lors de la mise à jour.')),
+          backgroundColor: result['success'] == true ? const Color(0xFF0B4F2A) : const Color(0xFFE53935),
+        ),
+      );
+    } else {
+      setState(() => _isEditing = true);
+    }
   }
 
   @override
@@ -1119,12 +1212,21 @@ class _AccountPanelState extends State<_AccountPanel> {
             ),
             const SizedBox(width: 10),
             TextButton.icon(
-              onPressed: _toggleEdit,
-              icon: Icon(
-                _isEditing ? Icons.check_rounded : Icons.edit_rounded,
-                size: 21,
-              ),
-              label: Text(_isEditing ? 'Enregistrer' : 'Modifier'),
+              onPressed: _isSaving ? null : () => _toggleEdit(),
+              icon: _isSaving
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Color(0xFF16A34A),
+                      ),
+                    )
+                  : Icon(
+                      _isEditing ? Icons.check_rounded : Icons.edit_rounded,
+                      size: 21,
+                    ),
+              label: Text(_isSaving ? 'Sauvegarde...' : (_isEditing ? 'Enregistrer' : 'Modifier')),
               style: TextButton.styleFrom(
                 foregroundColor: const Color(0xFF16A34A),
                 textStyle: const TextStyle(
@@ -1162,7 +1264,7 @@ class _AccountPanelState extends State<_AccountPanel> {
           icon: Icons.phone_rounded,
           title: 'Téléphone',
           controller: _phoneController,
-          enabled: _isEditing,
+          enabled: false, // Le numéro de téléphone n'est pas modifiable
         ),
         const SizedBox(height: 18),
         const _AccountInfoCard(),
@@ -1194,41 +1296,81 @@ class _AccountInfoCard extends StatelessWidget {
   }
 }
 
-class _AccountStatsGrid extends StatelessWidget {
+class _AccountStatsGrid extends StatefulWidget {
   const _AccountStatsGrid();
 
   @override
+  State<_AccountStatsGrid> createState() => _AccountStatsGridState();
+}
+
+class _AccountStatsGridState extends State<_AccountStatsGrid> {
+  int _ticketCount = 0;
+  int _colisCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStats();
+  }
+
+  Future<void> _loadStats() async {
+    try {
+      final tickets = await TicketService().getHistoriqueClient();
+      if (mounted) setState(() => _ticketCount = tickets.length);
+    } catch (_) {}
+    try {
+      final colis = await ColisService().getHistoriqueClient();
+      if (mounted) setState(() => _colisCount = colis.length);
+    } catch (_) {}
+  }
+
+  String _formatCreatedAt(DateTime? date) {
+    if (date == null) return '--';
+    const months = [
+      'janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin',
+      'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.',
+    ];
+    return '${date.day} ${months[date.month - 1]} ${date.year}';
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        const _AccountStat(
-          icon: Icons.calendar_month_rounded,
-          title: 'Création du compte',
-          value: '11 mai 2026',
-          isWide: true,
-        ),
-        const SizedBox(height: 12),
-        GridView.count(
-          crossAxisCount: 2,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
-          childAspectRatio: 0.82,
-          children: const [
+    return ValueListenableBuilder<UserModel?>(
+      valueListenable: SessionStore.currentUserNotifier,
+      builder: (context, user, _) {
+        final createdAtStr = _formatCreatedAt(user?.createdAt);
+        return Column(
+          children: [
             _AccountStat(
-              icon: Icons.confirmation_number_rounded,
-              title: 'Billets achetés',
-              value: '0',
+              icon: Icons.calendar_month_rounded,
+              title: 'Création du compte',
+              value: createdAtStr,
+              isWide: true,
             ),
-            _AccountStat(
-              icon: Icons.local_shipping_rounded,
-              title: 'Colis envoyés',
-              value: '0',
+            const SizedBox(height: 12),
+            GridView.count(
+              crossAxisCount: 2,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              childAspectRatio: 0.82,
+              children: [
+                _AccountStat(
+                  icon: Icons.confirmation_number_rounded,
+                  title: 'Billets achetés',
+                  value: '$_ticketCount',
+                ),
+                _AccountStat(
+                  icon: Icons.local_shipping_rounded,
+                  title: 'Colis envoyés',
+                  value: '$_colisCount',
+                ),
+              ],
             ),
           ],
-        ),
-      ],
+        );
+      },
     );
   }
 }
@@ -1271,27 +1413,27 @@ class _AccountStat extends StatelessWidget {
               child: Icon(icon, color: const Color(0xFF16A34A), size: 22),
             ),
             const SizedBox(width: 12),
-            const Expanded(
+            Expanded(
               // Carte Création sur toute la largeur pour afficher la date complète.
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '11 mai 2026',
+                    value,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: Color(0xFF0B4F2A),
                       fontSize: 16,
                       fontWeight: FontWeight.w900,
                     ),
                   ),
-                  SizedBox(height: 5),
+                  const SizedBox(height: 5),
                   Text(
-                    'Création du compte',
+                    title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: Color(0xFF5F6B86),
                       fontSize: 13,
                       height: 1.15,

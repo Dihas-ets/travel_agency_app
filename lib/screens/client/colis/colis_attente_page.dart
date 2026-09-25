@@ -1,15 +1,11 @@
-import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:code_initial/data/local/session_store.dart';
 import 'package:code_initial/screens/client/colis/billet_page.dart';
 import 'package:code_initial/models/store/colis_store.dart';
-import 'package:code_initial/models/payment_provider_model.dart';
-import 'package:code_initial/services/payment_service.dart';
-import 'package:code_initial/services/feexpay_service.dart';
-import 'package:code_initial/services/kkiapay_service.dart';
+import 'package:code_initial/services/colis_service.dart';
 
 const Color _deepBlue = Color(0xFF0B4F2A);
 const Color _logoRed = Color(0xFFE53935);
@@ -34,18 +30,44 @@ class ColisAttentePage extends StatefulWidget {
 
 class _ColisAttentePageState extends State<ColisAttentePage> {
   late int _selectedIndex;
+  bool _isLoadingHistory = false;
+  List<ParcelRecord> _remotePending = [];
+  List<ParcelRecord> _remoteRegistered = [];
 
   @override
   void initState() {
     super.initState();
     _selectedIndex = widget.initialTabIndex;
+    _fetchRemoteHistory();
   }
 
-  void _openPayment(ParcelRecord parcel) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => _ParcelPaymentPage(parcel: parcel)),
-    );
-    if (mounted) setState(() {});
+  Future<void> _fetchRemoteHistory() async {
+    if (!mounted) return;
+    setState(() => _isLoadingHistory = true);
+    try {
+      final list = await ColisService().getHistoriqueClient();
+      final pendingList = <ParcelRecord>[];
+      final registeredList = <ParcelRecord>[];
+
+      for (final colis in list) {
+        final rec = colis.toParcelRecord();
+        if (colis.statut == 'brouillon' || colis.statutPaiement != 'payé') {
+          pendingList.add(rec);
+        } else {
+          registeredList.add(rec);
+        }
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _remotePending = pendingList;
+        _remoteRegistered = registeredList;
+        _isLoadingHistory = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isLoadingHistory = false);
+    }
   }
 
   void _openPendingDetails(ParcelRecord parcel) async {
@@ -53,50 +75,48 @@ class _ColisAttentePageState extends State<ColisAttentePage> {
       MaterialPageRoute(
         builder: (_) => _PendingParcelDetailsPage(
           parcel: parcel,
-          onPay: () => _openPayment(parcel),
         ),
       ),
     );
-    if (mounted) setState(() {});
+    if (mounted) {
+      _fetchRemoteHistory();
+    }
   }
 
   void _openRegisteredTicket(ParcelRecord parcel) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => BilletPage(
-          code: parcel.code,
-          departureCity: parcel.departureCity,
-          destinationCity: parcel.destinationCity,
-          recipientLastName: parcel.recipientLastName,
-          recipientFirstName: parcel.recipientFirstName,
-          recipientPhone: parcel.recipientPhone,
-          parcelNature: parcel.parcelNature,
-          parcelCount: parcel.parcelCount,
-          attachmentPath: parcel.attachmentPath,
-          attachmentName: parcel.attachmentName,
-          deliveryFee: parcel.deliveryFee ?? '',
-          showValidation: true,
+        builder: (_) => _RegisteredParcelDetailsPage(
+          parcel: parcel,
         ),
       ),
     );
   }
 
-  List<ParcelRecord> _visibleParcels(List<ParcelRecord> parcels) {
-    if (!widget.filterClientParcels || !SessionStore.hasClientPhone) {
-      return parcels;
+  List<ParcelRecord> _visibleParcels(
+    List<ParcelRecord> localParcels,
+    List<ParcelRecord> remoteParcels,
+  ) {
+    // Les données du backend sont la source de vérité prioritaire
+    final Map<String, ParcelRecord> map = {};
+    for (final p in localParcels) {
+      if (!widget.filterClientParcels ||
+          !SessionStore.hasClientPhone ||
+          p.senderPhone == SessionStore.currentClientPhone) {
+        map[p.code] = p;
+      }
     }
-
-    return parcels
-        .where(
-          (parcel) => parcel.senderPhone == SessionStore.currentClientPhone,
-        )
-        .toList();
+    // Écrase avec les colis récents du backend
+    for (final p in remoteParcels) {
+      map[p.code] = p;
+    }
+    return map.values.toList();
   }
 
   @override
   Widget build(BuildContext context) {
-    final pending = _visibleParcels(ParcelStore.pendingParcels);
-    final registered = _visibleParcels(ParcelStore.registeredParcels);
+    final pending = _visibleParcels(ParcelStore.pendingParcels, _remotePending);
+    final registered = _visibleParcels(ParcelStore.registeredParcels, _remoteRegistered);
     final currentList = _selectedIndex == 0 ? registered : pending;
 
     return Scaffold(
@@ -142,456 +162,40 @@ class _ColisAttentePageState extends State<ColisAttentePage> {
               ),
             ),
             Expanded(
-              child: currentList.isEmpty
-                  ? _EmptyState(isRegistered: _selectedIndex == 0)
-                  : ListView.separated(
-                      physics: const BouncingScrollPhysics(),
-                      padding: const EdgeInsets.fromLTRB(18, 4, 18, 26),
-                      itemCount: currentList.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 14),
-                      itemBuilder: (context, index) {
-                        final parcel = currentList[index];
-                        return _ParcelListCard(
-                          parcel: parcel,
-                          isRegistered: _selectedIndex == 0,
-                          onTap: _selectedIndex == 0
-                              ? () => _openRegisteredTicket(parcel)
-                              : () => _openPendingDetails(parcel),
-                        );
-                      },
-                    ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ParcelPaymentPage extends StatefulWidget {
-  final ParcelRecord parcel;
-
-  const _ParcelPaymentPage({required this.parcel});
-
-  @override
-  State<_ParcelPaymentPage> createState() => _ParcelPaymentPageState();
-}
-
-class _ParcelPaymentPageState extends State<_ParcelPaymentPage> {
-  List<PaymentProvider> _providers = [];
-  bool _isLoadingProviders = true;
-  String? _selectedProviderSlug;
-  String _selectedMethod = 'all';
-  bool _isProcessing = false;
-  Timer? _pollingTimer;
-
-  IconData _providerIcon(String slug) {
-    switch (slug.toLowerCase()) {
-      case 'feexpay':
-        return Icons.phone_android_rounded;
-      case 'fedapay':
-        return Icons.account_balance_wallet_rounded;
-      case 'kkiapay':
-        return Icons.credit_card_rounded;
-      default:
-        return Icons.payments_rounded;
-    }
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _loadProviders();
-  }
-
-  @override
-  void dispose() {
-    _pollingTimer?.cancel();
-    super.dispose();
-  }
-
-  Future<void> _loadProviders() async {
-    try {
-      final providers = await PaymentService().getProvidersActifs();
-      if (!mounted) return;
-      setState(() {
-        _providers = providers;
-        _isLoadingProviders = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _isLoadingProviders = false);
-    }
-  }
-
-  Future<void> _startParcelPayment() async {
-    if (_selectedProviderSlug == null) return;
-
-    setState(() => _isProcessing = true);
-
-    try {
-      final result = await PaymentService().initierPaiement(
-        payableRef: widget.parcel.code,
-        provider: _selectedProviderSlug!,
-        method: _selectedMethod,
-        payableType: 'colis',
-      );
-
-      final transaction = result['transaction'] as Map<String, dynamic>?;
-      final transactionReference = transaction?['reference']?.toString();
-      if (transactionReference == null || transactionReference.isEmpty) {
-        throw Exception('La référence de transaction est absente.');
-      }
-
-      if (result['provider'] == 'feexpay') {
-        if (!mounted) return;
-        await FeexPayService.openPayment(
-          context: context,
-          amount: num.tryParse(result['amount']?.toString() ?? '') ?? 0,
-          token: result['token']?.toString() ?? '',
-          shopId: result['shop_id']?.toString() ?? '',
-          reference: transactionReference,
-          onResult: (paymentResult) async {
-            if (!paymentResult.isSuccess) {
-              if (mounted) {
-                setState(() => _isProcessing = false);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(paymentResult.message ?? 'Paiement échoué.'),
-                  ),
-                );
-              }
-              return;
-            }
-            final verification = await PaymentService().verifierPaiement(
-              reference: transactionReference,
-              payableType: 'colis',
-              externalId: paymentResult.reference,
-            );
-            if (mounted && verification['verified'] == true) {
-              setState(() => _isProcessing = false);
-              _registerParcel('Paiement effectué');
-            }
-          },
-        );
-        return;
-      }
-
-      if (result['provider'] == 'kkiapay') {
-        if (!mounted) return;
-        final customer = result['customer'] as Map<String, dynamic>?;
-        final externalId = await KkiapayService.openPayment(
-          context: context,
-          amount: int.tryParse(result['amount']?.toString() ?? '') ?? 0,
-          publicKey: result['public_key']?.toString() ?? '',
-          sandbox: result['environment']?.toString() != 'live',
-          reference: transactionReference,
-          phone: customer?['phone']?.toString(),
-          name:
-              '${customer?['firstname']?.toString() ?? ''} ${customer?['lastname']?.toString() ?? ''}'
-                  .trim(),
-          email: customer?['email']?.toString(),
-        );
-        if (externalId == null || externalId.isEmpty) {
-          if (mounted) {
-            setState(() => _isProcessing = false);
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Paiement Kkiapay annulé ou échoué.')),
-            );
-          }
-          return;
-        }
-        final verification = await PaymentService().verifierPaiement(
-          reference: transactionReference,
-          payableType: 'colis',
-          externalId: externalId,
-        );
-        if (mounted && verification['verified'] == true) {
-          setState(() => _isProcessing = false);
-          _registerParcel('Paiement effectué');
-        }
-        return;
-      }
-
-      final paymentUrl = result['payment_url']?.toString();
-
-      if (paymentUrl != null && paymentUrl.isNotEmpty) {
-        final uri = Uri.parse(paymentUrl);
-        final opened = await launchUrl(
-          uri,
-          mode: LaunchMode.externalApplication,
-        );
-
-        if (!opened) {
-          if (!mounted) return;
-          setState(() => _isProcessing = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Impossible d\'ouvrir la page de paiement.'),
-            ),
-          );
-          return;
-        }
-      }
-
-      _pollParcelPaymentStatus(transactionReference);
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _isProcessing = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
-      );
-    }
-  }
-
-  void _pollParcelPaymentStatus(String transactionReference) {
-    var attempts = 0;
-    const maxAttempts = 45; // 3 minutes
-
-    _pollingTimer = Timer.periodic(const Duration(seconds: 4), (timer) async {
-      attempts++;
-      if (!mounted) {
-        timer.cancel();
-        return;
-      }
-
-      if (attempts > maxAttempts) {
-        timer.cancel();
-        setState(() => _isProcessing = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Délai dépassé. Vérifiez le statut du colis.'),
-          ),
-        );
-        return;
-      }
-
-      try {
-        final result = await PaymentService().verifierPaiement(
-          reference: transactionReference,
-          payableType: 'colis',
-        );
-        final verified = result['verified'] == true;
-
-        if (verified) {
-          timer.cancel();
-          if (!mounted) return;
-          setState(() => _isProcessing = false);
-          _registerParcel('Paiement effectué');
-        }
-      } catch (_) {
-        // Continue polling
-      }
-    });
-  }
-
-  void _registerParcel(String status) {
-    ParcelStore.registerParcel(widget.parcel, status: status);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          status == 'Paiement effectué'
-              ? 'Paiement confirmé, colis enregistré'
-              : 'Colis enregistré pour paiement à la livraison',
-        ),
-        backgroundColor: _deepBlue,
-      ),
-    );
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (_) => const ColisAttentePage(initialTabIndex: 0),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _pageBackground,
-      appBar: AppBar(
-        backgroundColor: _deepBlue,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        title: const Text(
-          'Paiement colis',
-          style: TextStyle(fontWeight: FontWeight.w900),
-        ),
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(18, 22, 18, 26),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _PaymentSummary(parcel: widget.parcel),
-              const SizedBox(height: 22),
-              const Text(
-                'Choix de l\'agrégateur',
-                style: TextStyle(
-                  color: _deepBlue,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: 14),
-
-              if (_isLoadingProviders)
-                const Center(
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(vertical: 24),
-                    child: CircularProgressIndicator(strokeWidth: 2.5),
-                  ),
-                )
-              else if (_isProcessing)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 20),
-                  child: Column(
-                    children: const [
-                      CircularProgressIndicator(
+              child: _isLoadingHistory
+                  ? const Center(
+                      child: CircularProgressIndicator(
                         strokeWidth: 2.5,
                         color: _deepBlue,
                       ),
-                      SizedBox(height: 16),
-                      Text(
-                        'En attente de confirmation du paiement par le backend...\nRevenez ici une fois le paiement effectué.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: _deepBlue,
-                          fontWeight: FontWeight.w700,
-                          height: 1.4,
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              else if (_providers.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 16),
-                  child: Text(
-                    'Aucun agrégateur de paiement disponible.',
-                    style: TextStyle(
-                      color: _mutedText,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                )
-              else ...[
-                ..._providers.map((provider) {
-                  final isSelected = _selectedProviderSlug == provider.slug;
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        GestureDetector(
-                          onTap: () => setState(() {
-                            _selectedProviderSlug = provider.slug;
-                            _selectedMethod = 'all';
-                          }),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 14,
-                            ),
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                  ? _deepBlue.withValues(alpha: 0.08)
-                                  : Colors.white,
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(
-                                color: isSelected
-                                    ? _deepBlue
-                                    : const Color(0xFFE1E4EC),
-                                width: isSelected ? 1.8 : 1,
+                    )
+                  : RefreshIndicator(
+                      onRefresh: _fetchRemoteHistory,
+                      color: _deepBlue,
+                      child: currentList.isEmpty
+                          ? _EmptyState(isRegistered: _selectedIndex == 0)
+                          : ListView.separated(
+                              physics: const AlwaysScrollableScrollPhysics(
+                                parent: BouncingScrollPhysics(),
                               ),
+                              padding: const EdgeInsets.fromLTRB(18, 4, 18, 26),
+                              itemCount: currentList.length,
+                              separatorBuilder: (_, __) =>
+                                  const SizedBox(height: 14),
+                              itemBuilder: (context, index) {
+                                final parcel = currentList[index];
+                                return _ParcelListCard(
+                                  parcel: parcel,
+                                  isRegistered: _selectedIndex == 0,
+                                  onTap: _selectedIndex == 0
+                                      ? () => _openRegisteredTicket(parcel)
+                                      : () => _openPendingDetails(parcel),
+                                );
+                              },
                             ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  isSelected
-                                      ? Icons.check_circle_rounded
-                                      : Icons.circle_outlined,
-                                  color: isSelected
-                                      ? _deepBlue
-                                      : const Color(0xFFB1B8C8),
-                                ),
-                                const SizedBox(width: 12),
-                                Icon(
-                                  _providerIcon(provider.slug),
-                                  color: isSelected
-                                      ? _deepBlue
-                                      : _deepBlue.withValues(alpha: 0.7),
-                                  size: 28,
-                                ),
-                                const SizedBox(width: 12),
-                                Text(
-                                  provider.name,
-                                  style: const TextStyle(
-                                    color: _deepBlue,
-                                    fontWeight: FontWeight.w900,
-                                    fontSize: 15,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
                     ),
-                  );
-                }),
-              ],
-
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: ElevatedButton(
-                  onPressed:
-                      (_selectedProviderSlug != null && !_isProcessing)
-                      ? _startParcelPayment
-                      : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _logoRed,
-                    disabledBackgroundColor: _logoRed.withValues(alpha: 0.38),
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    textStyle: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  child: const Text('Payer en ligne'),
-                ),
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: OutlinedButton(
-                  onPressed: _isProcessing
-                      ? null
-                      : () => _registerParcel('À la livraison'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: _deepBlue,
-                    side: const BorderSide(color: _deepBlue, width: 1.4),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    textStyle: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  child: const Text('À la livraison'),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -696,8 +300,30 @@ class _ParcelListCard extends StatelessWidget {
     this.onTap,
   });
 
+  Color _statusColor(String status) {
+    switch (parcel.rawStatus) {
+      case 'brouillon':
+        return Colors.orange.shade800;
+      case 'a_expedier':
+        return const Color(0xFF17A34A);
+      case 'en_transit':
+        return const Color(0xFF2563EB);
+      case 'arrive':
+        return const Color(0xFF7C3AED);
+      case 'livre':
+        return const Color(0xFF17A34A);
+      case 'perdu':
+        return _logoRed;
+      default:
+        return isRegistered ? const Color(0xFF17A34A) : Colors.orange.shade800;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final statusText = isRegistered ? parcel.readableStatus : 'En attente en agence';
+    final pillColor = _statusColor(parcel.status);
+
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(18),
@@ -755,54 +381,69 @@ class _ParcelListCard extends StatelessWidget {
                     ),
                   ),
                   _StatusPill(
-                    text: isRegistered ? parcel.status : 'En attente',
-                    color: isRegistered ? const Color(0xFF17A34A) : _logoRed,
+                    text: statusText,
+                    color: pillColor,
                   ),
                 ],
               ),
               const SizedBox(height: 14),
-              Text(
-                '${parcel.parcelNature} x${parcel.parcelCount}',
-                style: const TextStyle(
-                  color: _deepBlue,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w900,
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '${parcel.parcelNature} x${parcel.parcelCount}',
+                    style: const TextStyle(
+                      color: _deepBlue,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  Text(
+                    parcel.code,
+                    style: TextStyle(
+                      color: _deepBlue.withValues(alpha: 0.6),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 6),
               Text(
-                'Téléphone : ${parcel.recipientPhone}',
+                'Destinataire : ${parcel.recipientPhone}',
                 style: const TextStyle(
                   color: _mutedText,
                   fontSize: 13.5,
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              if (!isRegistered) ...[
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Icon(
-                      Icons.touch_app_rounded,
-                      color: _deepBlue.withValues(alpha: 0.56),
-                      size: 18,
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        'Touchez pour vérifier les informations et payer',
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: _deepBlue.withValues(alpha: 0.68),
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w800,
-                        ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Icon(
+                    isRegistered
+                        ? Icons.visibility_rounded
+                        : Icons.storefront_rounded,
+                    color: _deepBlue.withValues(alpha: 0.65),
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      isRegistered
+                          ? 'Touchez pour consulter le suivi et le billet'
+                          : 'Finalisation et paiement à l\'agence • Touchez pour voir',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: _deepBlue.withValues(alpha: 0.75),
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
-                  ],
-                ),
-              ],
+                  ),
+                ],
+              ),
             ],
           ),
         ),
@@ -813,9 +454,8 @@ class _ParcelListCard extends StatelessWidget {
 
 class _PendingParcelDetailsPage extends StatelessWidget {
   final ParcelRecord parcel;
-  final VoidCallback onPay;
 
-  const _PendingParcelDetailsPage({required this.parcel, required this.onPay});
+  const _PendingParcelDetailsPage({required this.parcel});
 
   @override
   Widget build(BuildContext context) {
@@ -826,7 +466,7 @@ class _PendingParcelDetailsPage extends StatelessWidget {
         foregroundColor: Colors.white,
         elevation: 0,
         title: const Text(
-          'Détails du colis',
+          'Détails du colis en attente',
           style: TextStyle(fontWeight: FontWeight.w900),
         ),
       ),
@@ -837,36 +477,353 @@ class _PendingParcelDetailsPage extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Avant le paiement, l'utilisateur revoit exactement les données
-              // saisies dans le formulaire pour éviter les validations trop rapides.
+              _AgencyPaymentBanner(parcel: parcel),
+              const SizedBox(height: 16),
               _ParcelDetailsCard(parcel: parcel),
               const SizedBox(height: 22),
               SizedBox(
                 width: double.infinity,
-                height: 56,
-                child: ElevatedButton(
+                height: 54,
+                child: ElevatedButton.icon(
                   onPressed: () {
-                    Navigator.of(context).pop();
-                    onPay();
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => BilletPage(
+                          code: parcel.code,
+                          departureCity: parcel.departureCity,
+                          destinationCity: parcel.destinationCity,
+                          recipientLastName: parcel.recipientLastName,
+                          recipientFirstName: parcel.recipientFirstName,
+                          recipientPhone: parcel.recipientPhone,
+                          parcelNature: parcel.parcelNature,
+                          parcelCount: parcel.parcelCount,
+                          attachmentPath: parcel.attachmentPath,
+                          attachmentName: parcel.attachmentName,
+                          deliveryFee: parcel.deliveryFee ?? '',
+                          showValidation: false,
+                        ),
+                      ),
+                    );
                   },
+                  icon: const Icon(Icons.qr_code_2_rounded, size: 22),
+                  label: const Text('Afficher le billet & QR Code'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: _logoRed,
+                    backgroundColor: _deepBlue,
                     foregroundColor: Colors.white,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
                     textStyle: const TextStyle(
-                      fontSize: 16,
+                      fontSize: 15.5,
                       fontWeight: FontWeight.w900,
                     ),
                   ),
-                  child: const Text('Payer'),
+                ),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: OutlinedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: _deepBlue,
+                    side: BorderSide(color: _deepBlue.withValues(alpha: 0.3)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: const Text('Retour à la liste'),
                 ),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _RegisteredParcelDetailsPage extends StatelessWidget {
+  final ParcelRecord parcel;
+
+  const _RegisteredParcelDetailsPage({required this.parcel});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: _pageBackground,
+      appBar: AppBar(
+        backgroundColor: _deepBlue,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        title: const Text(
+          'Suivi du colis',
+          style: TextStyle(fontWeight: FontWeight.w900),
+        ),
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 26),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _StatusStepperCard(parcel: parcel),
+              const SizedBox(height: 16),
+              _ParcelDetailsCard(parcel: parcel),
+              const SizedBox(height: 22),
+              SizedBox(
+                width: double.infinity,
+                height: 54,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => BilletPage(
+                          code: parcel.code,
+                          departureCity: parcel.departureCity,
+                          destinationCity: parcel.destinationCity,
+                          recipientLastName: parcel.recipientLastName,
+                          recipientFirstName: parcel.recipientFirstName,
+                          recipientPhone: parcel.recipientPhone,
+                          parcelNature: parcel.parcelNature,
+                          parcelCount: parcel.parcelCount,
+                          attachmentPath: parcel.attachmentPath,
+                          attachmentName: parcel.attachmentName,
+                          deliveryFee: parcel.deliveryFee ?? '',
+                          showValidation: true,
+                        ),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.confirmation_number_outlined, size: 22),
+                  label: const Text('Consulter le billet officiel'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _deepBlue,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    textStyle: const TextStyle(
+                      fontSize: 15.5,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AgencyPaymentBanner extends StatelessWidget {
+  final ParcelRecord parcel;
+
+  const _AgencyPaymentBanner({required this.parcel});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF7ED),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFFDBA74)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.orange.withValues(alpha: 0.08),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade100,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(Icons.storefront_rounded, color: Colors.orange.shade900, size: 24),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Paiement & Dépôt à l\'agence',
+                      style: TextStyle(
+                        color: Colors.orange,
+                        fontSize: 16.5,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Agence de départ : ${parcel.departureCity}',
+                      style: TextStyle(
+                        color: Colors.orange.shade800,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Ce colis a été pré-enregistré. Veuillez vous rendre physiquement à l\'agence de départ muni de votre colis pour la pesée et le règlement des frais d\'expédition.',
+            style: TextStyle(
+              color: Colors.orange,
+              fontSize: 13.5,
+              height: 1.42,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatusStepperCard extends StatelessWidget {
+  final ParcelRecord parcel;
+
+  const _StatusStepperCard({required this.parcel});
+
+  int get _stepIndex {
+    switch (parcel.rawStatus) {
+      case 'brouillon':
+        return 0;
+      case 'a_expedier':
+        return 1;
+      case 'en_transit':
+        return 2;
+      case 'arrive':
+        return 3;
+      case 'livre':
+        return 4;
+      default:
+        return 1;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final currentStep = _stepIndex;
+    final steps = [
+      'Pré-enregistré',
+      'Enregistré en agence',
+      'En transit',
+      'Arrivé',
+      'Livré',
+    ];
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _deepBlue.withValues(alpha: 0.08)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Statut d\'acheminement',
+                style: TextStyle(
+                  color: _deepBlue,
+                  fontSize: 16.5,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF17A34A).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  parcel.readableStatus,
+                  style: const TextStyle(
+                    color: Color(0xFF17A34A),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          for (var i = 0; i < steps.length; i++) ...[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Column(
+                  children: [
+                    Container(
+                      width: 22,
+                      height: 22,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: i <= currentStep ? const Color(0xFF17A34A) : Colors.grey.shade300,
+                      ),
+                      child: Center(
+                        child: i <= currentStep
+                            ? const Icon(Icons.check, size: 14, color: Colors.white)
+                            : Container(width: 8, height: 8, decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white)),
+                      ),
+                    ),
+                    if (i < steps.length - 1)
+                      Container(
+                        width: 2,
+                        height: 24,
+                        color: i < currentStep ? const Color(0xFF17A34A) : Colors.grey.shade300,
+                      ),
+                  ],
+                ),
+                const SizedBox(width: 12),
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(
+                    steps[i],
+                    style: TextStyle(
+                      color: i <= currentStep ? _deepBlue : _mutedText,
+                      fontWeight: i == currentStep ? FontWeight.w900 : FontWeight.w700,
+                      fontSize: 13.5,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -879,6 +836,8 @@ class _ParcelDetailsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final qrData = parcel.qrCode ?? parcel.code;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -899,17 +858,57 @@ class _ParcelDetailsCard extends StatelessWidget {
         children: [
           _ParcelImageBanner(parcel: parcel),
           const SizedBox(height: 16),
-          _DetailRow(label: 'Code', value: parcel.code),
+          Center(
+            child: Column(
+              children: [
+                Text(
+                  'Code de référence',
+                  style: TextStyle(
+                    color: _mutedText,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  parcel.code,
+                  style: const TextStyle(
+                    color: _deepBlue,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.6,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                QrImageView(
+                  data: qrData,
+                  version: QrVersions.auto,
+                  size: 130,
+                  padding: const EdgeInsets.all(0),
+                  backgroundColor: Colors.white,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 18),
+          const Divider(height: 1),
+          const SizedBox(height: 14),
           _DetailRow(label: 'Départ', value: parcel.departureCity),
           _DetailRow(label: 'Destination', value: parcel.destinationCity),
-          _DetailRow(label: 'Nom', value: parcel.recipientLastName),
-          _DetailRow(label: 'Prénom', value: parcel.recipientFirstName),
-          _DetailRow(label: 'Téléphone', value: parcel.recipientPhone),
-          _DetailRow(label: 'Nature', value: parcel.parcelNature),
-          _DetailRow(label: 'Nombre de colis', value: 'x${parcel.parcelCount}'),
+          _DetailRow(label: 'Destinataire', value: parcel.recipientFullName),
+          _DetailRow(label: 'Téléphone dest.', value: parcel.recipientPhone),
+          _DetailRow(label: 'Nature du colis', value: parcel.parcelNature),
+          _DetailRow(label: 'Nombre de pièces', value: 'x${parcel.parcelCount}'),
+          if (parcel.estimatedValue != null && parcel.estimatedValue! > 0)
+            _DetailRow(
+              label: 'Valeur déclarée',
+              value: '${parcel.estimatedValue!.toStringAsFixed(0)} FCFA',
+            ),
           _DetailRow(
-            label: 'Image importée',
-            value: parcel.attachmentName ?? 'Image du colis',
+            label: 'Frais de transport',
+            value: (parcel.deliveryFee != null && parcel.deliveryFee!.isNotEmpty)
+                ? '${parcel.deliveryFee} FCFA'
+                : 'Calculés en agence',
             isLast: true,
           ),
         ],
@@ -937,7 +936,7 @@ class _DetailRow extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 118,
+            width: 130,
             child: Text(
               label,
               style: const TextStyle(
@@ -973,19 +972,36 @@ class _ParcelImageBanner extends StatelessWidget {
     final path = parcel.attachmentPath;
 
     if (path == null || path.trim().isEmpty) {
-      return _ImageFallback(height: 180, iconSize: 42);
+      return const SizedBox.shrink();
     }
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(18),
-      child: Image.file(
-        File(path),
-        width: double.infinity,
-        height: 210,
-        fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => _ImageFallback(height: 180, iconSize: 42),
-      ),
-    );
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: Image.network(
+          path,
+          width: double.infinity,
+          height: 190,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+        ),
+      );
+    }
+
+    if (File(path).existsSync()) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: Image.file(
+          File(path),
+          width: double.infinity,
+          height: 190,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+        ),
+      );
+    }
+
+    return const SizedBox.shrink();
   }
 }
 
@@ -999,160 +1015,53 @@ class _ParcelThumbnail extends StatelessWidget {
   Widget build(BuildContext context) {
     final path = parcel.attachmentPath;
 
-    if (path == null || path.trim().isEmpty) {
-      return _ImageFallback(height: size, width: size, iconSize: 22);
+    if (path != null && path.trim().isNotEmpty) {
+      if (path.startsWith('http://') || path.startsWith('https://')) {
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(14),
+          child: Image.network(
+            path,
+            width: size,
+            height: size,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => _ImageFallback(size: size),
+          ),
+        );
+      }
+      if (File(path).existsSync()) {
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(14),
+          child: Image.file(
+            File(path),
+            width: size,
+            height: size,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => _ImageFallback(size: size),
+          ),
+        );
+      }
     }
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(14),
-      child: Image.file(
-        File(path),
-        width: size,
-        height: size,
-        fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) =>
-            _ImageFallback(height: size, width: size, iconSize: 22),
-      ),
-    );
+    return _ImageFallback(size: size);
   }
 }
 
 class _ImageFallback extends StatelessWidget {
-  final double height;
-  final double? width;
-  final double iconSize;
+  final double size;
 
-  const _ImageFallback({
-    required this.height,
-    this.width,
-    required this.iconSize,
-  });
+  const _ImageFallback({required this.size});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: width ?? double.infinity,
-      height: height,
+      width: size,
+      height: size,
       decoration: BoxDecoration(
-        color: _logoRed.withValues(alpha: 0.10),
+        color: _deepBlue.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _logoRed.withValues(alpha: 0.22)),
+        border: Border.all(color: _deepBlue.withValues(alpha: 0.16)),
       ),
-      child: Icon(Icons.inventory_2_rounded, color: _logoRed, size: iconSize),
-    );
-  }
-}
-
-class _PaymentSummary extends StatelessWidget {
-  final ParcelRecord parcel;
-
-  const _PaymentSummary({required this.parcel});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: _deepBlue.withValues(alpha: 0.08)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            parcel.recipientFullName.isEmpty
-                ? 'Destinataire'
-                : parcel.recipientFullName,
-            style: const TextStyle(
-              color: _deepBlue,
-              fontSize: 17,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '${parcel.departureCity} → ${parcel.destinationCity}',
-            style: const TextStyle(
-              color: _mutedText,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '${parcel.parcelNature} x${parcel.parcelCount}',
-            style: const TextStyle(
-              color: _deepBlue,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PaymentMethodTile extends StatelessWidget {
-  final String value;
-  final String label;
-  final IconData icon;
-  final String? selectedValue;
-  final VoidCallback onTap;
-
-  const _PaymentMethodTile({
-    required this.value,
-    required this.label,
-    required this.icon,
-    required this.selectedValue,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isSelected = value == selectedValue;
-
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: onTap,
-        child: Container(
-          height: 62,
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: isSelected
-                  ? _logoRed.withValues(alpha: 0.55)
-                  : _deepBlue.withValues(alpha: 0.08),
-            ),
-          ),
-          child: Row(
-            children: [
-              Icon(icon, color: isSelected ? _logoRed : _deepBlue),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  label,
-                  style: const TextStyle(
-                    color: _deepBlue,
-                    fontSize: 15.5,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-              Icon(
-                isSelected
-                    ? Icons.check_circle_rounded
-                    : Icons.radio_button_unchecked_rounded,
-                color: isSelected ? _logoRed : _mutedText,
-              ),
-            ],
-          ),
-        ),
-      ),
+      child: Icon(Icons.inventory_2_rounded, color: _deepBlue, size: size * 0.5),
     );
   }
 }
@@ -1166,11 +1075,11 @@ class _StatusPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
+        color: color.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.22)),
+        border: Border.all(color: color.withValues(alpha: 0.28)),
       ),
       child: Text(
         text,
@@ -1245,6 +1154,18 @@ class _EmptyState extends StatelessWidget {
                 color: _deepBlue,
                 fontSize: 17,
                 fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              isRegistered
+                  ? 'Vos colis validés en agence apparaîtront ici.'
+                  : 'Vos demandes d\'envoi en attente de passage en agence apparaîtront ici.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: _mutedText,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],

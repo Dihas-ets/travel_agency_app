@@ -10,11 +10,17 @@ class ParcelRecord {
   final String parcelNature;
   final int parcelCount;
   final String senderPhone;
+  final String? senderName;
   final String? attachmentPath;
   final String? attachmentName;
   final String? deliveryFee;
   final DateTime createdAt;
   final String status;
+  final String? qrCode;
+  final double? estimatedValue;
+  final String? rawStatus;
+  final String? paymentStatus;
+  final String? modePaiement;
 
   const ParcelRecord({
     required this.code,
@@ -26,21 +32,58 @@ class ParcelRecord {
     required this.parcelNature,
     required this.parcelCount,
     required this.senderPhone,
+    this.senderName,
     this.attachmentPath,
     this.attachmentName,
     this.deliveryFee,
     required this.createdAt,
     required this.status,
+    this.qrCode,
+    this.estimatedValue,
+    this.rawStatus,
+    this.paymentStatus,
+    this.modePaiement,
   });
 
   String get recipientFullName =>
       '$recipientLastName $recipientFirstName'.trim();
+
+  bool get isDraftOrPending =>
+      rawStatus == 'brouillon' ||
+      status == 'En attente' ||
+      status == 'Pré-enregistré' ||
+      paymentStatus == 'en_attente_paiement';
+
+  String get readableStatus {
+    switch (rawStatus) {
+      case 'brouillon':
+        return 'En attente en agence';
+      case 'a_expedier':
+        return 'À expédier';
+      case 'en_transit':
+        return 'En transit';
+      case 'arrive':
+        return 'Arrivé en agence';
+      case 'livre':
+        return 'Livré';
+      case 'perdu':
+        return 'Perdu';
+      default:
+        return status;
+    }
+  }
 
   ParcelRecord copyWith({
     String? status,
     DateTime? createdAt,
     String? deliveryFee,
     String? senderPhone,
+    String? senderName,
+    String? qrCode,
+    double? estimatedValue,
+    String? rawStatus,
+    String? paymentStatus,
+    String? modePaiement,
   }) {
     return ParcelRecord(
       code: code,
@@ -52,11 +95,17 @@ class ParcelRecord {
       parcelNature: parcelNature,
       parcelCount: parcelCount,
       senderPhone: senderPhone ?? this.senderPhone,
+      senderName: senderName ?? this.senderName,
       attachmentPath: attachmentPath,
       attachmentName: attachmentName,
       deliveryFee: deliveryFee ?? this.deliveryFee,
       createdAt: createdAt ?? this.createdAt,
       status: status ?? this.status,
+      qrCode: qrCode ?? this.qrCode,
+      estimatedValue: estimatedValue ?? this.estimatedValue,
+      rawStatus: rawStatus ?? this.rawStatus,
+      paymentStatus: paymentStatus ?? this.paymentStatus,
+      modePaiement: modePaiement ?? this.modePaiement,
     );
   }
 }
@@ -92,8 +141,6 @@ class ParcelStore {
       registeredParcels[index] = registered;
     }
 
-    // La cloche affiche les derniers colis finalisés. On garde la liste en
-    // mémoire pour que le clic montre un vrai contenu au lieu d'un simple badge.
     notifications.removeWhere((item) => item.code == registered.code);
     notifications.insert(0, registered);
     _unreadNotificationCodes.add(registered.code);

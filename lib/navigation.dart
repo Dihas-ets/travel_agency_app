@@ -18,6 +18,8 @@ import 'package:code_initial/screens/client/colis/envois_effectues_page.dart';
 import 'package:code_initial/screens/chauffeur/chauffeur_home_page.dart';
 import 'package:code_initial/pages/payment_success_page.dart';
 import 'package:code_initial/pages/payment_error_page.dart';
+import 'package:code_initial/auth/stockage_auth_local.dart';
+import 'package:code_initial/data/local/session_store.dart';
 
 /// Centralise toutes les pages accessibles avec GetX.
 ///
@@ -90,6 +92,22 @@ class Routes {
   ///
   /// Pour l'instant l'application commence toujours par l'onboarding.
   static Future<String> get initialRoute async {
+    // Vérifie si un token valide existe localement.
+    // Si oui, on restaure la session et on redirige vers HOME.
+    // Si non, on démarre depuis ONBOARDING comme d'habitude.
+    try {
+      final token = await AuthLocalStore.getToken();
+      if (token != null && token.trim().isNotEmpty) {
+        // Restaure l'utilisateur depuis le cache local dans SessionStore
+        final cachedUser = await AuthLocalStore.getCurrentUser();
+        if (cachedUser != null) {
+          SessionStore.setCurrentUser(cachedUser);
+        }
+        return HOME;
+      }
+    } catch (_) {
+      // En cas d'erreur, on repart sur ONBOARDING
+    }
     return ONBOARDING;
   }
 

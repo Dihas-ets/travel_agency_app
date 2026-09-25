@@ -80,6 +80,7 @@ class _StepTwoForm extends StatelessWidget {
   final TextEditingController phoneController;
   final VoidCallback onDestinationTap;
   final VoidCallback onPreview;
+  final bool isSubmitting;
 
   const _StepTwoForm({
     required this.destinationController,
@@ -88,6 +89,7 @@ class _StepTwoForm extends StatelessWidget {
     required this.phoneController,
     required this.onDestinationTap,
     required this.onPreview,
+    this.isSubmitting = false,
     super.key,
   });
 
@@ -97,7 +99,7 @@ class _StepTwoForm extends StatelessWidget {
       children: [
         _ChoiceField(
           value: destinationController.text,
-          hintText: 'Ville de destination',
+          hintText: 'Ville / Agence de destination',
           icon: Icons.location_on_rounded,
           onTap: onDestinationTap,
         ),
@@ -119,7 +121,11 @@ class _StepTwoForm extends StatelessWidget {
           child: AfricanPhoneField(controller: phoneController),
         ),
         const SizedBox(height: 30),
-        _PrimaryParcelButton(label: 'Aperçu', onPressed: onPreview),
+        _PrimaryParcelButton(
+          label: 'Créer & Aperçu',
+          isLoading: isSubmitting,
+          onPressed: isSubmitting ? () {} : onPreview,
+        ),
       ],
     );
   }
@@ -1117,21 +1123,27 @@ class _ParcelInputField extends StatelessWidget {
 class _PrimaryParcelButton extends StatelessWidget {
   final String label;
   final VoidCallback onPressed;
+  final bool isLoading;
 
-  const _PrimaryParcelButton({required this.label, required this.onPressed});
+  const _PrimaryParcelButton({
+    required this.label,
+    required this.onPressed,
+    this.isLoading = false,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final isPreview = label == 'Aperçu';
-    final backgroundColor = isPreview ? _fofanaGreen : _logoRed;
+    final isGreen = label.contains('Aperçu') || label.contains('Créer');
+    final backgroundColor = isGreen ? _fofanaGreen : _logoRed;
 
     return SizedBox(
       width: double.infinity,
       height: 58,
       child: ElevatedButton(
-        onPressed: onPressed,
+        onPressed: isLoading ? null : onPressed,
         style: ElevatedButton.styleFrom(
           backgroundColor: backgroundColor,
+          disabledBackgroundColor: backgroundColor.withValues(alpha: 0.5),
           foregroundColor: Colors.white,
           elevation: 0,
           shadowColor: backgroundColor.withValues(alpha: 0.18),
@@ -1140,7 +1152,16 @@ class _PrimaryParcelButton extends StatelessWidget {
           ),
           textStyle: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
         ),
-        child: Text(label),
+        child: isLoading
+            ? const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  color: Colors.white,
+                ),
+              )
+            : Text(label),
       ),
     );
   }

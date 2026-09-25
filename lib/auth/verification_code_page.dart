@@ -5,9 +5,11 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:code_initial/auth/stockage_auth_local.dart';
 import 'package:code_initial/data/local/session_store.dart';
+import 'package:code_initial/models/user_model.dart';
 import 'package:code_initial/navigation.dart';
 
 import 'package:code_initial/services/auth_service.dart';
+
 
 /// Page de vérification du code reçu par téléphone.
 ///
@@ -171,17 +173,25 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
         final token = result['token'];
         
         // On sauvegarde le token pour les futurs appels API authentifiés
-        // On suppose que SessionStore ou AuthLocalStore gère cela
         await AuthLocalStore.saveToken(token); 
         
-        // On met à jour la session locale
+        // On met à jour la session locale (mémoire)
         SessionStore.setCurrentClientPhone(phone);
         if (nom.isNotEmpty) {
           SessionStore.setCurrentClientName(nom: nom, prenom: prenom);
         }
 
+        // Sauvegarde du profil complet retourné par le backend
+        final userJson = result['user'];
+        if (userJson != null && userJson is Map<String, dynamic>) {
+          final user = UserModel.fromJson(userJson);
+          SessionStore.setCurrentUser(user);
+          await AuthLocalStore.saveCurrentUser(user);
+        }
+
         // 5. Navigation vers l'accueil (on vide l'historique pour ne pas revenir en arrière)
         Get.offAllNamed(Routes.HOME);
+
         
       } else {
         // Code invalide ou expiré

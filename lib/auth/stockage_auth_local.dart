@@ -1,10 +1,12 @@
 import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:code_initial/models/user_model.dart';
 
 class AuthLocalStore {
   static const _clientPhonesKey = 'client_phone_numbers';
   static const _clientProfilesKey = 'client_profiles';
+  static const _currentUserKey = 'current_user_profile';
   // 1. On ajoute la clé pour le Token
   static const _tokenKey = 'auth_token';
   static const _secureStorage = FlutterSecureStorage();
@@ -30,7 +32,43 @@ class AuthLocalStore {
     await _secureStorage.delete(key: _tokenKey);
   }
 
-  // --- TES MÉTHODES EXISTANTES (NE PAS CHANGER) ---
+  // --- GESTION DU PROFIL UTILISATEUR COMPLET ---
+
+  /// Sauvegarde le profil utilisateur complet en cache local
+  static Future<void> saveCurrentUser(UserModel user) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_currentUserKey, jsonEncode(user.toJson()));
+    if (user.numero.isNotEmpty) {
+      await saveClientPhone(user.numero);
+      await saveClientProfile(
+        phone: user.numero,
+        nom: user.nom ?? '',
+        prenom: user.prenom ?? '',
+      );
+    }
+  }
+
+  /// Récupère le profil utilisateur mis en cache
+  static Future<UserModel?> getCurrentUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_currentUserKey);
+    if (raw == null || raw.trim().isEmpty) return null;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map<String, dynamic>) {
+        return UserModel.fromJson(decoded);
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  /// Supprime le profil utilisateur en cache
+  static Future<void> removeCurrentUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_currentUserKey);
+  }
+
+  // --- MÉTHODES EXISTANTES ---
 
   static Future<void> saveClientPhone(String phone) async {
     final normalizedPhone = normalizePhone(phone);

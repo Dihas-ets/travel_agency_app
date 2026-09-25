@@ -418,9 +418,7 @@ class _AgencyMapCardState extends State<_AgencyMapCard> {
             .toList();
         _state = _AgencesLoadState.success;
       });
-
-      // ⬇️ AJOUT : ajuste la caméra pour englober tous les marqueurs
-      WidgetsBinding.instance.addPostFrameCallback((_) => _fitBounds());
+      // La caméra sera ajustée par onMapReady du FlutterMap
     } catch (_) {
       if (!mounted) return;
       setState(() => _state = _AgencesLoadState.error);
@@ -557,13 +555,14 @@ class _AgencyMapCardState extends State<_AgencyMapCard> {
     final center = latlng.LatLng(_agences.first.latitude!, _agences.first.longitude!);
 
     return FlutterMap(
-      mapController: _mapController, // ⬅️ AJOUT
+      mapController: _mapController,
       options: MapOptions(
         initialCenter: center,
         initialZoom: 12,
         interactionOptions: const InteractionOptions(
           flags: InteractiveFlag.none,
         ),
+        onMapReady: _fitBounds, // Ajuste la caméra dès que la carte est prête
       ),
       children: [
         TileLayer(
