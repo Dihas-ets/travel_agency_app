@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:code_initial/models/controleur_models.dart';
+import 'package:code_initial/models/user_model.dart';
+import 'package:code_initial/data/local/session_store.dart';
 import 'package:code_initial/menus/menu_percepteur/menu_profil_percepteur.dart';
+
 // Profil controleur: edition locale des informations de compte.
 
 class ControleurProfileTabContent extends StatelessWidget {
@@ -10,20 +13,31 @@ class ControleurProfileTabContent extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView(
       padding: const EdgeInsets.only(bottom: 18),
-      children: const [
+      children: [
         Center(
-          child: CircleAvatar(
-            radius: 52,
-            backgroundColor: Color(0xFF58648D),
-            child: Icon(
-              Icons.verified_user_rounded,
-              color: Colors.white,
-              size: 64,
-            ),
+          child: ValueListenableBuilder<UserModel?>(
+            valueListenable: SessionStore.currentUserNotifier,
+            builder: (context, user, _) {
+              final photoUrl = user?.photoUrl;
+              return CircleAvatar(
+                radius: 52,
+                backgroundColor: const Color(0xFF58648D),
+                backgroundImage: photoUrl != null && photoUrl.isNotEmpty
+                    ? NetworkImage(photoUrl)
+                    : null,
+                child: photoUrl == null || photoUrl.isEmpty
+                    ? const Icon(
+                        Icons.verified_user_rounded,
+                        color: Colors.white,
+                        size: 64,
+                      )
+                    : null,
+              );
+            },
           ),
         ),
-        SizedBox(height: 16),
-        Text(
+        const SizedBox(height: 16),
+        const Text(
           'Profil controleur',
           textAlign: TextAlign.center,
           style: TextStyle(
@@ -32,8 +46,8 @@ class ControleurProfileTabContent extends StatelessWidget {
             fontWeight: FontWeight.w900,
           ),
         ),
-        SizedBox(height: 18),
-        ControleurProfilePanel(),
+        const SizedBox(height: 18),
+        const ControleurProfilePanel(),
       ],
     );
   }
@@ -47,7 +61,20 @@ class ControleurProfilePanel extends StatelessWidget {
     return ValueListenableBuilder<ControleurProfileData>(
       valueListenable: ControleurProfileStore.profile,
       builder: (context, profile, _) {
-        return ControleurProfileEditor(profile: profile);
+        return ValueListenableBuilder<UserModel?>(
+          valueListenable: SessionStore.currentUserNotifier,
+          builder: (context, user, _) {
+            final currentProfile = profile.fullName.isNotEmpty
+                ? profile
+                : ControleurProfileData(
+                    fullName: user?.fullName ?? '',
+                    phone: user?.numero ?? '',
+                    agency: user?.agence?['nom_agence']?.toString() ?? '',
+                    role: user?.role ?? '',
+                  );
+            return ControleurProfileEditor(profile: currentProfile);
+          },
+        );
       },
     );
   }

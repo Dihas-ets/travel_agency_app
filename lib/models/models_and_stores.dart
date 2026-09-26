@@ -3,24 +3,8 @@ import 'package:flutter/material.dart';
 // Modeles et stores memoire propres a l espace percepteur.
 
 class PercepteurNotificationStore {
-  static final ValueNotifier<int> count = ValueNotifier<int>(3);
-  static final List<PercepteurNotificationItem> notifications = [
-    PercepteurNotificationItem(
-      title: 'Bienvenue',
-      message: 'Votre espace percepteur Fofana est prêt.',
-      time: 'Maintenant',
-    ),
-    PercepteurNotificationItem(
-      title: 'Voyage',
-      message: 'Consultez les réservations et confirmez les paiements.',
-      time: 'Aujourd’hui',
-    ),
-    PercepteurNotificationItem(
-      title: 'Colis',
-      message: 'Les nouvelles opérations colis apparaîtront ici.',
-      time: 'Aujourd’hui',
-    ),
-  ];
+  static final ValueNotifier<int> count = ValueNotifier<int>(0);
+  static final List<PercepteurNotificationItem> notifications = [];
 
   static void add({
     String title = 'Nouvelle notification',
@@ -84,10 +68,10 @@ class PercepteurProfileStore {
   static final ValueNotifier<PercepteurProfileData> profile =
       ValueNotifier<PercepteurProfileData>(
         const PercepteurProfileData(
-          fullName: 'Percepteur Fofana',
-          phone: '+229 01 00 00 00 00',
-          agency: 'Cotonou',
-          role: 'Percepteur voyage',
+          fullName: '',
+          phone: '',
+          agency: '',
+          role: '',
         ),
       );
 

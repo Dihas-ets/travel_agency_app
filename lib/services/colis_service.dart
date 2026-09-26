@@ -42,13 +42,19 @@ class ColisService {
 
     for (int i = 0; i < colisDetails.length; i++) {
       final detail = colisDetails[i];
-      request.fields['colis_details[$i][nature]'] = detail['nature']?.toString() ?? 'Colis';
-      request.fields['colis_details[$i][poids]'] = (detail['poids'] ?? 0).toString();
-      request.fields['colis_details[$i][nombre]'] = (detail['nombre'] ?? 1).toString();
-      request.fields['colis_details[$i][description]'] = detail['description']?.toString() ?? '';
+      request.fields['colis_details[$i][nature]'] =
+          detail['nature']?.toString() ?? 'Colis';
+      request.fields['colis_details[$i][poids]'] = (detail['poids'] ?? 0)
+          .toString();
+      request.fields['colis_details[$i][nombre]'] = (detail['nombre'] ?? 1)
+          .toString();
+      request.fields['colis_details[$i][description]'] =
+          detail['description']?.toString() ?? '';
 
       final image = (images != null && i < images.length) ? images[i] : null;
-      if (image != null && image.path.isNotEmpty && File(image.path).existsSync()) {
+      if (image != null &&
+          image.path.isNotEmpty &&
+          File(image.path).existsSync()) {
         final multipartFile = await http.MultipartFile.fromPath(
           'colis_details[$i][image]',
           image.path,
@@ -58,7 +64,9 @@ class ColisService {
     }
 
     try {
-      final streamedResponse = await request.send().timeout(const Duration(seconds: 25));
+      final streamedResponse = await request.send().timeout(
+        const Duration(seconds: 25),
+      );
       final response = await http.Response.fromStream(streamedResponse);
       final data = jsonDecode(response.body);
 
@@ -70,7 +78,9 @@ class ColisService {
           'colis': ColisModel.fromJson(colisJson),
         };
       } else {
-        String msg = data['message']?.toString() ?? 'Erreur lors de l\'enregistrement du colis.';
+        String msg =
+            data['message']?.toString() ??
+            'Erreur lors de l\'enregistrement du colis.';
         if (data['errors'] != null && data['errors'] is Map) {
           final errors = data['errors'] as Map;
           final firstKey = errors.keys.first;
@@ -79,10 +89,7 @@ class ColisService {
             msg = firstVal.first.toString();
           }
         }
-        return {
-          'success': false,
-          'message': msg,
-        };
+        return {'success': false, 'message': msg};
       }
     } catch (e) {
       return {
@@ -93,28 +100,41 @@ class ColisService {
   }
 
   /// Historique client des colis (`GET /api/auth/client/colis/historique`)
-  Future<List<ColisModel>> getHistoriqueClient({String? statut, int page = 1}) async {
+  Future<List<ColisModel>> getHistoriqueClient({
+    String? statut,
+    int page = 1,
+  }) async {
     final token = await AuthLocalStore.getToken();
     final queryParams = <String, String>{
       'page': page.toString(),
       if (statut != null && statut.isNotEmpty) 'statut': statut,
     };
-    final uri = Uri.parse('$baseUrl/auth/client/colis/historique').replace(queryParameters: queryParams);
+    final uri = Uri.parse(
+      '$baseUrl/auth/client/colis/historique',
+    ).replace(queryParameters: queryParams);
 
-    final response = await http.get(
-      uri,
-      headers: {
-        'Accept': 'application/json',
-        if (token != null) 'Authorization': 'Bearer $token',
-      },
-    ).timeout(const Duration(seconds: 15));
+    final response = await http
+        .get(
+          uri,
+          headers: {
+            'Accept': 'application/json',
+            if (token != null) 'Authorization': 'Bearer $token',
+          },
+        )
+        .timeout(const Duration(seconds: 15));
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
-      final List items = data['data'] is List ? data['data'] : (data is List ? data : []);
-      return items.map((e) => ColisModel.fromJson(e as Map<String, dynamic>)).toList();
+      final List items = data['data'] is List
+          ? data['data']
+          : (data is List ? data : []);
+      return items
+          .map((e) => ColisModel.fromJson(e as Map<String, dynamic>))
+          .toList();
     } else {
-      throw Exception('Erreur ${response.statusCode} lors du chargement de l\'historique colis.');
+      throw Exception(
+        'Erreur ${response.statusCode} lors du chargement de l\'historique colis.',
+      );
     }
   }
 
@@ -123,13 +143,15 @@ class ColisService {
     final token = await AuthLocalStore.getToken();
     final uri = Uri.parse('$baseUrl/colis/show/$reference');
 
-    final response = await http.get(
-      uri,
-      headers: {
-        'Accept': 'application/json',
-        if (token != null) 'Authorization': 'Bearer $token',
-      },
-    ).timeout(const Duration(seconds: 15));
+    final response = await http
+        .get(
+          uri,
+          headers: {
+            'Accept': 'application/json',
+            if (token != null) 'Authorization': 'Bearer $token',
+          },
+        )
+        .timeout(const Duration(seconds: 15));
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
@@ -147,17 +169,21 @@ class ColisService {
     final token = await AuthLocalStore.getToken();
     final uri = Uri.parse('$baseUrl/configuration-colis?statut=actif');
 
-    final response = await http.get(
-      uri,
-      headers: {
-        'Accept': 'application/json',
-        if (token != null) 'Authorization': 'Bearer $token',
-      },
-    ).timeout(const Duration(seconds: 15));
+    final response = await http
+        .get(
+          uri,
+          headers: {
+            'Accept': 'application/json',
+            if (token != null) 'Authorization': 'Bearer $token',
+          },
+        )
+        .timeout(const Duration(seconds: 15));
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
-      final List items = data['data'] is List ? data['data'] : (data is List ? data : []);
+      final List items = data['data'] is List
+          ? data['data']
+          : (data is List ? data : []);
       return List<Map<String, dynamic>>.from(items);
     }
     return [];

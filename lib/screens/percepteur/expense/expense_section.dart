@@ -6,6 +6,7 @@ import 'package:code_initial/models/store/expense_store.dart';
 import 'package:code_initial/screens/percepteur/parts/reservation_flow.dart';
 import 'package:code_initial/screens/percepteur/expense/manual_expense_page.dart';
 import 'package:code_initial/screens/percepteur/expense/qr_scanner_page.dart';
+import 'package:code_initial/services/cash_service.dart';
 
 // Ecran Depense percepteur et ses widgets de saisie, liste et synthese.
 
@@ -21,8 +22,11 @@ class _PercepteurDepenseContentState extends State<PercepteurDepenseContent>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final expenseStore = ExpenseStore();
+  final CashService _cashService = CashService();
   bool _showPercepteurBalance = false;
-  static const double _percepteurBalance = 185000;
+  CashSummary? _cashSummary;
+  String? _cashError;
+  bool _cashLoading = true;
 
   @override
   void initState() {
@@ -31,6 +35,28 @@ class _PercepteurDepenseContentState extends State<PercepteurDepenseContent>
     _tabController.addListener(() {
       if (mounted) setState(() {});
     });
+    _loadCashSummary();
+  }
+
+  Future<void> _loadCashSummary() async {
+    setState(() {
+      _cashLoading = true;
+      _cashError = null;
+    });
+    try {
+      final summary = await _cashService.getSummary();
+      if (!mounted) return;
+      setState(() {
+        _cashSummary = summary;
+        _cashLoading = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _cashLoading = false;
+        _cashError = error.toString();
+      });
+    }
   }
 
   @override
@@ -531,8 +557,12 @@ class _PercepteurDepenseContentState extends State<PercepteurDepenseContent>
   }
 
   Widget _buildWalletCard() {
-    final balanceText = _showPercepteurBalance
-        ? '${_percepteurBalance.toStringAsFixed(0)} FCFA'
+    final balanceText = _cashLoading
+        ? 'Chargement...'
+        : _cashError != null
+        ? 'Indisponible'
+        : _showPercepteurBalance
+        ? '${(_cashSummary?.balance ?? 0).toStringAsFixed(0)} FCFA'
         : '****** FCFA';
 
     return Padding(

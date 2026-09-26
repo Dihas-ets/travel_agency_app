@@ -57,6 +57,11 @@ class UserModel {
   }
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
+    final rawProfil = json['profil']?.toString() ??
+        json['photo_url']?.toString() ??
+        json['avatar']?.toString() ??
+        json['image']?.toString();
+
     return UserModel(
       id: json['id'] is int
           ? json['id'] as int
@@ -66,7 +71,7 @@ class UserModel {
       numero: json['numero']?.toString() ?? '',
       email: json['email']?.toString(),
       country: json['country']?.toString(),
-      profil: json['profil']?.toString(),
+      profil: rawProfil,
       role: json['role']?.toString() ?? 'client',
       status: json['status']?.toString() ?? 'actif',
       createdAt: json['created_at'] != null

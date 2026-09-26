@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:code_initial/screens/percepteur/parts/history_news_section.dart';
+import 'package:code_initial/data/local/session_store.dart';
+import 'package:code_initial/services/cash_service.dart';
+import 'package:code_initial/services/staff_ticket_service.dart';
 import 'package:code_initial/screens/percepteur/parts/assignments_section.dart';
+import 'package:code_initial/screens/percepteur/parts/history_news_section.dart';
 import 'package:code_initial/screens/percepteur/parts/ticket_validation_section.dart';
 import 'package:code_initial/screens/percepteur/parts/reservation_flow.dart';
 // Menu Voyage percepteur et boutons d action d acces rapide.
@@ -13,10 +16,175 @@ class PercepteurVoyageContent extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.only(bottom: 18),
       children: const [
-        PercepteurNewsSection(),
+        PercepteurLiveOverview(),
         SizedBox(height: 22),
         PercepteurVoyageMenu(),
       ],
+    );
+  }
+}
+
+class PercepteurLiveOverview extends StatefulWidget {
+  const PercepteurLiveOverview({super.key});
+
+  @override
+  State<PercepteurLiveOverview> createState() => _PercepteurLiveOverviewState();
+}
+
+class _PercepteurLiveOverviewState extends State<PercepteurLiveOverview> {
+  late Future<_PercepteurOverviewData> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _loadOverview();
+  }
+
+  Future<_PercepteurOverviewData> _loadOverview() async {
+    try {
+      final tickets = await StaffTicketService().getTicketsDuJour();
+      final summary = await CashService().getSummary();
+      final user = SessionStore.currentUser;
+      return _PercepteurOverviewData(
+        fullName: user?.fullName ?? 'Chargement...',
+        role: user?.role ?? 'staff',
+        ticketCount: tickets.length,
+        balance: summary.balance,
+      );
+    } catch (_) {
+      final user = SessionStore.currentUser;
+      return _PercepteurOverviewData(
+        fullName: user?.fullName ?? 'Utilisateur',
+        role: user?.role ?? 'staff',
+        ticketCount: 0,
+        balance: 0,
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<_PercepteurOverviewData>(
+      future: _future,
+      builder: (context, snapshot) {
+        final data = snapshot.data ?? const _PercepteurOverviewData();
+        return Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: const Color(0xFF16A34A).withValues(alpha: 0.16)),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF0B4F2A).withValues(alpha: 0.08),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Bienvenue, ${data.fullName}',
+                style: const TextStyle(
+                  color: Color(0xFF0B4F2A),
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Rôle : ${data.role.toUpperCase()}',
+                style: const TextStyle(
+                  color: Color(0xFF5F6B86),
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: _InfoPill(
+                      label: 'Tickets du jour',
+                      value: '${data.ticketCount}',
+                      color: const Color(0xFF16A34A),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _InfoPill(
+                      label: 'Caisse',
+                      value: '${data.balance.toStringAsFixed(0)} F',
+                      color: const Color(0xFF0B4F2A),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _PercepteurOverviewData {
+  final String fullName;
+  final String role;
+  final int ticketCount;
+  final double balance;
+
+  const _PercepteurOverviewData({
+    this.fullName = 'Utilisateur',
+    this.role = 'staff',
+    this.ticketCount = 0,
+    this.balance = 0,
+  });
+}
+
+class _InfoPill extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color color;
+
+  const _InfoPill({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              color: Color(0xFF5F6B86),
+              fontSize: 11.5,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: TextStyle(
+              color: color,
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

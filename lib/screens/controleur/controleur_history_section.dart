@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:code_initial/models/controleur_models.dart';
 import 'package:code_initial/screens/percepteur/parts/reservation_flow.dart';
 import 'package:code_initial/screens/percepteur/parts/ticket_validation_section.dart';
+import 'package:code_initial/services/staff_ticket_service.dart';
+
 // Historique controleur: liste les tickets deja scannes pendant les validations.
 
 class ControleurHistoryTabContent extends StatelessWidget {
@@ -41,32 +43,110 @@ class ControleurHistoryPage extends StatelessWidget {
   }
 }
 
-class ControleurScannedTicketList extends StatelessWidget {
+class ControleurScannedTicketList extends StatefulWidget {
   const ControleurScannedTicketList({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return ValueListenableBuilder<List<ControleurScannedTicket>>(
-      valueListenable: ControleurScannedTicketStore.tickets,
-      builder: (context, tickets, _) {
-        if (tickets.isEmpty) {
-          return const PercepteurEmptyCard(
-            title: 'Aucun ticket scanne',
-            message:
-                'Les tickets valides par le controleur apparaitront ici apres chaque scan.',
-          );
-        }
+  State<ControleurScannedTicketList> createState() =>
+      _ControleurScannedTicketListState();
+}
 
-        return ListView.separated(
-          physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.only(bottom: 18),
-          itemCount: tickets.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 12),
-          itemBuilder: (context, index) {
-            return ControleurScannedTicketCard(ticket: tickets[index]);
-          },
-        );
-      },
+class _ControleurScannedTicketListState
+    extends State<ControleurScannedTicketList> {
+  final StaffTicketService _ticketService = StaffTicketService();
+  List<ControleurScannedTicket> _tickets = const [];
+  bool _isLoading = true;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTickets();
+  }
+
+  Future<void> _loadTickets() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+    try {
+      final tickets = await _ticketService.getTicketsDuJour();
+      if (!mounted) return;
+      setState(() {
+        _tickets = tickets
+            .map<ControleurScannedTicket>(ControleurScannedTicket.fromApi)
+            .toList(growable: false);
+        _isLoading = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _errorMessage = error.toString();
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_errorMessage != null) {
+      return _HistoryError(onRetry: _loadTickets);
+    }
+    if (_tickets.isEmpty) {
+      return RefreshIndicator(
+        onRefresh: _loadTickets,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: const [
+            SizedBox(height: 80),
+            PercepteurEmptyCard(
+              title: 'Aucun ticket scanne',
+              message:
+                  'Les tickets du jour retournes par le serveur apparaitront ici.',
+            ),
+          ],
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadTickets,
+      child: ListView.separated(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.only(bottom: 18),
+        itemCount: _tickets.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        itemBuilder: (context, index) {
+          return ControleurScannedTicketCard(ticket: _tickets[index]);
+        },
+      ),
+    );
+  }
+}
+
+class _HistoryError extends StatelessWidget {
+  final VoidCallback onRetry;
+
+  const _HistoryError({required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('Impossible de charger l’historique.'),
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: onRetry,
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text('Actualiser'),
+          ),
+        ],
+      ),
     );
   }
 }

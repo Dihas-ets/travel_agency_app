@@ -20,6 +20,7 @@ import 'package:code_initial/pages/payment_success_page.dart';
 import 'package:code_initial/pages/payment_error_page.dart';
 import 'package:code_initial/auth/stockage_auth_local.dart';
 import 'package:code_initial/data/local/session_store.dart';
+import 'package:code_initial/services/auth_service.dart';
 
 /// Centralise toutes les pages accessibles avec GetX.
 ///
@@ -98,11 +99,20 @@ class Routes {
     try {
       final token = await AuthLocalStore.getToken();
       if (token != null && token.trim().isNotEmpty) {
-        // Restaure l'utilisateur depuis le cache local dans SessionStore
         final cachedUser = await AuthLocalStore.getCurrentUser();
         if (cachedUser != null) {
           SessionStore.setCurrentUser(cachedUser);
         }
+
+        final freshUser = await AuthService().getProfile();
+        if (freshUser != null) {
+          final role = freshUser.role.trim().toLowerCase();
+          if (role == 'percepteur') return PERCEPTEUR_HOME;
+          if (role == 'controlleur' || role == 'controleur') return CONTROLEUR_HOME;
+          if (role == 'chauffeur') return CHAUFFEUR_HOME;
+          return HOME;
+        }
+
         return HOME;
       }
     } catch (_) {

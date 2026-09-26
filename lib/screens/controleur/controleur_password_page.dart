@@ -1,7 +1,10 @@
 import 'package:code_initial/navigation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:code_initial/auth/stockage_auth_local.dart';
 import 'package:code_initial/auth/widgets/connexion_widgets.dart';
+import 'package:code_initial/data/local/session_store.dart';
+import 'package:code_initial/services/auth_service.dart';
 
 /// Connexion de l'espace controleur.
 ///
@@ -15,8 +18,6 @@ class ControleurPasswordPage extends StatefulWidget {
 }
 
 class _ControleurPasswordPageState extends State<ControleurPasswordPage> {
-  static const String _defaultControllerPassword = '0000';
-
   final TextEditingController _passwordController = TextEditingController();
 
   @override
@@ -25,18 +26,55 @@ class _ControleurPasswordPageState extends State<ControleurPasswordPage> {
     super.dispose();
   }
 
-  void _seConnecter() {
-    if (_passwordController.text.trim() != _defaultControllerPassword) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Mot de passe controleur incorrect.'),
-          backgroundColor: Color(0xFF16A34A),
-        ),
-      );
+  Future<void> _seConnecter() async {
+    final password = _passwordController.text.trim();
+    final phone = (Get.arguments as Map?)?['phone']?.toString() ?? '';
+
+    if (password.isEmpty) {
+      Get.snackbar('Erreur', 'Veuillez entrer votre mot de passe',
+          backgroundColor: Colors.orange, colorText: Colors.white);
       return;
     }
 
-    Get.offAllNamed(Routes.CONTROLEUR_HOME);
+    Get.dialog(
+      const Center(child: CircularProgressIndicator(color: Color(0xFF16A34A))),
+      barrierDismissible: false,
+    );
+
+    try {
+      final result = await AuthService().connexionStaff(phone, password);
+      Get.back();
+
+      if (result['success']) {
+        final token = result['token']?.toString();
+        if (token != null && token.trim().isNotEmpty) {
+          await AuthLocalStore.saveToken(token);
+          final user = await AuthService().getProfile();
+          if (user != null) SessionStore.setCurrentUser(user);
+        }
+
+        final role = ((result['user'] as Map<String, dynamic>?)?['role'] as String? ?? '')
+            .trim()
+            .toLowerCase();
+
+        if (role == 'controlleur' || role == 'controleur') {
+          Get.offAllNamed(Routes.CONTROLEUR_HOME);
+        } else if (role == 'percepteur') {
+          Get.offAllNamed(Routes.PERCEPTEUR_HOME);
+        } else if (role == 'chauffeur') {
+          Get.offAllNamed(Routes.CHAUFFEUR_HOME);
+        } else {
+          Get.offAllNamed(Routes.HOME);
+        }
+      } else {
+        Get.snackbar('Erreur', result['message'] ?? 'Identifiants incorrects',
+            backgroundColor: Colors.redAccent, colorText: Colors.white);
+      }
+    } catch (_) {
+      Get.back();
+      Get.snackbar('Erreur', 'Connexion au serveur impossible',
+          backgroundColor: Colors.red, colorText: Colors.white);
+    }
   }
 
   @override

@@ -10,10 +10,15 @@ class AuthService {
   static const String baseUrl = AppConfig.apiBaseUrl;
 
   /// INSCRIPTION CLIENT : Envoyer l'OTP
-  Future<Map<String, dynamic>> verifierNumeroInscription(String telephone) async {
+  Future<Map<String, dynamic>> verifierNumeroInscription(
+    String telephone,
+  ) async {
     final response = await http.post(
       Uri.parse('$baseUrl/auth/client/otp/verifier-numero-inscription'),
-      headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
       body: jsonEncode({'numero': telephone}),
     );
     final data = jsonDecode(response.body);
@@ -28,11 +33,17 @@ class AuthService {
     try {
       final response = await http.post(
         url,
-        headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
         body: jsonEncode({'numero': telephone}),
       );
       final data = jsonDecode(response.body);
-      return {'success': response.statusCode == 200, 'message': data['message']};
+      return {
+        'success': response.statusCode == 200,
+        'message': data['message'],
+      };
     } catch (e) {
       return {'success': false, 'message': 'Erreur de connexion au serveur'};
     }
@@ -44,17 +55,19 @@ class AuthService {
     try {
       final response = await http.post(
         url,
-        headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
         body: jsonEncode({'numero': telephone}),
       );
       final data = jsonDecode(response.body);
-      
+
       return {
         'success': response.statusCode == 200,
         'isStaff': response.statusCode == 409,
         'message': data['message']?.toString() ?? 'Connexion impossible.',
       };
-
     } catch (e) {
       return {'success': false, 'message': 'Erreur de connexion'};
     }
@@ -77,14 +90,18 @@ class AuthService {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/$endpoint'),
-        headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
         body: jsonEncode({'numero': normalizedPhone}),
       );
 
       final data = jsonDecode(response.body);
       return {
         'success': response.statusCode >= 200 && response.statusCode < 300,
-        'message': data['message']?.toString() ?? 'Impossible de renvoyer le code.',
+        'message':
+            data['message']?.toString() ?? 'Impossible de renvoyer le code.',
       };
     } catch (_) {
       return {'success': false, 'message': 'Erreur de connexion au serveur.'};
@@ -102,7 +119,10 @@ class AuthService {
     try {
       final response = await http.post(
         url,
-        headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
         body: jsonEncode({
           'numero': telephone,
           'code': code,
@@ -121,7 +141,10 @@ class AuthService {
   }
 
   /// CONNEXION STAFF : Par mot de passe
-  Future<Map<String, dynamic>> connexionStaff(String telephone, String password) async {
+  Future<Map<String, dynamic>> connexionStaff(
+    String telephone,
+    String password,
+  ) async {
     final url = Uri.parse('$baseUrl/auth/staff/connexion');
 
     // --- NORMALISATION COMME SUR LE WEB ---
@@ -133,13 +156,16 @@ class AuthService {
     try {
       final response = await http.post(
         url,
-        headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
         body: jsonEncode({
           'numero': finalPhone, // On envoie le numéro avec le "+"
           'password': password,
         }),
       );
-      
+
       final data = jsonDecode(response.body);
       if (response.statusCode == 200) {
         return {'success': true, 'token': data['token'], 'user': data['user']};
@@ -156,13 +182,15 @@ class AuthService {
     if (token == null || token.isEmpty) return null;
 
     try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/auth/moi'),
-        headers: {
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      ).timeout(const Duration(seconds: 10));
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/auth/moi'),
+            headers: {
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -210,12 +238,17 @@ class AuthService {
     }
 
     if (photo != null && photo.existsSync()) {
-      final multipartFile = await http.MultipartFile.fromPath('profil', photo.path);
+      final multipartFile = await http.MultipartFile.fromPath(
+        'profil',
+        photo.path,
+      );
       request.files.add(multipartFile);
     }
 
     try {
-      final streamedResponse = await request.send().timeout(const Duration(seconds: 25));
+      final streamedResponse = await request.send().timeout(
+        const Duration(seconds: 25),
+      );
       final response = await http.Response.fromStream(streamedResponse);
       final data = jsonDecode(response.body);
 
@@ -234,7 +267,8 @@ class AuthService {
           'photo_url': data['photo_url'],
         };
       } else {
-        String msg = data['message']?.toString() ?? 'Erreur de mise à jour du profil.';
+        String msg =
+            data['message']?.toString() ?? 'Erreur de mise à jour du profil.';
         if (data['errors'] != null && data['errors'] is Map) {
           final errors = data['errors'] as Map;
           final firstKey = errors.keys.first;
@@ -255,13 +289,15 @@ class AuthService {
     final token = await AuthLocalStore.getToken();
     if (token != null && token.isNotEmpty) {
       try {
-        await http.post(
-          Uri.parse('$baseUrl/auth/client/deconnexion'),
-          headers: {
-            'Accept': 'application/json',
-            'Authorization': 'Bearer $token',
-          },
-        ).timeout(const Duration(seconds: 5));
+        await http
+            .post(
+              Uri.parse('$baseUrl/auth/client/deconnexion'),
+              headers: {
+                'Accept': 'application/json',
+                'Authorization': 'Bearer $token',
+              },
+            )
+            .timeout(const Duration(seconds: 5));
       } catch (_) {}
     }
     await AuthLocalStore.removeToken();

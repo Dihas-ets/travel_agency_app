@@ -3,6 +3,7 @@ import 'package:code_initial/models/models_and_stores.dart';
 import 'package:code_initial/screens/client/colis/colis_attente_page.dart';
 import 'package:code_initial/screens/client/colis/pages_colis.dart';
 import 'package:code_initial/screens/percepteur/parts/reservation_flow.dart';
+import 'package:code_initial/services/staff_ticket_service.dart';
 
 // Gestion des colis cote percepteur: modes, listes, table de transit et statuts.
 
@@ -18,51 +19,65 @@ class PercepteurColisContentState extends State<PercepteurColisContent> {
   static const Color _green = Color(0xFF16A34A);
   static const Color _mutedText = Color(0xFF5F6B86);
 
-  final List<PercepteurParcelRecord> _availableParcels = [
-    PercepteurParcelRecord(
-      id: 'CL-2401',
-      percepteurPhone: '+229 01 61 44 20 90',
-      receiverName: 'Aminata Sanni',
-      receiverPhone: '+229 01 97 12 43 10',
-      image: 'assets/images/coli1.jpg',
-      destination: 'Cotonou',
-      status: 'En attente',
-    ),
-    PercepteurParcelRecord(
-      id: 'CL-2402',
-      percepteurPhone: '+229 01 66 30 18 75',
-      receiverName: 'Boris Adjovi',
-      receiverPhone: '+229 01 62 54 88 03',
-      image: 'assets/images/coli3.jpg',
-      destination: 'Porto-Novo',
-      status: 'En attente',
-    ),
-    PercepteurParcelRecord(
-      id: 'CL-2403',
-      percepteurPhone: '+229 01 95 70 11 42',
-      receiverName: 'Clarisse Hounkpe',
-      receiverPhone: '+229 01 68 13 06 54',
-      image: 'assets/images/coli4.jpg',
-      destination: 'Abomey',
-      status: 'En attente',
-    ),
-  ];
-
-  final List<PercepteurParcelRecord> _transitParcels = [
-    PercepteurParcelRecord(
-      id: 'CL-2398',
-      percepteurPhone: '+229 01 64 91 82 77',
-      receiverName: 'Didier Koto',
-      receiverPhone: '+229 01 91 03 24 78',
-      image: 'assets/images/coli2.jpg',
-      destination: 'Parakou',
-      status: 'Arriver',
-    ),
-  ];
+  List<PercepteurParcelRecord> _availableParcels = [];
+  List<PercepteurParcelRecord> _transitParcels = [];
+  bool _isLoading = true;
+  String? _errorMessage;
+  final StaffTicketService _ticketService = StaffTicketService();
 
   String? _selectedPhone;
   String _searchQuery = '';
   int _selectedColisMenuIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadParcels();
+  }
+
+  Future<void> _loadParcels() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+    try {
+      final results = await Future.wait([
+        _ticketService.getColisParStatut('en_attente'),
+        _ticketService.getColisParStatut('en_transit'),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _availableParcels = results[0].map(_parcelFromJson).toList();
+        _transitParcels = results[1].map(_parcelFromJson).toList();
+        _isLoading = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _errorMessage = error.toString();
+      });
+    }
+  }
+
+  PercepteurParcelRecord _parcelFromJson(Map<String, dynamic> json) {
+    final receiver = json['destinataire'] is Map<String, dynamic>
+        ? json['destinataire'] as Map<String, dynamic>
+        : const <String, dynamic>{};
+    return PercepteurParcelRecord(
+      id: (json['reference'] ?? json['id'] ?? '').toString(),
+      percepteurPhone: (json['telephone_expediteur'] ?? '').toString(),
+      receiverName: (receiver['nom'] ?? json['nom_destinataire'] ?? '')
+          .toString(),
+      receiverPhone:
+          (receiver['telephone'] ?? json['telephone_destinataire'] ?? '')
+              .toString(),
+      image: '',
+      destination: (json['destination'] ?? json['ville_arrivee'] ?? '')
+          .toString(),
+      status: (json['statut'] ?? '').toString(),
+    );
+  }
 
   List<PercepteurParcelRecord> get _filteredParcels {
     if (_searchQuery.isEmpty) return _availableParcels;
@@ -269,6 +284,16 @@ class PercepteurColisContentState extends State<PercepteurColisContent> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) return const Center(child: CircularProgressIndicator());
+    if (_errorMessage != null) {
+      return Center(
+        child: OutlinedButton.icon(
+          onPressed: _loadParcels,
+          icon: const Icon(Icons.refresh_rounded),
+          label: const Text('Actualiser les colis'),
+        ),
+      );
+    }
     final selectedParcel = _selectedParcel;
 
     return Column(

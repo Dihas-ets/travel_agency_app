@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:code_initial/models/models_and_stores.dart';
+import 'package:code_initial/models/user_model.dart';
+import 'package:code_initial/data/local/session_store.dart';
 import 'package:code_initial/screens/client/colis/colis_attente_page.dart';
 import 'package:code_initial/screens/percepteur/parts/assignments_section.dart';
 
@@ -158,19 +160,41 @@ class PercepteurMainMenuView extends StatelessWidget {
             height: 62,
           ),
           const SizedBox(height: 10),
-          const CircleAvatar(
-            radius: 48,
-            backgroundColor: Color(0xFF58648D),
-            child: Icon(Icons.person_rounded, color: Colors.white, size: 62),
+          ValueListenableBuilder<UserModel?>(
+            valueListenable: SessionStore.currentUserNotifier,
+            builder: (context, user, _) {
+              final photoUrl = user?.photoUrl;
+              return CircleAvatar(
+                radius: 48,
+                backgroundColor: const Color(0xFF58648D),
+                backgroundImage: photoUrl != null && photoUrl.isNotEmpty
+                    ? NetworkImage(photoUrl)
+                    : null,
+                child: photoUrl == null || photoUrl.isEmpty
+                    ? const Icon(
+                        Icons.person_rounded,
+                        color: Colors.white,
+                        size: 62,
+                      )
+                    : null,
+              );
+            },
           ),
           const SizedBox(height: 16),
-          const Text(
-            'Percepteur Fofana',
-            style: TextStyle(
-              color: Color(0xFF0B4F2A),
-              fontSize: 27,
-              fontWeight: FontWeight.w900,
-            ),
+          ValueListenableBuilder<UserModel?>(
+            valueListenable: SessionStore.currentUserNotifier,
+            builder: (context, user, _) {
+              return Text(
+                user?.fullName.isNotEmpty == true
+                    ? user!.fullName
+                    : 'Chargement...',
+                style: const TextStyle(
+                  color: Color(0xFF0B4F2A),
+                  fontSize: 27,
+                  fontWeight: FontWeight.w900,
+                ),
+              );
+            },
           ),
           const SizedBox(height: 26),
           const MenuPercepteurSectionTitle(
@@ -376,10 +400,25 @@ class PercepteurProfileMenuView extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 20),
-          const CircleAvatar(
-            radius: 68,
-            backgroundColor: Color(0xFF58648D),
-            child: Icon(Icons.person_rounded, color: Colors.white, size: 88),
+          ValueListenableBuilder<UserModel?>(
+            valueListenable: SessionStore.currentUserNotifier,
+            builder: (context, user, _) {
+              final photoUrl = user?.photoUrl;
+              return CircleAvatar(
+                radius: 68,
+                backgroundColor: const Color(0xFF58648D),
+                backgroundImage: photoUrl != null && photoUrl.isNotEmpty
+                    ? NetworkImage(photoUrl)
+                    : null,
+                child: photoUrl == null || photoUrl.isEmpty
+                    ? const Icon(
+                        Icons.person_rounded,
+                        color: Colors.white,
+                        size: 88,
+                      )
+                    : null,
+              );
+            },
           ),
           const SizedBox(height: 24),
           const PercepteurProfilePanel(),
@@ -431,7 +470,20 @@ class PercepteurProfilePanel extends StatelessWidget {
     return ValueListenableBuilder<PercepteurProfileData>(
       valueListenable: PercepteurProfileStore.profile,
       builder: (context, profile, _) {
-        return PercepteurProfileEditor(profile: profile);
+        return ValueListenableBuilder<UserModel?>(
+          valueListenable: SessionStore.currentUserNotifier,
+          builder: (context, user, _) {
+            final currentProfile = profile.fullName.isNotEmpty
+                ? profile
+                : PercepteurProfileData(
+                    fullName: user?.fullName ?? '',
+                    phone: user?.numero ?? '',
+                    agency: user?.agence?['nom_agence']?.toString() ?? '',
+                    role: user?.role ?? '',
+                  );
+            return PercepteurProfileEditor(profile: currentProfile);
+          },
+        );
       },
     );
   }
@@ -643,16 +695,31 @@ class PercepteurProfileTabContent extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView(
       padding: const EdgeInsets.only(bottom: 18),
-      children: const [
+      children: [
         Center(
-          child: CircleAvatar(
-            radius: 52,
-            backgroundColor: Color(0xFF58648D),
-            child: Icon(Icons.person_rounded, color: Colors.white, size: 66),
+          child: ValueListenableBuilder<UserModel?>(
+            valueListenable: SessionStore.currentUserNotifier,
+            builder: (context, user, _) {
+              final photoUrl = user?.photoUrl;
+              return CircleAvatar(
+                radius: 52,
+                backgroundColor: const Color(0xFF58648D),
+                backgroundImage: photoUrl != null && photoUrl.isNotEmpty
+                    ? NetworkImage(photoUrl)
+                    : null,
+                child: photoUrl == null || photoUrl.isEmpty
+                    ? const Icon(
+                        Icons.person_rounded,
+                        color: Colors.white,
+                        size: 66,
+                      )
+                    : null,
+              );
+            },
           ),
         ),
-        SizedBox(height: 16),
-        Text(
+        const SizedBox(height: 16),
+        const Text(
           'Profil percepteur',
           textAlign: TextAlign.center,
           style: TextStyle(
@@ -661,8 +728,8 @@ class PercepteurProfileTabContent extends StatelessWidget {
             fontWeight: FontWeight.w900,
           ),
         ),
-        SizedBox(height: 18),
-        PercepteurProfilePanel(),
+        const SizedBox(height: 18),
+        const PercepteurProfilePanel(),
       ],
     );
   }

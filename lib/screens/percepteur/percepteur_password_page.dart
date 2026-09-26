@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:code_initial/navigation.dart';
 import 'package:code_initial/auth/widgets/connexion_widgets.dart';
- import 'package:code_initial/auth/stockage_auth_local.dart';
- import 'package:code_initial/services/auth_service.dart';
+import 'package:code_initial/auth/stockage_auth_local.dart';
+import 'package:code_initial/data/local/session_store.dart';
+import 'package:code_initial/services/auth_service.dart';
 
 class PercepteurPasswordPage extends StatefulWidget {
   const PercepteurPasswordPage({super.key});
@@ -13,9 +14,6 @@ class PercepteurPasswordPage extends StatefulWidget {
 }
 
 class _PercepteurPasswordPageState extends State<PercepteurPasswordPage> {
-  static const String _defaultPercepteurPassword = '1234';
-  static const String _defaultControleurPassword = '0000';
-
   final TextEditingController _passwordController = TextEditingController();
 
   @override
@@ -49,23 +47,28 @@ class _PercepteurPasswordPageState extends State<PercepteurPasswordPage> {
       Get.back();
 
       if (result['success']) {
-        // 3. Sauvegarder le Token
-        await AuthLocalStore.saveToken(result['token']);
+        final token = result['token']?.toString();
+        if (token != null && token.trim().isNotEmpty) {
+          await AuthLocalStore.saveToken(token);
+          final user = await AuthService().getProfile();
+          if (user != null) {
+            SessionStore.setCurrentUser(user);
+          }
+        }
 
-        // 4. Redirection selon le ROLE renvoyé par Laravel
-        final role = (result['user']['role'] as String? ?? '').trim().toLowerCase();
+        final role = ((result['user'] as Map<String, dynamic>?)?['role'] as String? ?? '')
+            .trim()
+            .toLowerCase();
 
         if (role == 'percepteur') {
           Get.offAllNamed(Routes.PERCEPTEUR_HOME);
-        } else if (role == 'controlleur' || role == 'controleur') { // ⬅️ accepte les deux orthographes
+        } else if (role == 'controlleur' || role == 'controleur') {
           Get.offAllNamed(Routes.CONTROLEUR_HOME);
         } else if (role == 'chauffeur') {
-          // à adapter si tu as déjà une route chauffeur
-          Get.offAllNamed(Routes.CHAUFFEUR_HOME); // ⬅️ à remplacer par la bonne route quand elle existera
+          Get.offAllNamed(Routes.CHAUFFEUR_HOME);
         } else {
           Get.offAllNamed(Routes.HOME);
         }
-        
       } else {
         // Erreur d'identifiants
         Get.snackbar("Erreur", result['message'] ?? "Identifiants incorrects",

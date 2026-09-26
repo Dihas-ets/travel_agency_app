@@ -11,9 +11,12 @@ class PaymentSuccessPage extends StatelessWidget {
       ),
       body: const Center(
         child: Text(
-          'Paiement réussi',
+          'Retour de paiement reçu.\n'
+          'Le statut sera confirmé après vérification par le serveur. '
+          'Consultez vos réservations.',
+          textAlign: TextAlign.center,
           style: TextStyle(
-            fontSize: 20,
+            fontSize: 17,
             fontWeight: FontWeight.bold,
           ),
         ),

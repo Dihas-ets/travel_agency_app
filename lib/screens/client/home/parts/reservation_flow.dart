@@ -595,11 +595,12 @@ class _ReservationPageState extends State<_ReservationPage> {
       return;
     }
 
-    if (_fare <= 0 ||
-        (widget.ligneId == null && _availableTimes.isEmpty)) {
+    if (_fare <= 0 || (widget.ligneId == null && _availableTimes.isEmpty)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Aucun voyage disponible pour ce trajet et cette date.'),
+          content: Text(
+            'Aucun voyage disponible pour ce trajet et cette date.',
+          ),
         ),
       );
       return;
@@ -876,9 +877,7 @@ class _ReservationPageState extends State<_ReservationPage> {
                       ? 'Sélectionner une date'
                       : _dateController.text,
                   icon: Icons.calendar_month_rounded,
-                  onTap: widget.voyageId != null
-                      ? () {}
-                      : _pickDate,
+                  onTap: widget.voyageId != null ? () {} : _pickDate,
                   disabled: widget.voyageId != null,
                 ),
               ),
@@ -891,8 +890,8 @@ class _ReservationPageState extends State<_ReservationPage> {
                       : _isLoadingAvailability
                       ? 'Chargement...'
                       : (_availableTimes.isEmpty
-                          ? 'Choisir une date et un trajet'
-                          : _selectedTime),
+                            ? 'Choisir une date et un trajet'
+                            : _selectedTime),
                   icon: Icons.schedule_rounded,
                   onTap: widget.voyageId != null || _availableTimes.isEmpty
                       ? () {}
@@ -1216,11 +1215,48 @@ class _PaymentDetailsPageState extends State<_PaymentDetailsPage> {
       TextEditingController();
 
   bool _isForSomeoneElse = false;
+  bool _isLoadingTaxGroups = true;
+  String? _taxGroupError;
+  TaxGroup? _selectedTaxGroup;
 
   @override
   void initState() {
     super.initState();
     _requesterPhoneController.text = SessionStore.currentClientPhone ?? '';
+    _loadTaxGroups();
+  }
+
+  Future<void> _loadTaxGroups() async {
+    if (mounted) {
+      setState(() {
+        _isLoadingTaxGroups = true;
+        _taxGroupError = null;
+      });
+    }
+    try {
+      final groups = await TaxService().getGroupsForModule('ticket');
+      if (!mounted) return;
+
+      TaxGroup? configuredDefault;
+      for (final group in groups) {
+        if (group.appliesAsDefaultTo('ticket')) {
+          configuredDefault = group;
+          break;
+        }
+      }
+      setState(() {
+        _selectedTaxGroup =
+            configuredDefault ?? (groups.isEmpty ? null : groups.first);
+        _taxGroupError = null;
+        _isLoadingTaxGroups = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _taxGroupError = error.toString().replaceFirst('Exception: ', '');
+        _isLoadingTaxGroups = false;
+      });
+    }
   }
 
   @override
@@ -1272,6 +1308,19 @@ class _PaymentDetailsPageState extends State<_PaymentDetailsPage> {
       return;
     }
 
+    if (_isLoadingTaxGroups || _taxGroupError != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _taxGroupError ??
+                'Veuillez patienter pendant le chargement de la configuration des taxes.',
+          ),
+        ),
+      );
+      if (_taxGroupError != null) _loadTaxGroups();
+      return;
+    }
+
     setState(() => _isSubmitting = true);
 
     try {
@@ -1308,11 +1357,18 @@ class _PaymentDetailsPageState extends State<_PaymentDetailsPage> {
         prenomPassager: _isForSomeoneElse ? beneficiaryLastName : null,
         numeroPassager: _isForSomeoneElse ? beneficiaryPhone : null,
         nbrePlace: widget.passengers,
+        taxGroupId: _selectedTaxGroup?.id,
+        montantBase: _amountBeforeTax,
+        montantManuel: widget.priceAmount.toDouble(),
       );
 
       if (!mounted) return;
 
       final ticketData = result['ticket'] as Map<String, dynamic>?;
+      final rawTaxGroup = ticketData?['taxe_groupe'];
+      final savedTaxGroup = rawTaxGroup is Map
+          ? Map<String, dynamic>.from(rawTaxGroup)
+          : null;
       final registeredClientName = SessionStore.currentClientFullName?.trim();
 
       final beneficiaryName = _isForSomeoneElse
@@ -1324,26 +1380,42 @@ class _PaymentDetailsPageState extends State<_PaymentDetailsPage> {
       // 3. Construire l'objet d'affichage local à partir de la vraie réponse backend
       final reservation = _ReservationItem(
         ticketId: int.tryParse(ticketData?['id']?.toString() ?? ''),
-         voyageId: widget.voyageId, // ⬅️ AJOUT
+        voyageId: widget.voyageId, // ⬅️ AJOUT
         reference:
             ticketData?['reference']?.toString() ??
             'TB${DateTime.now().millisecondsSinceEpoch}',
         departure: widget.departure,
         destination: widget.destination,
-        date: '${widget.dateVoyage!.day.toString().padLeft(2, '0')}/'
-              '${widget.dateVoyage!.month.toString().padLeft(2, '0')}/'
-              '${widget.dateVoyage!.year}',
+        date:
+            '${widget.dateVoyage!.day.toString().padLeft(2, '0')}/'
+            '${widget.dateVoyage!.month.toString().padLeft(2, '0')}/'
+            '${widget.dateVoyage!.year}',
         time: widget.time,
         seat: '${(widget.passengers % 12 == 0 ? 12 : widget.passengers)}A',
-        price: '${_formatAmount(widget.priceAmount)} CFA',
+        price:
+            '${_formatMoney(ticketData?['tarif_total'] ?? widget.priceAmount)} FCFA',
+        amountBase: _formatMoney(
+          ticketData?['montant_base'] ?? _amountBeforeTax,
+        ),
+        taxAmount: _formatMoney(ticketData?['montant_taxe'] ?? _taxAmount),
+        taxRate: (ticketData?['taxe_taux'] ?? _selectedTaxGroup?.rate ?? 0)
+            .toString(),
+        taxGroupId: int.tryParse(
+          ticketData?['taxe_group_id']?.toString() ??
+              _selectedTaxGroup?.id.toString() ??
+              '',
+        ),
+        taxGroupLabel:
+            savedTaxGroup?['label']?.toString() ?? _selectedTaxGroup?.label,
+        taxGroupCode:
+            savedTaxGroup?['code']?.toString() ?? _selectedTaxGroup?.code,
+        refundStatus: ticketData?['refund']?.toString(),
         passengerCount: widget.passengers,
         beneficiaryName: beneficiaryName,
         requesterPhone: requesterPhone,
         beneficiaryPhone: _isForSomeoneElse ? beneficiaryPhone : requesterPhone,
         isPaymentPending: result['statut_paiement'] != 'payé',
-        status: result['statut_paiement'] == 'payé'
-            ? 'Confirmée'
-            : 'En attente de paiement',
+        status: ticketData?['statut']?.toString() ?? 'en_cours',
       );
 
       Navigator.of(context).pushReplacement(
@@ -1361,12 +1433,26 @@ class _PaymentDetailsPageState extends State<_PaymentDetailsPage> {
     }
   }
 
-  String _formatAmount(int amount) {
-    final value = amount.toString();
+  double get _amountBeforeTax {
+    final rate = _selectedTaxGroup?.rate ?? 0;
+    if (rate <= 0) return widget.priceAmount.toDouble();
+    return double.parse(
+      (widget.priceAmount / (1 + rate / 100)).roundToDouble().toStringAsFixed(
+        2,
+      ),
+    );
+  }
+
+  int get _taxAmount => widget.priceAmount - _amountBeforeTax.round();
+
+  String _formatMoney(dynamic value) {
+    final amount = double.tryParse(value?.toString() ?? '') ?? 0;
+    final roundedAmount = amount.round();
+    final valueString = roundedAmount.toString();
     final buffer = StringBuffer();
-    for (var i = 0; i < value.length; i++) {
-      final remaining = value.length - i;
-      buffer.write(value[i]);
+    for (var i = 0; i < valueString.length; i++) {
+      final remaining = valueString.length - i;
+      buffer.write(valueString[i]);
       if (remaining > 1 && remaining % 3 == 1) buffer.write(' ');
     }
     return buffer.toString();
@@ -1471,9 +1557,11 @@ class _PaymentDetailsPageState extends State<_PaymentDetailsPage> {
                       width: double.infinity,
                       height: 52,
                       child: ElevatedButton(
-                        onPressed: _isSubmitting
+                        onPressed: _isSubmitting || _isLoadingTaxGroups
                             ? null
-                            : _finishReservation, // ⬅️ MODIF
+                            : _taxGroupError != null
+                            ? _loadTaxGroups
+                            : _finishReservation,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _fofanaGreen,
                           shape: RoundedRectangleBorder(
@@ -1491,8 +1579,10 @@ class _PaymentDetailsPageState extends State<_PaymentDetailsPage> {
                                   color: Colors.white,
                                 ),
                               )
-                            : const Text(
-                                'Terminer',
+                            : Text(
+                                _taxGroupError == null
+                                    ? 'Terminer'
+                                    : 'Réessayer',
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontSize: 16.5,
@@ -1623,6 +1713,7 @@ class _GeneratedTicketPage extends StatefulWidget {
 
 class _GeneratedTicketPageState extends State<_GeneratedTicketPage> {
   late _ReservationItem _reservation;
+  bool _isCancelling = false;
 
   @override
   void initState() {
@@ -1640,7 +1731,10 @@ class _GeneratedTicketPageState extends State<_GeneratedTicketPage> {
         ticketReference: _reservation.reference,
         onPaymentConfirmed: () {
           setState(() {
-            _reservation = _reservation.copyWith(status: 'Confirmée');
+            _reservation = _reservation.copyWith(
+              isPaymentPending: false,
+              status: 'en_cours',
+            );
           });
         },
       ),
@@ -1648,79 +1742,98 @@ class _GeneratedTicketPageState extends State<_GeneratedTicketPage> {
   }
 
   void _editReservation() {
-  showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    builder: (_) => _EditReservationSheet(
-      reservation: _reservation,
-      onSave: (updated) async {
-        await _updateReservation(updated);
-      },
-    ),
-  );
-}
-
-Future<void> _updateReservation(_ReservationItem updated) async {
-  final ticketId = _reservation.ticketId;
-  final voyageId = _reservation.voyageId;
-  if (ticketId == null || voyageId == null) {
-    _showActionError('Réservation introuvable sur le serveur.');
-    return;
-  }
-
-  final dateParts = updated.date.split('/');
-  if (dateParts.length != 3) {
-    _showActionError('Format de date invalide.');
-    return;
-  }
-
-  try {
-    await TicketService().reprogrammer(
-      ticketId: ticketId,
-      nouvelleDate: '${dateParts[2]}-${dateParts[1].padLeft(2, '0')}-${dateParts[0].padLeft(2, '0')}',
-      nouvelleHeure: _reservation.time,
-      nouveauVoyageId: voyageId,
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _EditReservationSheet(
+        reservation: _reservation,
+        onSave: (updated) async {
+          await _updateReservation(updated);
+        },
+      ),
     );
-    if (mounted) setState(() => _reservation = updated);
-  } catch (error) {
-    _showActionError(error.toString().replaceFirst('Exception: ', ''));
   }
-}
 
-void _showActionError(String message) {
-  if (!mounted) return;
-  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-}
+  Future<void> _updateReservation(_ReservationItem updated) async {
+    final ticketId = _reservation.ticketId;
+    final voyageId = _reservation.voyageId;
+    if (ticketId == null || voyageId == null) {
+      _showActionError('Réservation introuvable sur le serveur.');
+      return;
+    }
+
+    final dateParts = updated.date.split('/');
+    if (dateParts.length != 3) {
+      _showActionError('Format de date invalide.');
+      return;
+    }
+
+    try {
+      await TicketService().reprogrammer(
+        ticketId: ticketId,
+        nouvelleDate:
+            '${dateParts[2]}-${dateParts[1].padLeft(2, '0')}-${dateParts[0].padLeft(2, '0')}',
+        nouvelleHeure: _reservation.time,
+        nouveauVoyageId: voyageId,
+      );
+      if (mounted) setState(() => _reservation = updated);
+    } catch (error) {
+      _showActionError(error.toString().replaceFirst('Exception: ', ''));
+    }
+  }
+
+  void _showActionError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
 
   Future<void> _confirmCancel() async {
-    final shouldCancel = await _showCancelReservationDialog(context);
+    if (_isCancelling) return;
+    final shouldCancel = await _showCancelReservationDialog(
+      context,
+      _reservation.reference,
+    );
     if (shouldCancel != true) return;
 
     final ticketId = _reservation.ticketId;
     if (ticketId == null) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Réservation introuvable sur le serveur.')),
+        const SnackBar(
+          content: Text('Réservation introuvable sur le serveur.'),
+        ),
       );
       return;
     }
 
+    setState(() => _isCancelling = true);
+    late final Map<String, dynamic> response;
     try {
-      await TicketService().annulerClient(ticketId);
+      response = await TicketService().annulerClient(ticketId);
     } catch (error) {
       if (!mounted) return;
+      setState(() => _isCancelling = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.toString().replaceFirst('Exception: ', ''))),
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
+        ),
       );
       return;
     }
 
     _HistoryRepository.removeReservation(_reservation.reference);
     if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
     Navigator.of(context).pop();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Réservation annulée.')),
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          response['message']?.toString() ?? 'Ticket annulé et avoir créé.',
+        ),
+      ),
     );
   }
 
@@ -1776,10 +1889,13 @@ void _showActionError(String message) {
                       ),
                     ),
                     const SizedBox(height: 18),
-                    _ReservationPaymentCard(
-                      amount: _reservation.price,
-                      onPay: _showPaymentSheet,
-                    ),
+                    if (_reservation.isPaymentPending)
+                      _ReservationPaymentCard(
+                        amount: _reservation.price,
+                        onPay: _showPaymentSheet,
+                      )
+                    else
+                      const _PaymentConfirmedBadge(),
                     const SizedBox(height: 20),
                     _TicketVisual(
                       departure: _reservation.departure,
@@ -1791,9 +1907,19 @@ void _showActionError(String message) {
                       beneficiaryName: _reservation.beneficiaryName,
                       total: _reservation.price,
                       reference: _reservation.reference,
+                      amountBase: _reservation.amountBase,
+                      taxAmount: _reservation.taxAmount,
+                      taxRate: _reservation.taxRate,
+                      taxGroupLabel: _reservation.taxGroupLabel,
+                      taxGroupCode: _reservation.taxGroupCode,
+                      refundStatus: _reservation.refundStatus,
                       primaryActionLabel: '',
-                      onEdit: _editReservation,
+                      showCancelAction:
+                          _reservation.status.trim().toLowerCase() ==
+                          'en_cours',
                       onCancel: _confirmCancel,
+                      isCancelling: _isCancelling,
+                      onEdit: null,
                     ),
                   ],
                 ),
@@ -1806,14 +1932,42 @@ void _showActionError(String message) {
   }
 }
 
+class _PaymentConfirmedBadge extends StatelessWidget {
+  const _PaymentConfirmedBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE8F5E9),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.check_circle_rounded, color: Color(0xFF16A34A)),
+          SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Paiement confirmé',
+              style: TextStyle(
+                color: Color(0xFF0B4F2A),
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ReservationPaymentCard extends StatelessWidget {
   final String amount;
   final VoidCallback onPay;
 
-  const _ReservationPaymentCard({
-    required this.amount,
-    required this.onPay,
-  });
+  const _ReservationPaymentCard({required this.amount, required this.onPay});
 
   @override
   Widget build(BuildContext context) {
@@ -1912,6 +2066,7 @@ class _PaymentMethodSheetState extends State<_PaymentMethodSheet> {
   String _selectedMethod = 'all';
   bool _isProcessing = false;
   Timer? _pollingTimer;
+  bool _isCheckingPayment = false;
 
   IconData _providerIcon(String slug) {
     switch (slug.toLowerCase()) {
@@ -1985,22 +2140,19 @@ class _PaymentMethodSheetState extends State<_PaymentMethodSheet> {
                 setState(() => _isProcessing = false);
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text(paymentResult.message ?? 'Paiement échoué.'),
+                    content: Text(
+                      paymentResult.message ??
+                          'Paiement non confirmé. Vérifiez le statut dans vos réservations.',
+                    ),
                   ),
                 );
               }
               return;
             }
-            final verification = await PaymentService().verifierPaiement(
-              reference: transactionReference,
-              payableType: 'ticket',
+            _pollPaymentStatus(
+              transactionReference,
               externalId: paymentResult.reference,
             );
-            if (mounted && verification['verified'] == true) {
-              setState(() => _isProcessing = false);
-              widget.onPaymentConfirmed?.call();
-              Navigator.of(context).pop();
-            }
           },
         );
         return;
@@ -2025,21 +2177,14 @@ class _PaymentMethodSheetState extends State<_PaymentMethodSheet> {
           if (mounted) {
             setState(() => _isProcessing = false);
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Paiement Kkiapay annulé ou échoué.')),
+              const SnackBar(
+                content: Text('Paiement Kkiapay annulé ou échoué.'),
+              ),
             );
           }
           return;
         }
-        final verification = await PaymentService().verifierPaiement(
-          reference: transactionReference,
-          payableType: 'ticket',
-          externalId: externalId,
-        );
-        if (mounted && verification['verified'] == true) {
-          setState(() => _isProcessing = false);
-          widget.onPaymentConfirmed?.call();
-          Navigator.of(context).pop();
-        }
+        _pollPaymentStatus(transactionReference, externalId: externalId);
         return;
       }
 
@@ -2075,11 +2220,15 @@ class _PaymentMethodSheetState extends State<_PaymentMethodSheet> {
     }
   }
 
-  void _pollPaymentStatus(String transactionReference) {
+  void _pollPaymentStatus(String transactionReference, {String? externalId}) {
+    _pollingTimer?.cancel();
     var attempts = 0;
+    var externalIdToVerify = externalId;
     const maxAttempts = 45; // 45 x 4s = 3 minutes
 
     _pollingTimer = Timer.periodic(const Duration(seconds: 4), (timer) async {
+      if (_isCheckingPayment) return;
+
       attempts++;
       if (!mounted) {
         timer.cancel();
@@ -2099,11 +2248,14 @@ class _PaymentMethodSheetState extends State<_PaymentMethodSheet> {
         return;
       }
 
+      _isCheckingPayment = true;
       try {
         final result = await PaymentService().verifierPaiement(
           reference: transactionReference,
           payableType: 'ticket',
+          externalId: externalIdToVerify,
         );
+        externalIdToVerify = null;
         final verified = result['verified'] == true;
 
         if (verified) {
@@ -2121,6 +2273,8 @@ class _PaymentMethodSheetState extends State<_PaymentMethodSheet> {
         // Sinon on continue le polling silencieusement
       } catch (_) {
         // On ignore les erreurs transitoires de vérification et on continue le polling
+      } finally {
+        _isCheckingPayment = false;
       }
     });
   }
@@ -2269,8 +2423,7 @@ class _PaymentMethodSheetState extends State<_PaymentMethodSheet> {
                 width: double.infinity,
                 height: 54,
                 child: ElevatedButton(
-                  onPressed:
-                      _selectedProviderSlug != null
+                  onPressed: _selectedProviderSlug != null
                       ? _startPayment
                       : null,
                   style: ElevatedButton.styleFrom(
@@ -2617,7 +2770,10 @@ class _EditSheetField extends StatelessWidget {
   }
 }
 
-Future<bool?> _showCancelReservationDialog(BuildContext context) {
+Future<bool?> _showCancelReservationDialog(
+  BuildContext context,
+  String reference,
+) {
   return showDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
@@ -2636,12 +2792,13 @@ Future<bool?> _showCancelReservationDialog(BuildContext context) {
         ),
       ),
       title: const Text(
-        'Annuler la réservation ?',
+        'Annuler le ticket ?',
         textAlign: TextAlign.center,
         style: TextStyle(color: Color(0xFF0B4F2A), fontWeight: FontWeight.w900),
       ),
-      content: const Text(
-        'Voulez-vous vraiment annuler cette réservation ?',
+      content: Text(
+        'Voulez-vous annuler le ticket $reference ? Un avoir sera créé. '
+        'Le remboursement éventuel dépendra du mode de paiement et du traitement en caisse.',
         textAlign: TextAlign.center,
         style: TextStyle(color: Color(0xFF5F6B86), fontWeight: FontWeight.w700),
       ),

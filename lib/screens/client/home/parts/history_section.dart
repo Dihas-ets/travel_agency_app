@@ -11,11 +11,13 @@ class _HistoryPage extends StatefulWidget {
   State<_HistoryPage> createState() => _HistoryPageState();
 }
 
-class _HistoryPageState extends State<_HistoryPage> {
+class _HistoryPageState extends State<_HistoryPage>
+    with WidgetsBindingObserver {
   _HistoryScope _scope = _HistoryScope.reservations;
   String _ticketStatus = 'passé';
   bool _isLoading = true;
   String? _loadError;
+  String? _taxGroupLoadError;
 
   static const Color _deepBlue = Color(0xFF0B4F2A);
   static const Color _fofanaGreen = Color(0xFF16A34A);
@@ -30,7 +32,21 @@ class _HistoryPageState extends State<_HistoryPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadHistory();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _loadHistory(showLoader: false);
+    }
   }
 
   String _normalizedStatus(String status) {
@@ -50,13 +66,22 @@ class _HistoryPageState extends State<_HistoryPage> {
     return 'en_cours';
   }
 
-  _ReservationItem _itemFromJson(Map<String, dynamic> json) {
+  _ReservationItem _itemFromJson(
+    Map<String, dynamic> json, {
+    Map<int, TaxGroup> taxGroupsById = const {},
+  }) {
     final ligne = json['ligne'] as Map<String, dynamic>?;
     final paymentStatus = _normalizeStatusValue(json['statut_paiement']);
-    
+
     final ticketStatus = _normalizedStatus(
       json['statut']?.toString() ?? 'en_cours',
     );
+    final taxGroupId = int.tryParse(json['taxe_group_id']?.toString() ?? '');
+    final rawTaxGroup = json['taxe_groupe'];
+    final savedTaxGroup = rawTaxGroup is Map
+        ? Map<String, dynamic>.from(rawTaxGroup)
+        : null;
+    final taxGroup = taxGroupId == null ? null : taxGroupsById[taxGroupId];
     final mecef = json['mecef_response'] is Map
         ? Map<String, dynamic>.from(json['mecef_response'] as Map)
         : const <String, dynamic>{};
@@ -73,9 +98,17 @@ class _HistoryPageState extends State<_HistoryPage> {
       amountBase: _formatMoney(json['montant_base'] ?? json['tarif_total']),
       taxAmount: _formatMoney(json['montant_taxe'] ?? 0),
       taxRate: json['taxe_taux']?.toString() ?? '0',
+      taxGroupId: taxGroupId,
+      taxGroupLabel:
+          savedTaxGroup?['label']?.toString() ??
+          taxGroup?.label ??
+          (taxGroupId == null ? null : 'Groupe #$taxGroupId'),
+      taxGroupCode: savedTaxGroup?['code']?.toString() ?? taxGroup?.code,
+      refundStatus: json['refund']?.toString(),
       passengerCount: int.tryParse(json['nbre_place']?.toString() ?? '') ?? 1,
       beneficiaryName:
-          '${json['prenom_passager'] ?? ''} ${json['nom_passager'] ?? ''}'.trim(),
+          '${json['prenom_passager'] ?? ''} ${json['nom_passager'] ?? ''}'
+              .trim(),
       requesterPhone: json['numero_passager']?.toString() ?? '',
       beneficiaryPhone: json['numero_passager']?.toString() ?? '',
       issuerName: _issuerName(json['emetteur']),
@@ -86,13 +119,12 @@ class _HistoryPageState extends State<_HistoryPage> {
       mecefNim: mecef['nim']?.toString(),
       mecefCounters: mecef['counters']?.toString(),
       mecefDate: mecef['date_mecef']?.toString(),
-      isPaymentPending: paymentStatus != 'paye' &&
+      isPaymentPending:
+          paymentStatus != 'paye' &&
           paymentStatus != 'paid' &&
           paymentStatus != 'success' &&
           paymentStatus != 'successful',
-      status: _isPaidPaymentStatus(paymentStatus)
-          ? ticketStatus
-          : 'en_attente',
+      status: _isPaidPaymentStatus(paymentStatus) ? ticketStatus : 'en_attente',
     );
   }
 
@@ -118,13 +150,13 @@ class _HistoryPageState extends State<_HistoryPage> {
 
   String _normalizeStatusValue(dynamic value) {
     return value
-        ?.toString()
-        .trim()
-        .toLowerCase()
-        .replaceAll('é', 'e')
-        .replaceAll('è', 'e')
-        .replaceAll('ê', 'e')
-        .replaceAll(RegExp(r'[\s-]+'), '_') ??
+            ?.toString()
+            .trim()
+            .toLowerCase()
+            .replaceAll('é', 'e')
+            .replaceAll('è', 'e')
+            .replaceAll('ê', 'e')
+            .replaceAll(RegExp(r'[\s-]+'), '_') ??
         '';
   }
 
@@ -173,54 +205,64 @@ class _HistoryPageState extends State<_HistoryPage> {
     return raw;
   }
 
-Future<void> _loadHistory({bool showLoader = true}) async {
-  if (showLoader && mounted) {
-    setState(() {
-      _isLoading = true;
-      _loadError = null;
-    });
+  Future<void> _loadHistory({bool showLoader = true}) async {
+    if (showLoader && mounted) {
+      setState(() {
+        _isLoading = true;
+        _loadError = null;
+      });
+    }
+
+    try {
+      final rows = await TicketService().getHistoriqueClient();
+      List<TaxGroup> taxGroups = [];
+      String? taxGroupLoadError;
+      try {
+        taxGroups = await TaxService().getGroupsForModule(
+          'ticket',
+          includeInactive: true,
+        );
+      } catch (error) {
+        taxGroupLoadError = error.toString().replaceFirst('Exception: ', '');
+      }
+      final taxGroupsById = {for (final group in taxGroups) group.id: group};
+
+      final items = rows
+          .map((row) => _itemFromJson(row, taxGroupsById: taxGroupsById))
+          .where((item) => item.reference.isNotEmpty)
+          .toList();
+
+      if (!mounted) return;
+
+      final reservations =
+          items
+              .where(
+                (item) =>
+                    item.status == 'en_attente' || item.status == 'en_cours',
+              )
+              .toList()
+            ..sort(
+              (a, b) => (a.status == 'en_attente' ? 1 : 0).compareTo(
+                b.status == 'en_attente' ? 1 : 0,
+              ),
+            );
+
+      setState(() {
+        _allTickets = items;
+        _reservations = reservations;
+        _isLoading = false;
+        _loadError = null;
+        _taxGroupLoadError = taxGroupLoadError;
+      });
+    } catch (error) {
+      if (!mounted) return;
+
+      setState(() {
+        _loadError = error.toString().replaceFirst('Exception: ', '');
+        _isLoading = false;
+      });
+    }
   }
-
-  try {
-    final rows = await TicketService().getHistoriqueClient();
-
-    final items = rows
-        .map(_itemFromJson)
-        .where((item) => item.reference.isNotEmpty)
-        .toList();
-
-    if (!mounted) return;
-
-    final reservations = items
-        .where(
-          (item) =>
-              item.status == 'en_attente' ||
-              item.status == 'en_cours',
-        )
-        .toList()
-      ..sort(
-        (a, b) => (a.status == 'en_attente' ? 1 : 0).compareTo(
-          b.status == 'en_attente' ? 1 : 0,
-        ),
-      );
-
-    setState(() {
-      _allTickets = items;
-      _reservations = reservations;
-      _isLoading = false;
-      _loadError = null;
-    });
-  } catch (error) {
-    if (!mounted) return;
-
-    setState(() {
-      _loadError = error.toString().replaceFirst('Exception: ', '');
-      _isLoading = false;
-    });
-  }
-}
-
-
 
   Future<void> _openReservationTicket(_ReservationItem reservation) async {
     await Navigator.of(context).push(
@@ -295,34 +337,61 @@ Future<void> _loadHistory({bool showLoader = true}) async {
                   color: Color(0xFFF7F9FF),
                   borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
                 ),
-                child: SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const _NewsSection(),
-                      const SizedBox(height: 18),
-                      _buildScopeSwitcher(),
-                      const SizedBox(height: 18),
-                      if (_isLoading)
-                        const Center(child: CircularProgressIndicator())
-                      else if (_loadError != null)
-                        _buildEmptyState(
-                          title: 'Historique indisponible',
-                          message: _loadError!,
-                        )
-                      else if (_scope == _HistoryScope.reservations)
-                        _buildReservationSection()
-                      else
-                        _buildTicketSection(),
-                    ],
+                child: RefreshIndicator(
+                  onRefresh: () => _loadHistory(showLoader: false),
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(
+                      parent: BouncingScrollPhysics(),
+                    ),
+                    padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const _NewsSection(),
+                        const SizedBox(height: 18),
+                        if (_taxGroupLoadError != null) ...[
+                          _buildTaxGroupWarning(),
+                          const SizedBox(height: 16),
+                        ],
+                        _buildScopeSwitcher(),
+                        const SizedBox(height: 18),
+                        if (_isLoading)
+                          const Center(child: CircularProgressIndicator())
+                        else if (_loadError != null)
+                          _buildEmptyState(
+                            title: 'Historique indisponible',
+                            message: _loadError!,
+                          )
+                        else if (_scope == _HistoryScope.reservations)
+                          _buildReservationSection()
+                        else
+                          _buildTicketSection(),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildTaxGroupWarning() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.amber.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.amber.shade200),
+      ),
+      child: Text(
+        'Les noms des groupes de taxe n’ont pas pu être chargés. '
+        'Les montants enregistrés sur le billet restent disponibles. '
+        '$_taxGroupLoadError',
+        style: TextStyle(color: Colors.amber.shade900, fontSize: 12),
       ),
     );
   }
@@ -440,10 +509,7 @@ Future<void> _loadHistory({bool showLoader = true}) async {
           )
         else
           ..._tickets.map(
-            (item) => _ReservationCard(
-              item: item,
-              onTicketNow: null,
-            ),
+            (item) => _ReservationCard(item: item, onTicketNow: null),
           ),
       ],
     );
@@ -451,11 +517,7 @@ Future<void> _loadHistory({bool showLoader = true}) async {
 
   Widget _buildStatusTabs() {
     const statuses = ['passé', 'annulé', 'terminé'];
-    const labels = {
-      'passé': 'Passé',
-      'annulé': 'Annulé',
-      'terminé': 'Terminé',
-    };
+    const labels = {'passé': 'Passé', 'annulé': 'Annulé', 'terminé': 'Terminé'};
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
@@ -526,6 +588,10 @@ class _ReservationItem {
   final String amountBase;
   final String taxAmount;
   final String taxRate;
+  final int? taxGroupId;
+  final String? taxGroupLabel;
+  final String? taxGroupCode;
+  final String? refundStatus;
   final int passengerCount;
   final String beneficiaryName;
   final String requesterPhone;
@@ -552,6 +618,10 @@ class _ReservationItem {
     this.amountBase = '0 FCFA',
     this.taxAmount = '0 FCFA',
     this.taxRate = '0',
+    this.taxGroupId,
+    this.taxGroupLabel,
+    this.taxGroupCode,
+    this.refundStatus,
     required this.passengerCount,
     required this.beneficiaryName,
     required this.requesterPhone,
@@ -580,6 +650,10 @@ class _ReservationItem {
     String? amountBase,
     String? taxAmount,
     String? taxRate,
+    int? taxGroupId,
+    String? taxGroupLabel,
+    String? taxGroupCode,
+    String? refundStatus,
     int? passengerCount,
     String? beneficiaryName,
     String? requesterPhone,
@@ -606,6 +680,10 @@ class _ReservationItem {
       amountBase: amountBase ?? this.amountBase,
       taxAmount: taxAmount ?? this.taxAmount,
       taxRate: taxRate ?? this.taxRate,
+      taxGroupId: taxGroupId ?? this.taxGroupId,
+      taxGroupLabel: taxGroupLabel ?? this.taxGroupLabel,
+      taxGroupCode: taxGroupCode ?? this.taxGroupCode,
+      refundStatus: refundStatus ?? this.refundStatus,
       passengerCount: passengerCount ?? this.passengerCount,
       beneficiaryName: beneficiaryName ?? this.beneficiaryName,
       requesterPhone: requesterPhone ?? this.requesterPhone,
@@ -677,6 +755,12 @@ class _ReservationSummaryCard extends StatelessWidget {
             total: item.price,
             reference: item.reference,
             qrData: item.qrData,
+            amountBase: item.amountBase,
+            taxAmount: item.taxAmount,
+            taxRate: item.taxRate,
+            taxGroupLabel: item.taxGroupLabel,
+            taxGroupCode: item.taxGroupCode,
+            refundStatus: item.refundStatus,
             mecefCode: item.mecefCode,
             mecefNim: item.mecefNim,
             mecefCounters: item.mecefCounters,
@@ -685,10 +769,7 @@ class _ReservationSummaryCard extends StatelessWidget {
           ),
           if (onPay != null) ...[
             const SizedBox(height: 12),
-            _ReservationPaymentCard(
-              amount: item.price,
-              onPay: onPay!,
-            ),
+            _ReservationPaymentCard(amount: item.price, onPay: onPay!),
           ],
           if (onPay == null && item.qrData != null) ...[
             const SizedBox(height: 12),
@@ -718,9 +799,7 @@ class _PrintTicketButton extends StatelessWidget {
             if (!context.mounted) return;
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text(
-                  error.toString().replaceFirst('Exception: ', ''),
-                ),
+                content: Text(error.toString().replaceFirst('Exception: ', '')),
               ),
             );
           }
@@ -910,6 +989,7 @@ class _ReservationTicketPage extends StatefulWidget {
 
 class _ReservationTicketPageState extends State<_ReservationTicketPage> {
   late _ReservationItem _reservation;
+  bool _isCancelling = false;
 
   @override
   void initState() {
@@ -932,24 +1012,31 @@ class _ReservationTicketPageState extends State<_ReservationTicketPage> {
   }
 
   void _showPaymentSheet() {
-  showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    builder: (_) => _PaymentMethodSheet(
-      total: _reservation.price,
-      ticketReference: _reservation.reference, // ⬅️ AJOUT
-      onPaymentConfirmed: () {
-        setState(() {
-          _reservation = _reservation.copyWith(status: 'Confirmée');
-        });
-      },
-    ),
-  );
-}
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _PaymentMethodSheet(
+        total: _reservation.price,
+        ticketReference: _reservation.reference, // ⬅️ AJOUT
+        onPaymentConfirmed: () {
+          setState(() {
+            _reservation = _reservation.copyWith(
+              isPaymentPending: false,
+              status: 'en_cours',
+            );
+          });
+        },
+      ),
+    );
+  }
 
   Future<void> _confirmCancel() async {
-    final shouldCancel = await _showCancelReservationDialog(context);
+    if (_isCancelling) return;
+    final shouldCancel = await _showCancelReservationDialog(
+      context,
+      _reservation.reference,
+    );
     if (shouldCancel != true) return;
 
     final ticketId = _reservation.ticketId;
@@ -958,19 +1045,27 @@ class _ReservationTicketPageState extends State<_ReservationTicketPage> {
       return;
     }
 
+    setState(() => _isCancelling = true);
+    late final Map<String, dynamic> response;
     try {
-      await TicketService().annulerClient(ticketId);
+      response = await TicketService().annulerClient(ticketId);
     } catch (error) {
+      if (mounted) setState(() => _isCancelling = false);
       _showActionError(error.toString().replaceFirst('Exception: ', ''));
       return;
     }
 
     _HistoryRepository.removeReservation(_reservation.reference);
     if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
     Navigator.of(context).pop();
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Réservation annulée.')));
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          response['message']?.toString() ?? 'Ticket annulé et avoir créé.',
+        ),
+      ),
+    );
   }
 
   Future<void> _updateReservation(_ReservationItem updated) async {
@@ -990,7 +1085,8 @@ class _ReservationTicketPageState extends State<_ReservationTicketPage> {
     try {
       await TicketService().reprogrammer(
         ticketId: ticketId,
-        nouvelleDate: '${dateParts[2]}-${dateParts[1].padLeft(2, '0')}-${dateParts[0].padLeft(2, '0')}',
+        nouvelleDate:
+            '${dateParts[2]}-${dateParts[1].padLeft(2, '0')}-${dateParts[0].padLeft(2, '0')}',
         nouvelleHeure: _reservation.time,
         nouveauVoyageId: voyageId,
       );
@@ -1003,7 +1099,9 @@ class _ReservationTicketPageState extends State<_ReservationTicketPage> {
 
   void _showActionError(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -1056,6 +1154,9 @@ class _ReservationTicketPageState extends State<_ReservationTicketPage> {
                         onPay: _showPaymentSheet,
                       ),
                       const SizedBox(height: 20),
+                    ] else ...[
+                      const _PaymentConfirmedBadge(),
+                      const SizedBox(height: 20),
                     ],
                     _TicketVisual(
                       departure: _reservation.departure,
@@ -1068,9 +1169,17 @@ class _ReservationTicketPageState extends State<_ReservationTicketPage> {
                       total: _reservation.price,
                       reference: _reservation.reference,
                       qrData: _reservation.qrData,
+                      amountBase: _reservation.amountBase,
+                      taxAmount: _reservation.taxAmount,
+                      taxRate: _reservation.taxRate,
+                      taxGroupLabel: _reservation.taxGroupLabel,
+                      taxGroupCode: _reservation.taxGroupCode,
+                      refundStatus: _reservation.refundStatus,
                       primaryActionLabel: '',
+                      showCancelAction: _reservation.status == 'en_cours',
                       onEdit: _editReservation,
                       onCancel: _confirmCancel,
+                      isCancelling: _isCancelling,
                     ),
                     if (!_reservation.isPaymentPending &&
                         _reservation.qrData != null) ...[
@@ -1133,8 +1242,9 @@ Future<void> _printTicket(_ReservationItem ticket) async {
     }
   }
   final accent = PdfColor.fromHex(settings.accentColor);
-  final pageFormat =
-      settings.width == '58mm' ? PdfPageFormat.roll57 : PdfPageFormat.roll80;
+  final pageFormat = settings.width == '58mm'
+      ? PdfPageFormat.roll57
+      : PdfPageFormat.roll80;
   final cancellationNotice =
       'Annulation possible jusqu\'à ${settings.cancellationDelayDays} jour${settings.cancellationDelayDays > 1 ? 's' : ''} avant le départ. '
       'Au-delà, une retenue de ${settings.cancellationPenaltyPercent}% peut être appliquée sur le remboursement.';
@@ -1156,212 +1266,215 @@ Future<void> _printTicket(_ReservationItem ticket) async {
             child: pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.stretch,
               children: [
-          if (logoImage != null)
-            pw.Center(
-              child: pw.Container(
-                width: 32,
-                height: 32,
-                decoration: pw.BoxDecoration(
-                  shape: pw.BoxShape.circle,
-                  border: pw.Border.all(color: PdfColors.grey300),
-                ),
-                child: pw.ClipOval(child: pw.Image(logoImage)),
-              ),
-            ),
-          pw.Center(
-            child: pw.Text(
-              settings.agencyName.toUpperCase(),
-              style: pw.TextStyle(
-                color: PdfColors.grey800,
-                fontSize: 9.6,
-                fontWeight: pw.FontWeight.bold,
-              ),
-            ),
-          ),
-          pw.SizedBox(height: 0.8),
-          pw.Center(
-            child: pw.Text(
-              ticket.mecefCode?.isNotEmpty == true
-                  ? 'FACTURE NORMALISÉE'
-                  : (settings.headerText.isEmpty
-                      ? settings.title
-                      : settings.headerText),
-              style: pw.TextStyle(
-                color: accent,
-                fontSize: 11.2,
-                fontWeight: pw.FontWeight.bold,
-              ),
-            ),
-          ),
-          if (settings.showEmetteur)
-            _printRow('Émetteur', settings.agencyName),
-          if (settings.showContact && settings.telephone.isNotEmpty)
-            _printRow('Tél', settings.telephone),
-          if (settings.showContact && settings.email.isNotEmpty)
-            _printRow('Email', settings.email),
-          pw.Row(
-            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-            children: [
-              pw.Text(
-                'N° ${ticket.reference}',
-                style: const pw.TextStyle(
-                  color: PdfColors.grey600,
-                  fontSize: 8,
-                ),
-              ),
-              pw.Text(
-                _printDate(DateTime.now()),
-                style: const pw.TextStyle(
-                  color: PdfColors.grey600,
-                  fontSize: 8,
-                ),
-              ),
-            ],
-          ),
-          _printDashedLine(accent),
-          _printRow('Passager', ticket.beneficiaryName),
-          _printRouteRow(ticket.departure, ticket.destination),
-          _printRow('Départ', '${ticket.date} · ${ticket.time}'),
-          _printRow('Places', '${ticket.passengerCount} place(s)'),
-          if (ticket.beneficiaryPhone.isNotEmpty)
-            _printRow('Tél', ticket.beneficiaryPhone),
-          _printDashedLine(accent),
-          _printRow('Montant HT', ticket.amountBase),
-          _printRow('Taxe (${ticket.taxRate}%)', ticket.taxAmount),
-          pw.Padding(
-            padding: const pw.EdgeInsets.symmetric(vertical: 4),
-            child: pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-              children: [
-                pw.Text(
-                  'TOTAL TTC',
-                  style: pw.TextStyle(
-                    color: accent,
-                    fontSize: 10,
-                    fontWeight: pw.FontWeight.bold,
+                if (logoImage != null)
+                  pw.Center(
+                    child: pw.Container(
+                      width: 32,
+                      height: 32,
+                      decoration: pw.BoxDecoration(
+                        shape: pw.BoxShape.circle,
+                        border: pw.Border.all(color: PdfColors.grey300),
+                      ),
+                      child: pw.ClipOval(child: pw.Image(logoImage)),
+                    ),
+                  ),
+                pw.Center(
+                  child: pw.Text(
+                    settings.agencyName.toUpperCase(),
+                    style: pw.TextStyle(
+                      color: PdfColors.grey800,
+                      fontSize: 9.6,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
                   ),
                 ),
-                pw.Text(
-                  ticket.price,
-                  style: pw.TextStyle(
-                    color: accent,
-                    fontSize: 10,
-                    fontWeight: pw.FontWeight.bold,
+                pw.SizedBox(height: 0.8),
+                pw.Center(
+                  child: pw.Text(
+                    ticket.mecefCode?.isNotEmpty == true
+                        ? 'FACTURE NORMALISÉE'
+                        : (settings.headerText.isEmpty
+                              ? settings.title
+                              : settings.headerText),
+                    style: pw.TextStyle(
+                      color: accent,
+                      fontSize: 11.2,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
                   ),
                 ),
-              ],
-            ),
-          ),
-          if (settings.showEnregistrePar && ticket.issuerName.isNotEmpty)
-            _printCentered(
-              'Facture enregistrée par : ${ticket.issuerName}',
-              PdfColors.grey500,
-              7,
-            ),
-          if (settings.showDgi) ...[
-            pw.SizedBox(height: 6),
-            if (ticket.mecefCode?.isNotEmpty == true)
-              pw.Container(
-                padding: const pw.EdgeInsets.all(6),
-                decoration: pw.BoxDecoration(
-                  color: PdfColors.grey100,
-                  border: pw.Border.all(color: PdfColors.grey400),
-                  borderRadius: const pw.BorderRadius.all(
-                    pw.Radius.circular(4),
-                  ),
-                ),
-                child: pw.Column(
+                if (settings.showEmetteur)
+                  _printRow('Émetteur', settings.agencyName),
+                if (settings.showContact && settings.telephone.isNotEmpty)
+                  _printRow('Tél', settings.telephone),
+                if (settings.showContact && settings.email.isNotEmpty)
+                  _printRow('Email', settings.email),
+                pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                   children: [
                     pw.Text(
-                      'ÉLÉMENTS DE SÉCURITÉ DGI',
-                      style: pw.TextStyle(
+                      'N° ${ticket.reference}',
+                      style: const pw.TextStyle(
                         color: PdfColors.grey600,
-                        fontSize: 7,
-                        fontWeight: pw.FontWeight.bold,
+                        fontSize: 8,
                       ),
                     ),
-                    if (ticket.mecefCode?.isNotEmpty == true)
-                      _printSingleLineRow('CODE', ticket.mecefCode!),
-                    if (ticket.mecefNim?.isNotEmpty == true)
-                      _printRow('NIM', ticket.mecefNim!),
-                    if (ticket.mecefCounters?.isNotEmpty == true)
-                      _printRow('COMPTEURS', ticket.mecefCounters!),
-                    if (ticket.mecefDate?.isNotEmpty == true)
-                      _printRow('DATE', _printMecefDate(ticket.mecefDate!)),
+                    pw.Text(
+                      _printDate(DateTime.now()),
+                      style: const pw.TextStyle(
+                        color: PdfColors.grey600,
+                        fontSize: 8,
+                      ),
+                    ),
                   ],
                 ),
-              )
-            else
-              pw.Container(
-                padding: const pw.EdgeInsets.all(6),
-                decoration: pw.BoxDecoration(
-                  border: pw.Border.all(
-                    color: PdfColors.grey300,
-                    style: pw.BorderStyle.dashed,
+                _printDashedLine(accent),
+                _printRow('Passager', ticket.beneficiaryName),
+                _printRouteRow(ticket.departure, ticket.destination),
+                _printRow('Départ', '${ticket.date} · ${ticket.time}'),
+                _printRow('Places', '${ticket.passengerCount} place(s)'),
+                if (ticket.beneficiaryPhone.isNotEmpty)
+                  _printRow('Tél', ticket.beneficiaryPhone),
+                _printDashedLine(accent),
+                if (ticket.taxGroupLabel?.isNotEmpty == true)
+                  _printRow(
+                    'Groupe taxe',
+                    '${ticket.taxGroupCode?.isNotEmpty == true ? '${ticket.taxGroupCode} - ' : ''}${ticket.taxGroupLabel}',
+                  ),
+                _printRow('Montant HT', ticket.amountBase),
+                _printRow('Taxe (${ticket.taxRate}%)', ticket.taxAmount),
+                pw.Padding(
+                  padding: const pw.EdgeInsets.symmetric(vertical: 4),
+                  child: pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Text(
+                        'TOTAL TTC',
+                        style: pw.TextStyle(
+                          color: accent,
+                          fontSize: 10,
+                          fontWeight: pw.FontWeight.bold,
+                        ),
+                      ),
+                      pw.Text(
+                        ticket.price,
+                        style: pw.TextStyle(
+                          color: accent,
+                          fontSize: 10,
+                          fontWeight: pw.FontWeight.bold,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                child: pw.Center(
-                  child: pw.Text(
-                    'REÇU SIMPLE\n(Document non normalisé DGI)',
-                    textAlign: pw.TextAlign.center,
-                    style: const pw.TextStyle(
-                      color: PdfColors.grey500,
-                      fontSize: 7,
+                if (settings.showEnregistrePar && ticket.issuerName.isNotEmpty)
+                  _printCentered(
+                    'Facture enregistrée par : ${ticket.issuerName}',
+                    PdfColors.grey500,
+                    7,
+                  ),
+                if (settings.showDgi) ...[
+                  pw.SizedBox(height: 6),
+                  if (ticket.mecefCode?.isNotEmpty == true)
+                    pw.Container(
+                      padding: const pw.EdgeInsets.all(6),
+                      decoration: pw.BoxDecoration(
+                        color: PdfColors.grey100,
+                        border: pw.Border.all(color: PdfColors.grey400),
+                        borderRadius: const pw.BorderRadius.all(
+                          pw.Radius.circular(4),
+                        ),
+                      ),
+                      child: pw.Column(
+                        children: [
+                          pw.Text(
+                            'ÉLÉMENTS DE SÉCURITÉ DGI',
+                            style: pw.TextStyle(
+                              color: PdfColors.grey600,
+                              fontSize: 7,
+                              fontWeight: pw.FontWeight.bold,
+                            ),
+                          ),
+                          if (ticket.mecefCode?.isNotEmpty == true)
+                            _printSingleLineRow('CODE', ticket.mecefCode!),
+                          if (ticket.mecefNim?.isNotEmpty == true)
+                            _printRow('NIM', ticket.mecefNim!),
+                          if (ticket.mecefCounters?.isNotEmpty == true)
+                            _printRow('COMPTEURS', ticket.mecefCounters!),
+                          if (ticket.mecefDate?.isNotEmpty == true)
+                            _printRow(
+                              'DATE',
+                              _printMecefDate(ticket.mecefDate!),
+                            ),
+                        ],
+                      ),
+                    )
+                  else
+                    pw.Container(
+                      padding: const pw.EdgeInsets.all(6),
+                      decoration: pw.BoxDecoration(
+                        border: pw.Border.all(
+                          color: PdfColors.grey300,
+                          style: pw.BorderStyle.dashed,
+                        ),
+                      ),
+                      child: pw.Center(
+                        child: pw.Text(
+                          'REÇU SIMPLE\n(Document non normalisé DGI)',
+                          textAlign: pw.TextAlign.center,
+                          style: const pw.TextStyle(
+                            color: PdfColors.grey500,
+                            fontSize: 7,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+                if (settings.showBarcode) ...[
+                  pw.SizedBox(height: 6),
+                  pw.Center(
+                    child: pw.Container(
+                      width: 77.76,
+                      height: 77.76,
+                      padding: const pw.EdgeInsets.all(6.48),
+                      decoration: pw.BoxDecoration(
+                        color: PdfColors.white,
+                        border: pw.Border.all(color: PdfColors.grey300),
+                        borderRadius: const pw.BorderRadius.all(
+                          pw.Radius.circular(9.6),
+                        ),
+                      ),
+                      child: pw.Image(qrImage, width: 58.32, height: 58.32),
                     ),
                   ),
-                ),
-              ),
-          ],
-          if (settings.showBarcode) ...[
-            pw.SizedBox(height: 6),
-            pw.Center(
-              child: pw.Container(
-                width: 77.76,
-                height: 77.76,
-                padding: const pw.EdgeInsets.all(6.48),
-                decoration: pw.BoxDecoration(
-                  color: PdfColors.white,
-                  border: pw.Border.all(color: PdfColors.grey300),
-                  borderRadius: const pw.BorderRadius.all(
-                    pw.Radius.circular(9.6),
+                  pw.SizedBox(height: 6.4),
+                  pw.Center(
+                    child: pw.Text(
+                      ticket.mecefCode?.isNotEmpty == true
+                          ? 'VÉRIFIER SUR EFACTURE.IMPOTS.BJ'
+                          : ticket.reference,
+                      style: pw.TextStyle(color: accent, fontSize: 6.4),
+                      textAlign: pw.TextAlign.center,
+                    ),
+                  ),
+                ],
+                pw.SizedBox(height: 6.4),
+                pw.Center(
+                  child: pw.Text(
+                    settings.footerText,
+                    style: pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
                   ),
                 ),
-                child: pw.Image(qrImage, width: 58.32, height: 58.32),
-              ),
-            ),
-            pw.SizedBox(height: 6.4),
-            pw.Center(
-              child: pw.Text(
-                ticket.mecefCode?.isNotEmpty == true
-                    ? 'VÉRIFIER SUR EFACTURE.IMPOTS.BJ'
-                    : ticket.reference,
-                style: pw.TextStyle(
-                  color: accent,
-                  fontSize: 6.4,
-                ),
-                textAlign: pw.TextAlign.center,
-              ),
-            ),
-          ],
-          pw.SizedBox(height: 6.4),
-          pw.Center(
-            child: pw.Text(
-              settings.footerText,
-              style: pw.TextStyle(              fontSize: 8,
-              color: PdfColors.grey600,
-              ),
-            ),
-          ),
-          if (settings.showCancellationNotice) ...[
-            pw.SizedBox(height: 3.2),
-            pw.Center(
-              child: pw.Text(
-                cancellationNotice,
-                textAlign: pw.TextAlign.center,
-                style: const pw.TextStyle(fontSize: 6.4),
-              ),
-            ),
-          ],
+                if (settings.showCancellationNotice) ...[
+                  pw.SizedBox(height: 3.2),
+                  pw.Center(
+                    child: pw.Text(
+                      cancellationNotice,
+                      textAlign: pw.TextAlign.center,
+                      style: const pw.TextStyle(fontSize: 6.4),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -1417,10 +1530,7 @@ pw.Widget _printRow(String label, String value) {
           flex: 5,
           child: pw.Text(
             label,
-            style: pw.TextStyle(
-              color: PdfColors.grey500,
-              fontSize: 8.8,
-            ),
+            style: pw.TextStyle(color: PdfColors.grey500, fontSize: 8.8),
           ),
         ),
         pw.Expanded(
@@ -1428,10 +1538,7 @@ pw.Widget _printRow(String label, String value) {
           child: pw.Text(
             value,
             textAlign: pw.TextAlign.right,
-            style: pw.TextStyle(
-              fontSize: 8.8,
-              fontWeight: pw.FontWeight.bold,
-            ),
+            style: pw.TextStyle(fontSize: 8.8, fontWeight: pw.FontWeight.bold),
           ),
         ),
       ],
@@ -1670,7 +1777,7 @@ class _ReprogramPageState extends State<_ReprogramPage> {
       backgroundColor: Colors.transparent,
       builder: (_) => _EditReservationSheet(
         reservation: reservation,
-        onSave: (updated) async{
+        onSave: (updated) async {
           _HistoryRepository.updateReservation(updated);
           setState(() {
             _foundTicket = _findTicket(_ticketNumberController.text.trim());
@@ -1910,6 +2017,12 @@ class _TicketVisual extends StatelessWidget {
   final String total;
   final String reference;
   final String? qrData;
+  final String? amountBase;
+  final String? taxAmount;
+  final String? taxRate;
+  final String? taxGroupLabel;
+  final String? taxGroupCode;
+  final String? refundStatus;
   final String? mecefCode;
   final String? mecefNim;
   final String? mecefCounters;
@@ -1918,6 +2031,7 @@ class _TicketVisual extends StatelessWidget {
   final VoidCallback? onEdit;
   final VoidCallback? onCancel;
   final bool showCancelAction;
+  final bool isCancelling;
   final String? editActionLabel;
 
   const _TicketVisual({
@@ -1930,6 +2044,12 @@ class _TicketVisual extends StatelessWidget {
     required this.total,
     required this.reference,
     this.qrData,
+    this.amountBase,
+    this.taxAmount,
+    this.taxRate,
+    this.taxGroupLabel,
+    this.taxGroupCode,
+    this.refundStatus,
     this.mecefCode,
     this.mecefNim,
     this.mecefCounters,
@@ -1938,6 +2058,7 @@ class _TicketVisual extends StatelessWidget {
     this.onEdit,
     this.onCancel,
     this.showCancelAction = true,
+    this.isCancelling = false,
     this.editActionLabel,
   });
 
@@ -2073,6 +2194,64 @@ class _TicketVisual extends StatelessWidget {
               ),
             ],
           ),
+          if (taxGroupLabel?.isNotEmpty == true ||
+              amountBase != null ||
+              taxAmount != null) ...[
+            const SizedBox(height: 20),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF7F9FF),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (taxGroupLabel?.isNotEmpty == true)
+                    Text(
+                      'Groupe de taxe : '
+                      '${taxGroupCode?.isNotEmpty == true ? '$taxGroupCode - ' : ''}'
+                      '$taxGroupLabel',
+                      style: const TextStyle(
+                        color: deepBlue,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  if (amountBase != null) ...[
+                    if (taxGroupLabel?.isNotEmpty == true)
+                      const SizedBox(height: 10),
+                    _TicketPriceRow(label: 'Montant HT', value: amountBase!),
+                  ],
+                  if (taxAmount != null) ...[
+                    const SizedBox(height: 6),
+                    _TicketPriceRow(
+                      label: 'Taxe${taxRate == null ? '' : ' ($taxRate%)'}',
+                      value: taxAmount!,
+                    ),
+                  ],
+                  if (amountBase != null || taxAmount != null) ...[
+                    const Divider(height: 18),
+                    _TicketPriceRow(
+                      label: 'Total TTC',
+                      value: total,
+                      isTotal: true,
+                    ),
+                  ],
+                  if (refundStatus?.isNotEmpty == true) ...[
+                    const Divider(height: 18),
+                    _TicketPriceRow(
+                      label: 'Remboursement',
+                      value: refundStatus!.toLowerCase() == 'oui'
+                          ? 'Effectué'
+                          : 'Non effectué',
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
           if (qrData != null && qrData!.isNotEmpty) ...[
             const SizedBox(height: 26),
             _TicketQrCode(data: qrData!),
@@ -2095,7 +2274,7 @@ class _TicketVisual extends StatelessWidget {
               children: [
                 Expanded(
                   child: GestureDetector(
-                    onTap: onCancel,
+                    onTap: isCancelling ? null : onCancel,
                     child: Container(
                       height: 54,
                       alignment: Alignment.center,
@@ -2103,32 +2282,61 @@ class _TicketVisual extends StatelessWidget {
                         color: const Color(0xFFF5F5F6),
                         borderRadius: BorderRadius.circular(16),
                       ),
-                      child: const Text(
-                        'Annuler ma réservation',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: deepBlue,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w900,
-                        ),
+                      child: isCancelling
+                          ? const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: deepBlue,
+                                  ),
+                                ),
+                                SizedBox(width: 9),
+                                Text(
+                                  'Annulation...',
+                                  style: TextStyle(
+                                    color: deepBlue,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                              ],
+                            )
+                          : const Text(
+                              'Annuler le ticket',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: deepBlue,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                    ),
+                  ),
+                ),
+                if (onEdit != null) ...[
+                  const SizedBox(width: 12),
+                  GestureDetector(
+                    onTap: onEdit,
+                    child: Container(
+                      width: 54,
+                      height: 54,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFEFE8),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: const Icon(
+                        Icons.edit_rounded,
+                        color: red,
+                        size: 27,
                       ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                GestureDetector(
-                  onTap: onEdit,
-                  child: Container(
-                    width: 54,
-                    height: 54,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFEFE8),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: const Icon(Icons.edit_rounded, color: red, size: 27),
-                  ),
-                ),
+                ],
               ],
             )
           else if (onEdit != null)
@@ -2159,6 +2367,46 @@ class _TicketVisual extends StatelessWidget {
             const SizedBox.shrink(),
         ],
       ),
+    );
+  }
+}
+
+class _TicketPriceRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool isTotal;
+
+  const _TicketPriceRow({
+    required this.label,
+    required this.value,
+    this.isTotal = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: TextStyle(
+              color: const Color(0xFF0B4F2A).withValues(alpha: 0.72),
+              fontSize: isTotal ? 13 : 12,
+              fontWeight: isTotal ? FontWeight.w900 : FontWeight.w600,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          value,
+          style: TextStyle(
+            color: isTotal ? const Color(0xFFE53935) : const Color(0xFF0B4F2A),
+            fontSize: isTotal ? 13 : 12,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ],
     );
   }
 }

@@ -60,8 +60,7 @@ class TicketService {
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw Exception(
-        data['message']?.toString() ??
-            'Impossible d’annuler la réservation.',
+        data['message']?.toString() ?? 'Impossible d’annuler la réservation.',
       );
     }
 
@@ -117,8 +116,9 @@ class TicketService {
     }
 
     final List data = jsonDecode(response.body);
-    final voyages =
-        data.map((e) => VoyageProgramme.fromJson(e as Map<String, dynamic>)).toList();
+    final voyages = data
+        .map((e) => VoyageProgramme.fromJson(e as Map<String, dynamic>))
+        .toList();
 
     try {
       return voyages.firstWhere((v) => v.id == voyageId);
@@ -140,6 +140,9 @@ class TicketService {
     String? prenomPassager,
     String? numeroPassager,
     required int nbrePlace,
+    int? taxGroupId,
+    double? montantBase,
+    double? montantManuel,
   }) async {
     final dateStr =
         '${dateVoyage.year.toString().padLeft(4, '0')}-${dateVoyage.month.toString().padLeft(2, '0')}-${dateVoyage.day.toString().padLeft(2, '0')}';
@@ -158,7 +161,11 @@ class TicketService {
       if (tiers) 'prenom_passager': prenomPassager,
       if (tiers) 'numero_passager': numeroPassager,
       'nbre_place': nbrePlace,
-      'mode_paiement': 'MOBILEMONEY', // imposé pour les clients de toute façon côté backend
+      'mode_paiement':
+          'MOBILEMONEY', // imposé pour les clients de toute façon côté backend
+      if (taxGroupId != null) 'taxe_group_id': taxGroupId,
+      if (montantBase != null) 'montant_base': montantBase,
+      if (montantManuel != null) 'montant_manuel': montantManuel,
     };
 
     final response = await http
@@ -168,7 +175,9 @@ class TicketService {
     final data = jsonDecode(response.body);
 
     if (response.statusCode != 200 && response.statusCode != 201) {
-      throw Exception(data['message']?.toString() ?? 'Erreur lors de la réservation.');
+      throw Exception(
+        data['message']?.toString() ?? 'Erreur lors de la réservation.',
+      );
     }
 
     return data as Map<String, dynamic>;

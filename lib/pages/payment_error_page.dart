@@ -11,9 +11,11 @@ class PaymentErrorPage extends StatelessWidget {
       ),
       body: const Center(
         child: Text(
-          'Paiement échoué',
+          'Paiement non confirmé.\n'
+          'Consultez vos réservations pour vérifier son statut avant de réessayer.',
+          textAlign: TextAlign.center,
           style: TextStyle(
-            fontSize: 20,
+            fontSize: 17,
             fontWeight: FontWeight.bold,
           ),
         ),

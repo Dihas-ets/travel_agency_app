@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:code_initial/services/staff_ticket_service.dart';
+
 // Donnees memoire propres a l espace controleur.
 // Elles restent separees du percepteur pour pouvoir brancher plus tard une API
 // sans modifier les ecrans d'affectation, de connexion ou de validation.
@@ -21,6 +23,21 @@ class ControleurScannedTicket {
     required this.scannedAt,
     required this.status,
   });
+
+  factory ControleurScannedTicket.fromApi(StaffTicketModel ticket) {
+    return ControleurScannedTicket(
+      code: ticket.reference,
+      passenger: ticket.fullPassengerName,
+      route: ticket.route,
+      departure: [ticket.dateVoyage, ticket.heureVoyage]
+          .whereType<String>()
+          .where((value) => value.trim().isNotEmpty)
+          .join(' à '),
+      seat: ticket.numPlace ?? '-',
+      scannedAt: '-',
+      status: ticket.statutLabel,
+    );
+  }
 }
 
 class ControleurScannedTicketStore {
@@ -28,7 +45,8 @@ class ControleurScannedTicketStore {
       ValueNotifier<List<ControleurScannedTicket>>(<ControleurScannedTicket>[]);
 
   static void add(String rawCode) {
-    final code = rawCode.trim().isEmpty ? 'TK-2026-0487' : rawCode.trim();
+    final code = rawCode.trim();
+    if (code.isEmpty) return;
     final now = DateTime.now();
     final scannedAt =
         '${now.day.toString().padLeft(2, '0')}/'
@@ -40,14 +58,22 @@ class ControleurScannedTicketStore {
     tickets.value = [
       ControleurScannedTicket(
         code: code,
-        passenger: 'Client Fofana',
-        route: 'Cotonou -> Parakou',
-        departure: '21/05/2026 à 08:30',
-        seat: '12A',
+        passenger: '-',
+        route: '-',
+        departure: '-',
+        seat: '-',
         scannedAt: scannedAt,
-        status: 'Ticket valide',
+        status: 'En attente',
       ),
       ...tickets.value.where((ticket) => ticket.code != code),
+    ];
+  }
+
+  static void addFromApi(StaffTicketModel ticket) {
+    final scanned = ControleurScannedTicket.fromApi(ticket);
+    tickets.value = [
+      scanned,
+      ...tickets.value.where((item) => item.code != scanned.code),
     ];
   }
 }
@@ -84,10 +110,10 @@ class ControleurProfileStore {
   static final ValueNotifier<ControleurProfileData> profile =
       ValueNotifier<ControleurProfileData>(
         const ControleurProfileData(
-          fullName: 'Controleur Fofana',
-          phone: '+229 01 00 00 00 00',
-          agency: 'Cotonou',
-          role: 'Controleur voyage',
+          fullName: '',
+          phone: '',
+          agency: '',
+          role: '',
         ),
       );
 
