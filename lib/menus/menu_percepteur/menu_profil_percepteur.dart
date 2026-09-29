@@ -4,6 +4,7 @@ import 'package:code_initial/models/user_model.dart';
 import 'package:code_initial/data/local/session_store.dart';
 import 'package:code_initial/screens/client/colis/colis_attente_page.dart';
 import 'package:code_initial/screens/percepteur/parts/assignments_section.dart';
+import 'package:code_initial/widgets/profile_avatar.dart';
 
 // Menu principal percepteur, profil editable et conditions.
 
@@ -163,21 +164,7 @@ class PercepteurMainMenuView extends StatelessWidget {
           ValueListenableBuilder<UserModel?>(
             valueListenable: SessionStore.currentUserNotifier,
             builder: (context, user, _) {
-              final photoUrl = user?.photoUrl;
-              return CircleAvatar(
-                radius: 48,
-                backgroundColor: const Color(0xFF58648D),
-                backgroundImage: photoUrl != null && photoUrl.isNotEmpty
-                    ? NetworkImage(photoUrl)
-                    : null,
-                child: photoUrl == null || photoUrl.isEmpty
-                    ? const Icon(
-                        Icons.person_rounded,
-                        color: Colors.white,
-                        size: 62,
-                      )
-                    : null,
-              );
+              return ProfileAvatar(user: user, radius: 48);
             },
           ),
           const SizedBox(height: 16),
@@ -403,21 +390,7 @@ class PercepteurProfileMenuView extends StatelessWidget {
           ValueListenableBuilder<UserModel?>(
             valueListenable: SessionStore.currentUserNotifier,
             builder: (context, user, _) {
-              final photoUrl = user?.photoUrl;
-              return CircleAvatar(
-                radius: 68,
-                backgroundColor: const Color(0xFF58648D),
-                backgroundImage: photoUrl != null && photoUrl.isNotEmpty
-                    ? NetworkImage(photoUrl)
-                    : null,
-                child: photoUrl == null || photoUrl.isEmpty
-                    ? const Icon(
-                        Icons.person_rounded,
-                        color: Colors.white,
-                        size: 88,
-                      )
-                    : null,
-              );
+              return ProfileAvatar(user: user, radius: 68);
             },
           ),
           const SizedBox(height: 24),
@@ -700,21 +673,7 @@ class PercepteurProfileTabContent extends StatelessWidget {
           child: ValueListenableBuilder<UserModel?>(
             valueListenable: SessionStore.currentUserNotifier,
             builder: (context, user, _) {
-              final photoUrl = user?.photoUrl;
-              return CircleAvatar(
-                radius: 52,
-                backgroundColor: const Color(0xFF58648D),
-                backgroundImage: photoUrl != null && photoUrl.isNotEmpty
-                    ? NetworkImage(photoUrl)
-                    : null,
-                child: photoUrl == null || photoUrl.isEmpty
-                    ? const Icon(
-                        Icons.person_rounded,
-                        color: Colors.white,
-                        size: 66,
-                      )
-                    : null,
-              );
+              return ProfileAvatar(user: user, radius: 52);
             },
           ),
         ),

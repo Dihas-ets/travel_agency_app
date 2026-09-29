@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'dart:async';
-import 'package:code_initial/models/models_and_stores.dart';
 import 'package:code_initial/screens/percepteur/parts/notifications_section.dart';
+import 'package:code_initial/data/local/session_store.dart';
+import 'package:code_initial/models/access_session_model.dart';
+import 'package:code_initial/services/affectation_service.dart';
+
 // Missions percepteur: filtres, listes, detail, itineraire et connexion.
 
 // Widget stub pour PercepteurParcelStatusPill
@@ -71,7 +73,7 @@ extension on PercepteurAssignmentPastStatusFilter {
       case PercepteurAssignmentPastStatusFilter.completed:
         return status == 'Effectué';
       case PercepteurAssignmentPastStatusFilter.reassigned:
-        return status == 'Réaffecter';
+        return status == 'Réaffecté' || status == 'Réaffecter';
       case PercepteurAssignmentPastStatusFilter.absent:
         return status == 'Absent';
     }
@@ -89,7 +91,12 @@ class PercepteurAssignmentPercepteur {
 }
 
 class PercepteurAssignmentRecord {
+  final int id;
+  final String rawStatus;
+  final bool sessionOpen;
+  final String percepteurName;
   final String date;
+  final String endDate;
   final String time;
   final String busMatricule;
   final String driverName;
@@ -100,7 +107,12 @@ class PercepteurAssignmentRecord {
   final String status;
 
   const PercepteurAssignmentRecord({
+    required this.id,
+    required this.rawStatus,
+    required this.sessionOpen,
+    required this.percepteurName,
     required this.date,
+    required this.endDate,
     required this.time,
     required this.busMatricule,
     required this.driverName,
@@ -110,6 +122,114 @@ class PercepteurAssignmentRecord {
     required this.percepteurs,
     required this.status,
   });
+
+  factory PercepteurAssignmentRecord.fromJson(
+    Map<String, dynamic> json, {
+    Map<String, dynamic>? team,
+    bool sessionOpen = false,
+  }) {
+    Map<String, dynamic> mapOf(Object? value) =>
+        value is Map ? Map<String, dynamic>.from(value) : {};
+
+    final bus = mapOf(json['bus']);
+    final line = mapOf(json['ligne']);
+    final currentUser = mapOf(json['user']);
+    final teamMembers = (team?['equipe'] as List? ?? const [])
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .map((item) => mapOf(item['user']))
+        .where((user) => user.isNotEmpty)
+        .toList();
+
+    String fullName(Map<String, dynamic> user) =>
+        '${user['prenom'] ?? ''} ${user['nom'] ?? ''}'.trim();
+    String formatDate(Object? value) {
+      final parsed = DateTime.tryParse(value?.toString() ?? '');
+      if (parsed == null) return value?.toString() ?? '-';
+      const months = [
+        'janvier',
+        'février',
+        'mars',
+        'avril',
+        'mai',
+        'juin',
+        'juillet',
+        'août',
+        'septembre',
+        'octobre',
+        'novembre',
+        'décembre',
+      ];
+      return '${parsed.day} ${months[parsed.month - 1]} ${parsed.year}';
+    }
+
+    final driver = teamMembers.firstWhere(
+      (user) => user['role']?.toString().toLowerCase() == 'chauffeur',
+      orElse: () => <String, dynamic>{},
+    );
+    final currentAssignmentId = int.tryParse(json['id']?.toString() ?? '');
+    final collectors = <PercepteurAssignmentPercepteur>[];
+    for (final member in teamMembers) {
+      if (member['role']?.toString().toLowerCase() != 'percepteur') continue;
+      final assignment = (team?['equipe'] as List? ?? const [])
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .firstWhere(
+            (item) =>
+                mapOf(item['user'])['id']?.toString() ==
+                member['id']?.toString(),
+            orElse: () => <String, dynamic>{},
+          );
+      if (int.tryParse(assignment['affectation_id']?.toString() ?? '') ==
+          currentAssignmentId) {
+        continue;
+      }
+      collectors.add(
+        PercepteurAssignmentPercepteur(
+          name: fullName(member),
+          phone: member['numero']?.toString() ?? '',
+        ),
+      );
+    }
+
+    final rawStatus = json['statut']?.toString() ?? '';
+    final reaffectationId = json['reaffectation_id'];
+    final status = reaffectationId != null
+        ? 'Réaffecté'
+        : switch (rawStatus) {
+            'en_cours' => 'En cours',
+            'planifie' => 'Programmé',
+            'passe' => 'Effectué',
+            'absent' => 'Absent',
+            _ => rawStatus,
+          };
+    final readableStatus = rawStatus == 'en_cours'
+        ? sessionOpen
+              ? 'Session ouverte'
+              : 'Code d’accès à saisir'
+        : status;
+
+    return PercepteurAssignmentRecord(
+      id: int.tryParse(json['id']?.toString() ?? '') ?? 0,
+      rawStatus: rawStatus,
+      sessionOpen: sessionOpen,
+      percepteurName: fullName(currentUser).isEmpty
+          ? SessionStore.currentUser?.fullName ?? 'Percepteur'
+          : fullName(currentUser),
+      date: formatDate(json['date_debut']),
+      endDate: formatDate(json['date_fin']),
+      time: json['heure_debut']?.toString() ?? '-',
+      busMatricule: bus['immatriculation']?.toString() ?? 'Bus non renseigné',
+      driverName: fullName(driver).isEmpty ? 'Non renseigné' : fullName(driver),
+      driverPhone: driver['numero']?.toString() ?? 'Non renseigné',
+      route:
+          '${line['trajet_depart'] ?? 'Départ'} → '
+          '${line['trajet_arrivee'] ?? 'Destination'}',
+      sessionCloseTime: json['heure_fin']?.toString() ?? '-',
+      percepteurs: collectors,
+      status: readableStatus,
+    );
+  }
 }
 
 class PercepteurAssignmentsPage extends StatefulWidget {
@@ -127,145 +247,97 @@ class PercepteurAssignmentsPageState extends State<PercepteurAssignmentsPage> {
   PercepteurAssignmentFilter _filter = PercepteurAssignmentFilter.current;
   PercepteurAssignmentPastStatusFilter _pastStatusFilter =
       PercepteurAssignmentPastStatusFilter.all;
+  final _service = AffectationService();
+  List<PercepteurAssignmentRecord> _assignments = [];
+  bool _isLoading = true;
+  String? _loadError;
 
-  // Jeu de données local en attendant la connexion à l'API des affectations.
-  final List<PercepteurAssignmentRecord> _currentAssignments = const [
-    PercepteurAssignmentRecord(
-      date: '29 mai 2026',
-      time: '08:30',
-      busMatricule: 'BJ-6248-RB',
-      driverName: 'Karim Soglo',
-      driverPhone: '+229 01 66 42 18 09',
-      route: 'Cotonou -> Parakou',
-      sessionCloseTime: '18:45',
-      percepteurs: [
-        PercepteurAssignmentPercepteur(
-          name: 'Awa Mensah',
-          phone: '+229 01 64 20 11 90',
-        ),
-        PercepteurAssignmentPercepteur(
-          name: 'Joel Kpadonou',
-          phone: '+229 01 97 44 08 26',
-        ),
-      ],
-      status: 'Session ouverte',
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadAssignments();
+  }
 
-  final List<PercepteurAssignmentRecord> _scheduledAssignments = const [
-    PercepteurAssignmentRecord(
-      date: '31 mai 2026',
-      time: '06:00',
-      busMatricule: 'BJ-7812-AG',
-      driverName: 'Moussa Adjou',
-      driverPhone: '+229 01 97 12 44 30',
-      route: 'Porto-Novo -> Natitingou',
-      sessionCloseTime: '17:30',
-      percepteurs: [
-        PercepteurAssignmentPercepteur(
-          name: 'Chancelle Toko',
-          phone: '+229 01 62 19 31 45',
-        ),
-        PercepteurAssignmentPercepteur(
-          name: 'Eric Houngbo',
-          phone: '+229 01 69 88 14 77',
-        ),
-      ],
-      status: 'Programmé',
-    ),
-    PercepteurAssignmentRecord(
-      date: '02 juin 2026',
-      time: '14:15',
-      busMatricule: 'BJ-4589-CD',
-      driverName: 'Jean Dossou',
-      driverPhone: '+229 01 62 55 70 21',
-      route: 'Cotonou -> Djougou',
-      sessionCloseTime: '23:00',
-      percepteurs: [
-        PercepteurAssignmentPercepteur(
-          name: 'Mariette Hounkanrin',
-          phone: '+229 01 60 75 29 10',
-        ),
-        PercepteurAssignmentPercepteur(
-          name: 'Serge Loko',
-          phone: '+229 01 66 13 57 84',
-        ),
-      ],
-      status: 'Programmé',
-    ),
-  ];
-
-  final List<PercepteurAssignmentRecord> _pastAssignments = const [
-    PercepteurAssignmentRecord(
-      date: '27 mai 2026',
-      time: '07:45',
-      busMatricule: 'BJ-3220-TR',
-      driverName: 'Rachid Bio',
-      driverPhone: '+229 01 61 18 40 33',
-      route: 'Cotonou -> Bohicon',
-      sessionCloseTime: '16:20',
-      percepteurs: [
-        PercepteurAssignmentPercepteur(
-          name: 'Mireille Zinsou',
-          phone: '+229 01 65 42 71 88',
-        ),
-        PercepteurAssignmentPercepteur(
-          name: 'Patrick Tossa',
-          phone: '+229 01 91 06 24 35',
-        ),
-      ],
-      status: 'Effectué',
-    ),
-    PercepteurAssignmentRecord(
-      date: '25 mai 2026',
-      time: '09:00',
-      busMatricule: 'BJ-9301-PL',
-      driverName: 'Armand Hounsinou',
-      driverPhone: '+229 01 95 72 10 67',
-      route: 'Porto-Novo -> Kandi',
-      sessionCloseTime: '20:10',
-      percepteurs: [
-        PercepteurAssignmentPercepteur(
-          name: 'Nadine Sossa',
-          phone: '+229 01 68 77 31 04',
-        ),
-        PercepteurAssignmentPercepteur(
-          name: 'Abel Gandonou',
-          phone: '+229 01 94 50 63 19',
-        ),
-      ],
-      status: 'Réaffecter',
-    ),
-    PercepteurAssignmentRecord(
-      date: '22 mai 2026',
-      time: '12:30',
-      busMatricule: 'BJ-1077-MK',
-      driverName: 'Saturnin Kiki',
-      driverPhone: '+229 01 60 30 41 82',
-      route: 'Cotonou -> Lokossa',
-      sessionCloseTime: '19:00',
-      percepteurs: [
-        PercepteurAssignmentPercepteur(
-          name: 'Judith Ahouanvoebla',
-          phone: '+229 01 61 33 42 50',
-        ),
-        PercepteurAssignmentPercepteur(
-          name: 'David Nonvignon',
-          phone: '+229 01 96 82 18 73',
-        ),
-      ],
-      status: 'Absent',
-    ),
-  ];
+  Future<void> _loadAssignments() async {
+    setState(() {
+      _isLoading = true;
+      _loadError = null;
+    });
+    try {
+      final rows = await _service.getMyAssignments();
+      final sessionResponse = await _service.getMySession();
+      final access = sessionResponse['access'] is Map
+          ? Map<String, dynamic>.from(sessionResponse['access'] as Map)
+          : <String, dynamic>{};
+      final sessionActive = sessionResponse['session_active'] == true;
+      final activeAssignmentId = sessionActive
+          ? int.tryParse(access['affectation_id']?.toString() ?? '')
+          : null;
+      final assignments = rows
+          .map(
+            (row) => PercepteurAssignmentRecord.fromJson(
+              row,
+              sessionOpen:
+                  sessionActive &&
+                  activeAssignmentId != null &&
+                  row['id']?.toString() == activeAssignmentId.toString(),
+            ),
+          )
+          .toList();
+      final currentAssignments = assignments
+          .where((item) => item.rawStatus == 'en_cours')
+          .toList();
+      for (final item in currentAssignments) {
+        try {
+          final team = await _service.getAssignmentTeam(item.id);
+          final index = assignments.indexWhere((value) => value.id == item.id);
+          if (index != -1) {
+            assignments[index] = PercepteurAssignmentRecord.fromJson(
+              rows.firstWhere(
+                (row) => row['id']?.toString() == item.id.toString(),
+              ),
+              team: team,
+              sessionOpen: item.sessionOpen,
+            );
+          }
+        } catch (error) {
+          debugPrint(
+            'Impossible de charger l’équipe de l’affectation ${item.id}: $error',
+          );
+        }
+      }
+      if (!mounted) return;
+      setState(() {
+        _assignments = assignments;
+        _isLoading = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loadError = error.toString().replaceFirst('Exception: ', '');
+        _isLoading = false;
+      });
+    }
+  }
 
   List<PercepteurAssignmentRecord> get _records {
     switch (_filter) {
       case PercepteurAssignmentFilter.current:
-        return _currentAssignments;
+        return _assignments
+            .where((assignment) => assignment.rawStatus == 'en_cours')
+            .toList();
       case PercepteurAssignmentFilter.scheduled:
-        return _scheduledAssignments;
+        return _assignments
+            .where((assignment) => assignment.rawStatus == 'planifie')
+            .toList();
       case PercepteurAssignmentFilter.past:
-        return _pastAssignments
+        return _assignments
+            .where(
+              (assignment) =>
+                  assignment.rawStatus == 'passe' ||
+                  assignment.rawStatus == 'absent' ||
+                  assignment.rawStatus == 'reaffectee',
+            )
             .where((assignment) => _pastStatusFilter.matches(assignment.status))
             .toList();
     }
@@ -371,9 +443,53 @@ class PercepteurAssignmentsPageState extends State<PercepteurAssignmentsPage> {
                 children: [
                   PercepteurAssignmentSegmentedControl(
                     selected: _filter,
+                    currentCount: _countFor(PercepteurAssignmentFilter.current),
+                    scheduledCount: _countFor(
+                      PercepteurAssignmentFilter.scheduled,
+                    ),
+                    pastCount: _countFor(PercepteurAssignmentFilter.past),
                     onChanged: _selectFilter,
                   ),
                   const SizedBox(height: 18),
+                  if (_loadError != null)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 14),
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF1F0),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: const Color(0xFFE53935).withValues(alpha: 0.2),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _loadError!,
+                            style: const TextStyle(
+                              color: Color(0xFFB42318),
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton.icon(
+                              onPressed: _loadAssignments,
+                              icon: const Icon(Icons.refresh_rounded),
+                              label: const Text('Réessayer'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  if (_isLoading)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 28),
+                      child: Center(
+                        child: CircularProgressIndicator(color: _fofanaGreen),
+                      ),
+                    ),
                   Text(
                     _title,
                     style: const TextStyle(
@@ -424,7 +540,7 @@ class PercepteurAssignmentsPageState extends State<PercepteurAssignmentsPage> {
                                     children: [
                                       Expanded(
                                         child: Text(
-                                          item.busMatricule,
+                                          item.percepteurName,
                                           style: const TextStyle(
                                             color: Colors.black,
                                             fontSize: 18,
@@ -477,27 +593,37 @@ class PercepteurAssignmentsPageState extends State<PercepteurAssignmentsPage> {
                                     ),
                                   ),
                                   const SizedBox(height: 8),
-                                  Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: item.percepteurs.map((
-                                      percepteur,
-                                    ) {
-                                      return Padding(
-                                        padding: const EdgeInsets.only(
-                                          bottom: 6,
-                                        ),
-                                        child: Text(
-                                          '${percepteur.name} • ${percepteur.phone}',
-                                          style: const TextStyle(
-                                            color: Color(0xFF4B5563),
-                                            fontSize: 13.5,
-                                            fontWeight: FontWeight.w700,
+                                  if (item.percepteurs.isEmpty)
+                                    const Text(
+                                      'Aucun autre percepteur affecté à ce voyage.',
+                                      style: TextStyle(
+                                        color: Color(0xFF5F6B86),
+                                        fontSize: 13.5,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    )
+                                  else
+                                    Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: item.percepteurs.map((
+                                        percepteur,
+                                      ) {
+                                        return Padding(
+                                          padding: const EdgeInsets.only(
+                                            bottom: 6,
                                           ),
-                                        ),
-                                      );
-                                    }).toList(),
-                                  ),
+                                          child: Text(
+                                            '${percepteur.name} • ${percepteur.phone}',
+                                            style: const TextStyle(
+                                              color: Color(0xFF4B5563),
+                                              fontSize: 13.5,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                        );
+                                      }).toList(),
+                                    ),
                                 ],
                               ),
                             );
@@ -614,15 +740,43 @@ class PercepteurAssignmentsPageState extends State<PercepteurAssignmentsPage> {
       ),
     );
   }
+
+  int _countFor(PercepteurAssignmentFilter filter) {
+    switch (filter) {
+      case PercepteurAssignmentFilter.current:
+        return _assignments
+            .where((item) => item.rawStatus == 'en_cours')
+            .length;
+      case PercepteurAssignmentFilter.scheduled:
+        return _assignments
+            .where((item) => item.rawStatus == 'planifie')
+            .length;
+      case PercepteurAssignmentFilter.past:
+        return _assignments
+            .where(
+              (item) =>
+                  item.rawStatus == 'passe' ||
+                  item.rawStatus == 'absent' ||
+                  item.rawStatus == 'reaffectee',
+            )
+            .length;
+    }
+  }
 }
 
 class PercepteurAssignmentSegmentedControl extends StatelessWidget {
   final PercepteurAssignmentFilter selected;
+  final int currentCount;
+  final int scheduledCount;
+  final int pastCount;
   final ValueChanged<PercepteurAssignmentFilter> onChanged;
 
   const PercepteurAssignmentSegmentedControl({
     super.key,
     required this.selected,
+    required this.currentCount,
+    required this.scheduledCount,
+    required this.pastCount,
     required this.onChanged,
   });
 
@@ -647,19 +801,19 @@ class PercepteurAssignmentSegmentedControl extends StatelessWidget {
       child: Row(
         children: [
           PercepteurAssignmentTabButton(
-            label: 'En cours',
+            label: 'En cours ($currentCount)',
             icon: Icons.play_circle_fill_rounded,
             selected: selected == PercepteurAssignmentFilter.current,
             onTap: () => onChanged(PercepteurAssignmentFilter.current),
           ),
           PercepteurAssignmentTabButton(
-            label: 'Programmer',
+            label: 'Programmer ($scheduledCount)',
             icon: Icons.event_available_rounded,
             selected: selected == PercepteurAssignmentFilter.scheduled,
             onTap: () => onChanged(PercepteurAssignmentFilter.scheduled),
           ),
           PercepteurAssignmentTabButton(
-            label: 'Passer',
+            label: 'Passer ($pastCount)',
             icon: Icons.history_rounded,
             selected: selected == PercepteurAssignmentFilter.past,
             onTap: () => onChanged(PercepteurAssignmentFilter.past),
@@ -1211,7 +1365,14 @@ class PercepteurPhoneSheet extends StatelessWidget {
 }
 
 class PercepteurConnectionPage extends StatefulWidget {
-  const PercepteurConnectionPage({super.key});
+  final AffectationService? service;
+  final bool closeOnActivation;
+
+  const PercepteurConnectionPage({
+    super.key,
+    this.service,
+    this.closeOnActivation = false,
+  });
 
   @override
   State<PercepteurConnectionPage> createState() =>
@@ -1221,33 +1382,29 @@ class PercepteurConnectionPage extends StatefulWidget {
 class PercepteurConnectionPageState extends State<PercepteurConnectionPage> {
   static const Color _deepBlue = Color(0xFF0B4F2A);
   static const Color _fofanaGreen = Color(0xFF16A34A);
-  static const int _initialSessionSeconds = 2 * 60 * 60;
-  static const int _initialResendSeconds = 120;
-
-  final List<TextEditingController> _otpControllers = List.generate(
-    6,
-    (_) => TextEditingController(),
-  );
+  final TextEditingController _accessCodeController = TextEditingController();
+  late final AffectationService _service =
+      widget.service ?? AffectationService();
   Timer? _sessionTimer;
-  Timer? _resendTimer;
-  int _sessionRemaining = _initialSessionSeconds;
-  int _resendRemaining = _initialResendSeconds;
-  bool _isSessionActive = true;
-  bool _showOtpRequest = false;
+  int _sessionRemaining = 0;
+  int? _assignmentDurationSeconds;
+  Map<String, dynamic>? _sessionAssignment;
+  bool _isSessionActive = false;
+  bool _isLoadingSession = true;
+  bool _isActivating = false;
+  bool _showAccessCodeForm = false;
+  String? _sessionError;
 
   @override
   void initState() {
     super.initState();
-    _startSessionTimer();
+    _loadCurrentSession();
   }
 
   @override
   void dispose() {
     _sessionTimer?.cancel();
-    _resendTimer?.cancel();
-    for (final controller in _otpControllers) {
-      controller.dispose();
-    }
+    _accessCodeController.dispose();
     super.dispose();
   }
 
@@ -1260,13 +1417,14 @@ class PercepteurConnectionPageState extends State<PercepteurConnectionPage> {
         '${seconds.toString().padLeft(2, '0')}';
   }
 
-  // Chrono principal de la session percepteur : quand il atteint zéro,
-  // l'interface bascule automatiquement l'état de session en "Fermée".
   void _startSessionTimer() {
     _sessionTimer?.cancel();
     _sessionTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted || !_isSessionActive) return;
-      if (_sessionRemaining <= 1) {
+      final endsAt = _sessionEndsAt;
+      if (endsAt == null) return;
+      final remaining = endsAt.difference(DateTime.now()).inSeconds;
+      if (remaining <= 0) {
         setState(() {
           _sessionRemaining = 0;
           _isSessionActive = false;
@@ -1274,64 +1432,214 @@ class PercepteurConnectionPageState extends State<PercepteurConnectionPage> {
         _sessionTimer?.cancel();
         return;
       }
-      setState(() => _sessionRemaining--);
+      setState(() => _sessionRemaining = remaining);
     });
   }
 
-  // Chrono affiché après une demande d'ouverture : il indique au percepteur
-  // quand il pourra demander ou recevoir un nouveau code OTP.
-  void _startResendTimer() {
-    _resendTimer?.cancel();
-    setState(() => _resendRemaining = _initialResendSeconds);
-    _resendTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+  DateTime? _sessionEndsAt;
+
+  String _activationErrorMessage(Object error) {
+    final message = error.toString().replaceFirst('Exception: ', '').trim();
+    if (message.toLowerCase().contains('code expir')) {
+      return 'Le serveur a refusé ce code car sa période de validité est terminée.\n\n'
+          '$message\n\n'
+          'La section reste fermée. Demandez à l’administrateur de générer un nouveau code lié à une affectation encore valide.';
+    }
+    return message;
+  }
+
+  Future<void> _loadCurrentSession() async {
+    try {
+      final response = await _service.getMySession();
       if (!mounted) return;
-      if (_resendRemaining <= 1) {
-        setState(() => _resendRemaining = 0);
-        _resendTimer?.cancel();
-        return;
+      _applySession(response);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _sessionError = error.toString().replaceFirst('Exception: ', '');
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingSession = false);
       }
-      setState(() => _resendRemaining--);
+    }
+
+    try {
+      final assignments = await _service.getMyAssignments();
+      if (!mounted) return;
+      final relevantAssignments =
+          assignments.where((assignment) {
+            final status = assignment['statut']?.toString();
+            return status == 'en_cours' || status == 'planifie';
+          }).toList()..sort((left, right) {
+            final leftStatus = left['statut']?.toString();
+            final rightStatus = right['statut']?.toString();
+            if (leftStatus == 'en_cours' && rightStatus != 'en_cours') {
+              return -1;
+            }
+            if (rightStatus == 'en_cours' && leftStatus != 'en_cours') return 1;
+            final leftStart = _assignmentMoment(
+              left,
+              'date_debut',
+              'heure_debut',
+            );
+            final rightStart = _assignmentMoment(
+              right,
+              'date_debut',
+              'heure_debut',
+            );
+            if (leftStart == null) return 1;
+            if (rightStart == null) return -1;
+            return leftStart.compareTo(rightStart);
+          });
+      final assignment = relevantAssignments.isEmpty
+          ? null
+          : relevantAssignments.first;
+      _sessionAssignment = assignment;
+      final start = assignment == null
+          ? null
+          : _assignmentMoment(assignment, 'date_debut', 'heure_debut');
+      final end = assignment == null
+          ? null
+          : _assignmentMoment(assignment, 'date_fin', 'heure_fin');
+      if (start == null || end == null) return;
+      final duration = end.difference(start).inSeconds;
+      if (duration <= 0) return;
+      setState(() => _assignmentDurationSeconds = duration);
+    } catch (error) {
+      if (mounted && _sessionError == null) {
+        setState(() {
+          _sessionError =
+              'Impossible de charger la durée de votre affectation : '
+              '${error.toString().replaceFirst('Exception: ', '')}';
+        });
+      }
+    }
+  }
+
+  DateTime? _assignmentMoment(
+    Map<String, dynamic> assignment,
+    String dateKey,
+    String timeKey,
+  ) {
+    final rawDate = assignment[dateKey]?.toString();
+    final rawTime = assignment[timeKey]?.toString();
+    if (rawDate == null || rawTime == null || rawTime.length < 5) return null;
+    final date = DateTime.tryParse(rawDate.substring(0, 10));
+    final parts = rawTime.substring(0, 5).split(':');
+    if (date == null || parts.length != 2) return null;
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+    if (hour == null || minute == null) return null;
+    return DateTime(date.year, date.month, date.day, hour, minute);
+  }
+
+  void _applySession(Map<String, dynamic> response) {
+    final normalized = Map<String, dynamic>.from(response);
+    final access = response['access'] is Map
+        ? Map<String, dynamic>.from(response['access'] as Map)
+        : <String, dynamic>{};
+    final assignment = access['affectation'] is Map
+        ? Map<String, dynamic>.from(access['affectation'] as Map)
+        : _sessionAssignment ?? <String, dynamic>{};
+    access['affectation'] = assignment;
+    normalized['access'] = access;
+    final session = AccessSession.fromJson(normalized);
+    final remaining = session.remainingSecondsAt(DateTime.now());
+
+    setState(() {
+      _sessionEndsAt = session.endsAt;
+      _sessionRemaining = remaining;
+      _isSessionActive = session.isActive;
+      _isLoadingSession = false;
+      _sessionError = response['session_active'] == true && !session.isActive
+          ? 'La session est expirée selon sa date de fin.'
+          : response['session_active'] == true && session.endsAt == null
+          ? 'Section ouverte, mais aucune date de fin n’est disponible pour le décompte.'
+          : null;
+      if (session.isActive) _showAccessCodeForm = false;
     });
+    if (_isSessionActive && _sessionEndsAt != null) {
+      _startSessionTimer();
+    } else {
+      _sessionTimer?.cancel();
+    }
   }
 
-  // La demande révèle les six champs OTP et démarre le compte à rebours de
-  // renvoi sans activer immédiatement la session.
-  void _requestSessionOpening() {
-    setState(() => _showOtpRequest = true);
-    _startResendTimer();
-    PercepteurNotificationStore.add(
-      title: 'Ouverture session',
-      message: "Demande d'ouverture de session envoyée.",
-    );
-  }
-
-  // L'activation exige les six chiffres, puis relance une session complète.
-  void _activate() {
-    final code = _otpControllers.map((item) => item.text.trim()).join();
-    if (code.length < 6) {
+  Future<void> _activate() async {
+    final code = _accessCodeController.text.trim().toUpperCase();
+    if (code.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Veuillez saisir les 6 chiffres du code.'),
-        ),
+        const SnackBar(content: Text('Veuillez saisir votre code d’accès.')),
       );
       return;
     }
 
     setState(() {
-      _isSessionActive = true;
-      _sessionRemaining = _initialSessionSeconds;
+      _isActivating = true;
+      _isLoadingSession = true;
+      _sessionError = null;
     });
-    _startSessionTimer();
-    PercepteurNotificationStore.add(
-      title: 'Session activée',
-      message: 'Votre session percepteur est active.',
-    );
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Session activée avec succès.'),
-        backgroundColor: _deepBlue,
-      ),
-    );
+    try {
+      final activation = await _service.activateAccessCode(code);
+      if (!mounted) return;
+      final access = activation['access'] is Map
+          ? Map<String, dynamic>.from(activation['access'] as Map)
+          : <String, dynamic>{};
+      if (access['statut']?.toString() != 'actif') {
+        throw Exception(
+          activation['message']?.toString() ??
+              'Le serveur n’a pas confirmé l’activation du code.',
+        );
+      }
+      _applySession({'session_active': true, 'access': access});
+      if (!_isSessionActive) {
+        throw Exception(_sessionError ?? 'La session n’a pas pu être activée.');
+      }
+      if (!mounted) return;
+      _accessCodeController.clear();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Section activée.'),
+          backgroundColor: _deepBlue,
+        ),
+      );
+      if (widget.closeOnActivation) {
+        Navigator.of(context).pop(true);
+      }
+    } catch (error) {
+      if (!mounted) return;
+      final message = _activationErrorMessage(error);
+      setState(() {
+        _isLoadingSession = false;
+        _sessionError = message;
+      });
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          icon: Icon(
+            message.startsWith('Le serveur a refusé')
+                ? Icons.timer_off_rounded
+                : Icons.error_outline_rounded,
+            color: const Color(0xFFB42318),
+          ),
+          title: Text(
+            message.startsWith('Le serveur a refusé')
+                ? 'Code expiré'
+                : 'Activation impossible',
+          ),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Compris'),
+            ),
+          ],
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isActivating = false);
+    }
   }
 
   @override
@@ -1378,112 +1686,118 @@ class PercepteurConnectionPageState extends State<PercepteurConnectionPage> {
                   children: [
                     PercepteurSessionCard(
                       isActive: _isSessionActive,
-                      remainingLabel: _formatDuration(_sessionRemaining),
-                    ),
-                    const SizedBox(height: 18),
-                    Container(
-                      padding: const EdgeInsets.all(18),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(
-                          color: _deepBlue.withValues(alpha: 0.08),
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.05),
-                            blurRadius: 18,
-                            offset: const Offset(0, 8),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          SizedBox(
-                            height: 54,
-                            child: ElevatedButton.icon(
-                              onPressed: _requestSessionOpening,
-                              icon: const Icon(Icons.lock_open_rounded),
-                              label: const Text(
-                                "Demande ouverture de session",
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: _deepBlue,
-                                foregroundColor: Colors.white,
-                                elevation: 0,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                textStyle: const TextStyle(
-                                  fontSize: 15.5,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
+                      isLoading: _isLoadingSession,
+                      remainingLabel: _isLoadingSession
+                          ? 'Vérification...'
+                          : _isSessionActive
+                          ? _sessionEndsAt == null
+                                ? 'Durée indisponible'
+                                : _formatDuration(_sessionRemaining)
+                          : _assignmentDurationSeconds == null
+                          ? 'Aucune affectation active'
+                          : _formatDuration(_assignmentDurationSeconds!),
+                      onRequestOpen: _isSessionActive
+                          ? null
+                          : () => setState(
+                              () => _showAccessCodeForm = !_showAccessCodeForm,
                             ),
+                    ),
+                    if (_sessionError != null &&
+                        (!_showAccessCodeForm || _isSessionActive)) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        _sessionError!,
+                        style: const TextStyle(
+                          color: Color(0xFFB42318),
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                    if (_showAccessCodeForm && !_isSessionActive) ...[
+                      const SizedBox(height: 18),
+                      Container(
+                        padding: const EdgeInsets.all(18),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(
+                            color: _deepBlue.withValues(alpha: 0.08),
                           ),
-                          if (_showOtpRequest) ...[
-                            const SizedBox(height: 20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.05),
+                              blurRadius: 18,
+                              offset: const Offset(0, 8),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
                             const Text(
-                              "Code d'activation",
+                              'Code d’accès',
                               style: TextStyle(
                                 color: _deepBlue,
                                 fontSize: 17,
                                 fontWeight: FontWeight.w900,
                               ),
                             ),
-                            const SizedBox(height: 14),
-                            Row(
-                              children: List.generate(
-                                _otpControllers.length,
-                                (index) => [
-                                  if (index == 3)
-                                    const Padding(
-                                      padding: EdgeInsets.symmetric(
-                                        horizontal: 6,
-                                      ),
-                                      child: Text(
-                                        '-',
-                                        style: TextStyle(
-                                          color: _deepBlue,
-                                          fontSize: 22,
-                                          fontWeight: FontWeight.w900,
-                                        ),
-                                      ),
-                                    ),
-                                  Expanded(
-                                    child: Padding(
-                                      padding: EdgeInsets.only(
-                                        right:
-                                            index == _otpControllers.length - 1
-                                            ? 0
-                                            : 6,
-                                      ),
-                                      child: PercepteurOtpBox(
-                                        controller: _otpControllers[index],
-                                      ),
-                                    ),
+                            const SizedBox(height: 10),
+                            TextField(
+                              controller: _accessCodeController,
+                              textCapitalization: TextCapitalization.characters,
+                              textInputAction: TextInputAction.done,
+                              onSubmitted: (_) => _activate(),
+                              decoration: InputDecoration(
+                                hintText: 'Ex. FV-123456',
+                                prefixIcon: const Icon(
+                                  Icons.key_rounded,
+                                  color: _fofanaGreen,
+                                ),
+                                filled: true,
+                                fillColor: const Color(0xFFF6F8FF),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                  borderSide: BorderSide(
+                                    color: _deepBlue.withValues(alpha: 0.12),
                                   ),
-                                ],
-                              ).expand((items) => items).toList(),
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'Renvoyez le code dans $_resendRemaining s',
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                color: Color(0xFF5F6B86),
-                                fontSize: 13.5,
-                                fontWeight: FontWeight.w800,
+                                ),
                               ),
                             ),
+                            if (_sessionError != null) ...[
+                              const SizedBox(height: 10),
+                              Text(
+                                _sessionError!,
+                                style: const TextStyle(
+                                  color: Color(0xFFB42318),
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
                             const SizedBox(height: 16),
                             SizedBox(
                               height: 54,
-                              child: ElevatedButton(
-                                onPressed: _activate,
+                              child: ElevatedButton.icon(
+                                onPressed: _isActivating || _isSessionActive
+                                    ? null
+                                    : _activate,
+                                icon: _isActivating
+                                    ? const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : const Icon(Icons.lock_open_rounded),
+                                label: Text(
+                                  _isActivating
+                                      ? 'Activation...'
+                                      : _isSessionActive
+                                      ? 'Session déjà ouverte'
+                                      : 'Activer ma session',
+                                ),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: _fofanaGreen,
                                   foregroundColor: Colors.white,
@@ -1492,19 +1806,12 @@ class PercepteurConnectionPageState extends State<PercepteurConnectionPage> {
                                     borderRadius: BorderRadius.circular(16),
                                   ),
                                 ),
-                                child: const Text(
-                                  'Activer',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                                ),
                               ),
                             ),
                           ],
-                        ],
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),
@@ -1518,20 +1825,29 @@ class PercepteurConnectionPageState extends State<PercepteurConnectionPage> {
 
 class PercepteurSessionCard extends StatelessWidget {
   final bool isActive;
+  final bool isLoading;
   final String remainingLabel;
+  final VoidCallback? onRequestOpen;
 
   const PercepteurSessionCard({
     super.key,
     required this.isActive,
+    required this.isLoading,
     required this.remainingLabel,
+    required this.onRequestOpen,
   });
 
   @override
   Widget build(BuildContext context) {
     const deepBlue = Color(0xFF0B4F2A);
     const red = Color(0xFFE53935);
+    const green = Color(0xFF16A34A);
     final statusColor = isActive ? red : deepBlue;
-    final statusLabel = isActive ? 'Active' : 'Fermée';
+    final statusLabel = isLoading
+        ? 'Vérification'
+        : isActive
+        ? 'Ouverte'
+        : 'Fermée';
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -1593,8 +1909,12 @@ class PercepteurSessionCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 18),
-          const Text(
-            'Fermeture dans',
+          Text(
+            isLoading
+                ? 'Vérification de la session'
+                : isActive
+                ? 'Fermeture dans'
+                : 'Durée prévue de la section',
             style: TextStyle(
               color: Color(0xFF5F6B86),
               fontSize: 13.5,
@@ -1605,50 +1925,32 @@ class PercepteurSessionCard extends StatelessWidget {
           Text(
             remainingLabel,
             style: TextStyle(
-              color: isActive ? deepBlue : red,
-              fontSize: 34,
+              color: isActive || isLoading ? deepBlue : red,
+              fontSize: remainingLabel.contains(':') ? 34 : 15,
               fontWeight: FontWeight.w900,
             ),
           ),
+          if (!isActive && !isLoading && onRequestOpen != null) ...[
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: OutlinedButton.icon(
+                onPressed: onRequestOpen,
+                icon: const Icon(Icons.lock_open_rounded),
+                label: const Text('Demande ouverture de section'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: green,
+                  side: const BorderSide(color: green),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  textStyle: const TextStyle(fontWeight: FontWeight.w900),
+                ),
+              ),
+            ),
+          ],
         ],
-      ),
-    );
-  }
-}
-
-class PercepteurOtpBox extends StatelessWidget {
-  final TextEditingController controller;
-
-  const PercepteurOtpBox({super.key, required this.controller});
-
-  @override
-  Widget build(BuildContext context) {
-    return TextField(
-      controller: controller,
-      textAlign: TextAlign.center,
-      maxLength: 1,
-      keyboardType: TextInputType.number,
-      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-      style: const TextStyle(
-        color: Color(0xFF0B4F2A),
-        fontSize: 20,
-        fontWeight: FontWeight.w900,
-      ),
-      decoration: InputDecoration(
-        counterText: '',
-        filled: true,
-        fillColor: const Color(0xFFF8FBFF),
-        contentPadding: const EdgeInsets.symmetric(vertical: 16),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(
-            color: const Color(0xFF0B4F2A).withValues(alpha: 0.10),
-          ),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: Color(0xFF16A34A), width: 1.5),
-        ),
       ),
     );
   }

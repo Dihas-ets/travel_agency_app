@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:code_initial/screens/percepteur/parts/reservation_flow.dart';
+import 'package:code_initial/services/ticket_service.dart';
+
 // Historique percepteur et actualites affichees dans l espace percepteur.
 
 enum PercepteurHistoryScope { reservations, absent, present }
@@ -14,10 +16,57 @@ class PercepteurHistoryPage extends StatefulWidget {
 
 class PercepteurHistoryPageState extends State<PercepteurHistoryPage> {
   PercepteurHistoryScope _scope = PercepteurHistoryScope.reservations;
+  List<PercepteurReservationRecord> _emittedTickets = [];
+  bool _loadingTickets = true;
+  String? _historyError;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadEmittedTickets();
+  }
+
+  Future<void> _loadEmittedTickets() async {
+    setState(() {
+      _loadingTickets = true;
+      _historyError = null;
+    });
+    try {
+      final tickets = await TicketService().getTicketsEmis();
+      if (!mounted) return;
+      setState(() {
+        _emittedTickets = tickets
+            .map(PercepteurReservationRecord.fromTicket)
+            .toList();
+        _loadingTickets = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _historyError = error.toString().replaceFirst('Exception: ', '');
+        _loadingTickets = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     const deepBlue = Color(0xFF0B4F2A);
+    final attendanceTickets = _emittedTickets.where((ticket) {
+      final status = ticket.rawStatus.toLowerCase();
+      if (_scope == PercepteurHistoryScope.absent) {
+        return status == 'absent';
+      }
+      return const {
+        'utilisé',
+        'utilise',
+        'present',
+        'présent',
+        'valide',
+        'embarque',
+        'embarqué',
+      }.contains(status);
+    }).toList();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FBFF),
@@ -68,13 +117,17 @@ class PercepteurHistoryPageState extends State<PercepteurHistoryPage> {
               if (_scope == PercepteurHistoryScope.reservations)
                 Expanded(
                   child: PercepteurReservationList(
+                    reservations: _emittedTickets,
+                    isLoading: _loadingTickets,
+                    error: _historyError,
+                    onRetry: _loadEmittedTickets,
                     onNewReservation: () async {
                       await Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (_) => const PercepteurReservationPage(),
                         ),
                       );
-                      if (mounted) setState(() {});
+                      if (mounted) await _loadEmittedTickets();
                     },
                   ),
                 )
@@ -87,6 +140,10 @@ class PercepteurHistoryPageState extends State<PercepteurHistoryPage> {
                     emptyMessage: _scope == PercepteurHistoryScope.absent
                         ? 'Aucun passager absent enregistré.'
                         : 'Aucun passager présent enregistré.',
+                    reservations: attendanceTickets,
+                    isLoading: _loadingTickets,
+                    error: _historyError,
+                    onRetry: _loadEmittedTickets,
                   ),
                 ),
             ],
@@ -99,42 +156,76 @@ class PercepteurHistoryPageState extends State<PercepteurHistoryPage> {
 
 class PercepteurReservationList extends StatelessWidget {
   final VoidCallback onNewReservation;
+  final List<PercepteurReservationRecord> reservations;
+  final bool isLoading;
+  final String? error;
+  final Future<void> Function() onRetry;
 
-  const PercepteurReservationList({super.key, required this.onNewReservation});
+  const PercepteurReservationList({
+    super.key,
+    required this.onNewReservation,
+    required this.reservations,
+    required this.isLoading,
+    required this.error,
+    required this.onRetry,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final reservations = PercepteurReservationStore.reservations;
-
-    return ListView(
-      children: [
-        SizedBox(
-          height: 54,
-          child: ElevatedButton.icon(
-            onPressed: onNewReservation,
-            icon: const Icon(Icons.add_rounded),
-            label: const Text('Nouvelle réservation'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF16A34A),
-              foregroundColor: Colors.white,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
+    return RefreshIndicator(
+      onRefresh: onRetry,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          SizedBox(
+            height: 54,
+            child: ElevatedButton.icon(
+              onPressed: onNewReservation,
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('Nouvelle réservation'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF16A34A),
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                textStyle: const TextStyle(fontWeight: FontWeight.w900),
               ),
-              textStyle: const TextStyle(fontWeight: FontWeight.w900),
             ),
           ),
-        ),
-        const SizedBox(height: 16),
-        if (reservations.isEmpty)
-          const PercepteurEmptyCard(
-            title: 'Aucune réservation',
-            message:
-                'Les réservations faites par le percepteur apparaîtront ici.',
-          )
-        else
-          ...reservations.map((item) => PercepteurReservationCard(item: item)),
-      ],
+          const SizedBox(height: 16),
+          if (isLoading)
+            const Padding(
+              padding: EdgeInsets.all(24),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (error != null)
+            Column(
+              children: [
+                PercepteurEmptyCard(
+                  title: 'Historique indisponible',
+                  message: error!,
+                ),
+                TextButton.icon(
+                  onPressed: () => onRetry(),
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: const Text('Réessayer'),
+                ),
+              ],
+            )
+          else if (reservations.isEmpty)
+            const PercepteurEmptyCard(
+              title: 'Aucune réservation',
+              message:
+                  'Les réservations faites par le percepteur apparaîtront ici.',
+            )
+          else
+            ...reservations.map(
+              (item) => PercepteurReservationCard(item: item),
+            ),
+        ],
+      ),
     );
   }
 }

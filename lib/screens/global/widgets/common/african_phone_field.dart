@@ -74,8 +74,8 @@ class AfricanPhoneField extends StatefulWidget {
   final Function(String)? onFullNumberChanged;
 
   const AfricanPhoneField({
-    super.key, 
-    this.controller, 
+    super.key,
+    this.controller,
     this.onFullNumberChanged,
   });
 
@@ -89,7 +89,37 @@ class _AfricanPhoneFieldState extends State<AfricanPhoneField> {
   @override
   void initState() {
     super.initState();
+    _extractCountryCodeFromController();
     WidgetsBinding.instance.addPostFrameCallback((_) => _notifyParent());
+  }
+
+  void _extractCountryCodeFromController() {
+    final controller = widget.controller;
+    if (controller == null) return;
+
+    final enteredNumber = controller.text.trim().replaceAll(
+      RegExp(r'[\s()-]'),
+      '',
+    );
+    final matchingCountries =
+        africanCountries
+            .where((country) => enteredNumber.startsWith(country.code))
+            .toList()
+          ..sort(
+            (first, second) => second.code.length.compareTo(first.code.length),
+          );
+
+    if (matchingCountries.isEmpty) return;
+
+    final country = matchingCountries.first;
+    final localNumber = enteredNumber.substring(country.code.length);
+    if (localNumber.isEmpty) return;
+
+    selectedCountry = country;
+    controller.value = TextEditingValue(
+      text: localNumber,
+      selection: TextSelection.collapsed(offset: localNumber.length),
+    );
   }
 
   /// Calcule le numéro complet et prévient le widget parent.
@@ -196,7 +226,7 @@ class _AfricanPhoneFieldState extends State<AfricanPhoneField> {
       setState(() {
         selectedCountry = country;
       });
-      _notifyParent(); 
+      _notifyParent();
     }
   }
 

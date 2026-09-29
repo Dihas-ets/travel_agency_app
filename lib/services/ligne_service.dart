@@ -3,11 +3,55 @@ import 'package:http/http.dart' as http;
 import 'package:code_initial/config/app_config.dart';
 import 'package:code_initial/models/ligne_model.dart';
 import 'package:code_initial/models/voyage_disponibilite_model.dart';
-import 'package:code_initial/auth/stockage_auth_local.dart';
 import 'package:code_initial/models/voyage_du_jour_model.dart';
 
 class LigneService {
   static const String baseUrl = AppConfig.apiBaseUrl;
+
+  Future<List<Ligne>> getLignesActives() async {
+    final uri = Uri.parse(
+      '$baseUrl/public/lignes',
+    ).replace(queryParameters: {'status': 'actif', 'all': '1'});
+    final response = await http
+        .get(uri, headers: {'Accept': 'application/json'})
+        .timeout(const Duration(seconds: 8));
+    if (response.statusCode != 200) {
+      throw Exception('Erreur lors du chargement des lignes.');
+    }
+    final decoded = jsonDecode(response.body);
+    if (decoded is! List) {
+      throw const FormatException('La réponse des lignes est invalide.');
+    }
+    return decoded
+        .whereType<Map>()
+        .map((item) => Ligne.fromJson(Map<String, dynamic>.from(item)))
+        .toList();
+  }
+
+  Future<List<Ligne>> getLignesPourReservation() async {
+    final uri = Uri.parse(
+      '$baseUrl/public/lignes',
+    ).replace(queryParameters: {'all': '1'});
+    final response = await http
+        .get(uri, headers: {'Accept': 'application/json'})
+        .timeout(const Duration(seconds: 8));
+    if (response.statusCode != 200) {
+      throw Exception('Erreur lors du chargement des lignes de réservation.');
+    }
+    final decoded = jsonDecode(response.body);
+    final rows = decoded is List
+        ? decoded
+        : decoded is Map && decoded['data'] is List
+        ? decoded['data'] as List
+        : null;
+    if (rows == null) {
+      throw const FormatException('La réponse des lignes est invalide.');
+    }
+    return rows
+        .whereType<Map>()
+        .map((item) => Ligne.fromJson(Map<String, dynamic>.from(item)))
+        .toList();
+  }
 
   /// Cherche une ligne correspondant exactement au trajet départ → arrivée.
   /// ⬅️ MODIF : utilise la route publique (pas de token requis)
@@ -15,22 +59,7 @@ class LigneService {
     required String depart,
     required String destination,
   }) async {
-    final uri = Uri.parse('$baseUrl/public/lignes').replace(
-      queryParameters: {'status': 'actif', 'all': '1'},
-    );
-
-    final response = await http
-        .get(uri, headers: {'Accept': 'application/json'})
-        .timeout(const Duration(seconds: 8));
-
-    if (response.statusCode != 200) {
-      throw Exception('Erreur lors du chargement des tarifs.');
-    }
-
-    final List data = jsonDecode(response.body);
-    final lignes = data.map((e) => Ligne.fromJson(e as Map<String, dynamic>)).toList();
-
-    
+    final lignes = await getLignesActives();
 
     final departLower = depart.trim().toLowerCase();
     final destinationLower = destination.trim().toLowerCase();
@@ -81,53 +110,49 @@ class LigneService {
     }
 
     final List data = jsonDecode(response.body);
-    return data.map((e) => VoyageDisponibilite.fromJson(e as Map<String, dynamic>)).toList();
+    return data
+        .map((e) => VoyageDisponibilite.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   /// Retourne la liste unique des villes desservies (départs + arrivées),
-/// triée alphabétiquement, à partir des lignes actives en base.
-Future<List<String>> getVillesDisponibles() async {
-  final uri = Uri.parse('$baseUrl/public/lignes').replace(
-    queryParameters: {'status': 'actif', 'all': '1'},
-  );
+  /// triée alphabétiquement, à partir des lignes actives en base.
+  Future<List<String>> getVillesDisponibles() async {
+    final lignes = await getLignesActives();
 
-  final response = await http
-      .get(uri, headers: {'Accept': 'application/json'})
-      .timeout(const Duration(seconds: 8));
+    final villes = <String>{};
+    for (final ligne in lignes) {
+      if (ligne.trajetDepart.trim().isNotEmpty) {
+        villes.add(ligne.trajetDepart.trim());
+      }
+      if (ligne.trajetArrivee.trim().isNotEmpty) {
+        villes.add(ligne.trajetArrivee.trim());
+      }
+    }
 
-  if (response.statusCode != 200) {
-    throw Exception('Erreur lors du chargement des villes.');
+    final liste = villes.toList()..sort();
+    return liste;
   }
 
-  final List data = jsonDecode(response.body);
-  final lignes = data.map((e) => Ligne.fromJson(e as Map<String, dynamic>)).toList();
+  Future<List<VoyageDuJour>> getVoyagesDuJour({int limit = 8}) async {
+    final uri =
+        Uri.parse(
+              '$baseUrl/voyages/du-jour',
+            ) // ⬅️ MODIF : cohérent avec les autres routes publiques
+            .replace(queryParameters: {'limit': limit.toString()});
 
-  final villes = <String>{};
-  for (final ligne in lignes) {
-    if (ligne.trajetDepart.trim().isNotEmpty) villes.add(ligne.trajetDepart.trim());
-    if (ligne.trajetArrivee.trim().isNotEmpty) villes.add(ligne.trajetArrivee.trim());
+    final response = await http
+        .get(uri, headers: {'Accept': 'application/json'}) // ⬅️ MODIF
+        .timeout(const Duration(seconds: 8));
+
+    if (response.statusCode != 200) {
+      throw Exception('Erreur lors du chargement des voyages du jour.');
+    }
+
+    final data = jsonDecode(response.body);
+    final List voyagesJson = data['voyages'] ?? [];
+    return voyagesJson
+        .map((e) => VoyageDuJour.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
-
-  final liste = villes.toList()..sort();
-  return liste;
-}
-
-Future<List<VoyageDuJour>> getVoyagesDuJour({int limit = 8}) async {
-  final uri = Uri.parse('$baseUrl/voyages/du-jour') // ⬅️ MODIF : cohérent avec les autres routes publiques
-      .replace(queryParameters: {'limit': limit.toString()});
-
-  final response = await http
-    .get(uri, headers: {'Accept': 'application/json'}) // ⬅️ MODIF
-    .timeout(const Duration(seconds: 8));
-
-  if (response.statusCode != 200) {
-    throw Exception('Erreur lors du chargement des voyages du jour.');
-  }
-
-  final data = jsonDecode(response.body);
-  final List voyagesJson = data['voyages'] ?? [];
-  return voyagesJson
-      .map((e) => VoyageDuJour.fromJson(e as Map<String, dynamic>))
-      .toList();
-}
 }

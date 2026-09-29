@@ -6,6 +6,10 @@ class VoyageProgramme {
   final List<String> heuresDepart;
   final double montant;
   final double? montantVip;
+  final String busMatricule;
+  final String busName;
+  final String ligneDepart;
+  final String ligneArrivee;
 
   VoyageProgramme({
     required this.id,
@@ -15,6 +19,10 @@ class VoyageProgramme {
     required this.heuresDepart,
     required this.montant,
     this.montantVip,
+    this.busMatricule = '',
+    this.busName = '',
+    this.ligneDepart = '',
+    this.ligneArrivee = '',
   });
 
   static int _toInt(dynamic v) {
@@ -44,6 +52,10 @@ class VoyageProgramme {
           .toList(),
       montant: _toDouble(ligne?['montant']) ?? 0,
       montantVip: _toDouble(ligne?['montant_vip']),
+      busMatricule: bus?['immatriculation']?.toString() ?? '',
+      busName: bus?['nom_identite']?.toString() ?? '',
+      ligneDepart: ligne?['trajet_depart']?.toString() ?? '',
+      ligneArrivee: ligne?['trajet_arrivee']?.toString() ?? '',
     );
   }
 }

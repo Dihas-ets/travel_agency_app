@@ -1,4 +1,52 @@
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+class ParcelLine {
+  final String nature;
+  final int quantity;
+  final double weight;
+  final String description;
+  final String? attachmentPath;
+
+  const ParcelLine({
+    required this.nature,
+    required this.quantity,
+    this.weight = 0,
+    this.description = '',
+    this.attachmentPath,
+  });
+}
+
+class ParcelMecefInfo {
+  final String? status;
+  final String? code;
+  final String? nim;
+  final String? counters;
+  final String? date;
+  final String? qrCode;
+
+  const ParcelMecefInfo({
+    this.status,
+    this.code,
+    this.nim,
+    this.counters,
+    this.date,
+    this.qrCode,
+  });
+
+  factory ParcelMecefInfo.fromJson(Map<String, dynamic> json) {
+    return ParcelMecefInfo(
+      status: json['status']?.toString(),
+      code: json['code_mecef']?.toString(),
+      nim: json['nim']?.toString(),
+      counters: json['counters']?.toString(),
+      date: json['date_mecef']?.toString(),
+      qrCode: json['qr_code']?.toString(),
+    );
+  }
+
+  bool get isConfirmed => status == 'confirmed';
+}
 
 class ParcelRecord {
   final String code;
@@ -18,9 +66,17 @@ class ParcelRecord {
   final String status;
   final String? qrCode;
   final double? estimatedValue;
+  final double? amountBase;
+  final double? taxAmount;
   final String? rawStatus;
   final String? paymentStatus;
   final String? modePaiement;
+  final List<ParcelLine> parcelItems;
+  final int? taxGroupId;
+  final String? taxGroupLabel;
+  final String? taxGroupCode;
+  final double? taxRate;
+  final ParcelMecefInfo? mecefInfo;
 
   const ParcelRecord({
     required this.code,
@@ -40,9 +96,17 @@ class ParcelRecord {
     required this.status,
     this.qrCode,
     this.estimatedValue,
+    this.amountBase,
+    this.taxAmount,
     this.rawStatus,
     this.paymentStatus,
     this.modePaiement,
+    this.parcelItems = const [],
+    this.taxGroupId,
+    this.taxGroupLabel,
+    this.taxGroupCode,
+    this.taxRate,
+    this.mecefInfo,
   });
 
   String get recipientFullName =>
@@ -53,6 +117,8 @@ class ParcelRecord {
       status == 'En attente' ||
       status == 'Pré-enregistré' ||
       paymentStatus == 'en_attente_paiement';
+
+  bool get isPaid => paymentStatus?.toLowerCase() == 'payé';
 
   String get readableStatus {
     switch (rawStatus) {
@@ -81,9 +147,17 @@ class ParcelRecord {
     String? senderName,
     String? qrCode,
     double? estimatedValue,
+    double? amountBase,
+    double? taxAmount,
     String? rawStatus,
     String? paymentStatus,
     String? modePaiement,
+    List<ParcelLine>? parcelItems,
+    int? taxGroupId,
+    String? taxGroupLabel,
+    String? taxGroupCode,
+    double? taxRate,
+    ParcelMecefInfo? mecefInfo,
   }) {
     return ParcelRecord(
       code: code,
@@ -103,9 +177,17 @@ class ParcelRecord {
       status: status ?? this.status,
       qrCode: qrCode ?? this.qrCode,
       estimatedValue: estimatedValue ?? this.estimatedValue,
+      amountBase: amountBase ?? this.amountBase,
+      taxAmount: taxAmount ?? this.taxAmount,
       rawStatus: rawStatus ?? this.rawStatus,
       paymentStatus: paymentStatus ?? this.paymentStatus,
       modePaiement: modePaiement ?? this.modePaiement,
+      parcelItems: parcelItems ?? this.parcelItems,
+      taxGroupId: taxGroupId ?? this.taxGroupId,
+      taxGroupLabel: taxGroupLabel ?? this.taxGroupLabel,
+      taxGroupCode: taxGroupCode ?? this.taxGroupCode,
+      taxRate: taxRate ?? this.taxRate,
+      mecefInfo: mecefInfo ?? this.mecefInfo,
     );
   }
 }
@@ -116,6 +198,34 @@ class ParcelStore {
   static final List<ParcelRecord> registeredParcels = [];
   static final List<ParcelRecord> notifications = [];
   static final Set<String> _unreadNotificationCodes = {};
+
+  static Future<void> rememberStatus(ParcelRecord parcel) async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setBool(
+      'colis_status_${parcel.code}',
+      parcel.isDraftOrPending,
+    );
+  }
+
+  static Future<List<ParcelRecord>> syncStatusChanges(
+    List<ParcelRecord> parcels,
+  ) async {
+    final preferences = await SharedPreferences.getInstance();
+    final changedParcels = <ParcelRecord>[];
+    for (final parcel in parcels) {
+      final key = 'colis_status_${parcel.code}';
+      final previousPendingStatus = preferences.getBool(key);
+      final isPending = parcel.isDraftOrPending;
+
+      if (previousPendingStatus == true && !isPending) {
+        registerParcel(parcel, status: parcel.readableStatus);
+        changedParcels.add(parcel);
+      }
+
+      await preferences.setBool(key, isPending);
+    }
+    return changedParcels;
+  }
 
   static void upsertPending(ParcelRecord parcel) {
     if (registeredParcels.any((item) => item.code == parcel.code)) return;
@@ -173,6 +283,9 @@ class ParcelStore {
         )
         .length;
   }
+
+  static bool isNotificationUnread(String code) =>
+      _unreadNotificationCodes.contains(code);
 
   static void markNotificationRead(String code) {
     _unreadNotificationCodes.remove(code);

@@ -4,6 +4,7 @@ import 'package:code_initial/screens/percepteur/parts/section_colis.dart';
 import 'package:code_initial/screens/percepteur/expense/expense_section.dart';
 import 'package:code_initial/menus/menu_percepteur/menu_profil_percepteur.dart';
 import 'package:code_initial/screens/percepteur/parts/history_news_section.dart';
+import 'package:code_initial/screens/percepteur/parts/percepteur_access_gate.dart';
 
 // Aiguilleur des onglets principaux de l espace percepteur.
 
@@ -18,7 +19,7 @@ class PercepteurTabContent extends StatelessWidget {
       return const PercepteurVoyageContent();
     }
     if (tab.title == 'Colis') {
-      return const PercepteurColisContent();
+      return const PercepteurAccessGate(child: PercepteurColisContent());
     }
     if (tab.title == 'Depense') {
       return const PercepteurDepenseContent();

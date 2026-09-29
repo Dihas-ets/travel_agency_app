@@ -171,8 +171,18 @@ class _TarifsPageState extends State<TarifsPage> {
   void _reserveVoyageDuJour(VoyageDuJour voyage) {
     final today = DateTime.now();
     const months = [
-      'jan.', 'fév.', 'mars', 'avr.', 'mai', 'juin',
-      'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.',
+      'jan.',
+      'fév.',
+      'mars',
+      'avr.',
+      'mai',
+      'juin',
+      'juil.',
+      'août',
+      'sept.',
+      'oct.',
+      'nov.',
+      'déc.',
     ];
     final selection = TarifReservationSelection(
       departure: voyage.depart,
@@ -203,7 +213,11 @@ class _TarifsPageState extends State<TarifsPage> {
       lastDate: now.add(const Duration(days: 120)),
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
-          colorScheme: const ColorScheme.light(primary: _fofanaGreen, onPrimary: Colors.white, onSurface: _deepBlue),
+          colorScheme: const ColorScheme.light(
+            primary: _fofanaGreen,
+            onPrimary: Colors.white,
+            onSurface: _deepBlue,
+          ),
         ),
         child: child!,
       ),
@@ -212,7 +226,20 @@ class _TarifsPageState extends State<TarifsPage> {
   }
 
   String get _selectedDateLabel {
-    const months = ['jan.', 'fév.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+    const months = [
+      'jan.',
+      'fév.',
+      'mars',
+      'avr.',
+      'mai',
+      'juin',
+      'juil.',
+      'août',
+      'sept.',
+      'oct.',
+      'nov.',
+      'déc.',
+    ];
     return '${_selectedDate.day} ${months[_selectedDate.month - 1]} ${_selectedDate.year}';
   }
 
@@ -267,7 +294,10 @@ class _TarifsPageState extends State<TarifsPage> {
     );
   }
 
-  Future<void> _searchTarif({required String depart, required String destination}) async {
+  Future<void> _searchTarif({
+    required String depart,
+    required String destination,
+  }) async {
     setState(() {
       _isSearching = true;
       _hasSearched = true;
@@ -275,7 +305,10 @@ class _TarifsPageState extends State<TarifsPage> {
     });
 
     try {
-      final ligne = await LigneService().findTarif(depart: depart, destination: destination);
+      final ligne = await LigneService().findTarif(
+        depart: depart,
+        destination: destination,
+      );
 
       if (ligne == null) {
         if (mounted) setState(() {});
@@ -293,18 +326,20 @@ class _TarifsPageState extends State<TarifsPage> {
       for (final voyage in disponibilites) {
         final tarif = _tarifPourClasse(ligne, voyage.busType);
         for (final h in voyage.heures) {
-          results.add(_TarifResult(
-            from: ligne.trajetDepart,
-            to: ligne.trajetArrivee,
-            dateDepart: _selectedDateLabel,
-            dateVoyage: _selectedDate,
-            heureDepart: h.heure,
-            placesRestantes: h.placesRestantes,
-            capacity: voyage.capacite,
-            fraisCfa: tarif.toInt(),
-            ligneId: ligne.id,
-            voyageId: voyage.voyageId,
-          ));
+          results.add(
+            _TarifResult(
+              from: ligne.trajetDepart,
+              to: ligne.trajetArrivee,
+              dateDepart: _selectedDateLabel,
+              dateVoyage: _selectedDate,
+              heureDepart: h.heure,
+              placesRestantes: h.placesRestantes,
+              capacity: voyage.capacite,
+              fraisCfa: tarif.toInt(),
+              ligneId: ligne.id,
+              voyageId: voyage.voyageId,
+            ),
+          );
         }
       }
 
@@ -314,7 +349,9 @@ class _TarifsPageState extends State<TarifsPage> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Erreur lors de la recherche des tarifs.')),
+        const SnackBar(
+          content: Text('Erreur lors de la recherche des tarifs.'),
+        ),
       );
     } finally {
       if (mounted) setState(() => _isSearching = false);
@@ -328,7 +365,9 @@ class _TarifsPageState extends State<TarifsPage> {
     if (depart.isEmpty || destination.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Renseignez le départ et la destination, puis lancez une recherche.'),
+          content: Text(
+            'Renseignez le départ et la destination, puis lancez une recherche.',
+          ),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -440,7 +479,9 @@ class _TarifsPageState extends State<TarifsPage> {
                 if (_isLoadingVilles)
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 40),
-                    child: Center(child: CircularProgressIndicator(strokeWidth: 2.5)),
+                    child: Center(
+                      child: CircularProgressIndicator(strokeWidth: 2.5),
+                    ),
                   )
                 else if (_villes.isEmpty)
                   const Padding(
@@ -449,7 +490,10 @@ class _TarifsPageState extends State<TarifsPage> {
                       child: Text(
                         'Aucune ville disponible pour le moment.',
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: Color(0xFF7B849B), fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                          color: Color(0xFF7B849B),
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   )
@@ -476,7 +520,10 @@ class _TarifsPageState extends State<TarifsPage> {
                               Navigator.pop(context);
                             },
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 12,
+                              ),
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(14),
                                 border: Border.all(
@@ -488,8 +535,12 @@ class _TarifsPageState extends State<TarifsPage> {
                               child: Row(
                                 children: [
                                   Icon(
-                                    isSelected ? Icons.check_circle_rounded : Icons.location_on_outlined,
-                                    color: isSelected ? _fofanaGreen : _deepBlue.withValues(alpha: 0.54),
+                                    isSelected
+                                        ? Icons.check_circle_rounded
+                                        : Icons.location_on_outlined,
+                                    color: isSelected
+                                        ? _fofanaGreen
+                                        : _deepBlue.withValues(alpha: 0.54),
                                     size: 22,
                                   ),
                                   const SizedBox(width: 12),
@@ -503,7 +554,10 @@ class _TarifsPageState extends State<TarifsPage> {
                                       ),
                                     ),
                                   ),
-                                  const Icon(Icons.chevron_right_rounded, color: Color(0xFFB1B8C8)),
+                                  const Icon(
+                                    Icons.chevron_right_rounded,
+                                    color: Color(0xFFB1B8C8),
+                                  ),
                                 ],
                               ),
                             ),
@@ -651,7 +705,8 @@ class _TarifsPageState extends State<TarifsPage> {
           const SizedBox(height: 8),
           _buildIconLine(
             icon: Icons.event_seat_rounded,
-            label: 'Places restantes : ${result.placesRestantes}/${result.capacity}',
+            label:
+                'Places restantes : ${result.placesRestantes}/${result.capacity}',
           ),
           const SizedBox(height: 8),
 
@@ -719,11 +774,16 @@ class _TarifsPageState extends State<TarifsPage> {
                 disabledBackgroundColor: Colors.grey.shade300,
                 foregroundColor: Colors.white,
                 elevation: 4,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
               ),
               child: Text(
                 result.placesRestantes > 0 ? 'Réserver' : 'Complet',
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
             ),
           ),
@@ -865,23 +925,39 @@ class _TarifsPageState extends State<TarifsPage> {
                     GestureDetector(
                       onTap: _pickDate,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: _deepBlue.withValues(alpha: 0.12)),
+                          border: Border.all(
+                            color: _deepBlue.withValues(alpha: 0.12),
+                          ),
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.calendar_month_rounded, color: _fofanaGreen, size: 20),
+                            const Icon(
+                              Icons.calendar_month_rounded,
+                              color: _fofanaGreen,
+                              size: 20,
+                            ),
                             const SizedBox(width: 10),
                             Expanded(
                               child: Text(
                                 'Date : $_selectedDateLabel',
-                                style: const TextStyle(color: _deepBlue, fontSize: 14.5, fontWeight: FontWeight.w900),
+                                style: const TextStyle(
+                                  color: _deepBlue,
+                                  fontSize: 14.5,
+                                  fontWeight: FontWeight.w900,
+                                ),
                               ),
                             ),
-                            const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFFB1B8C8)),
+                            const Icon(
+                              Icons.keyboard_arrow_down_rounded,
+                              color: Color(0xFFB1B8C8),
+                            ),
                           ],
                         ),
                       ),
@@ -894,42 +970,67 @@ class _TarifsPageState extends State<TarifsPage> {
                       width: double.infinity,
                       height: 54,
                       child: ElevatedButton(
-                        onPressed: _isSearching ? null : () {
-                          final depart = _departController.text.trim();
-                          final destination = _destinationController.text.trim();
+                        onPressed: _isSearching
+                            ? null
+                            : () {
+                                final depart = _departController.text.trim();
+                                final destination = _destinationController.text
+                                    .trim();
 
-                          if (depart.isEmpty || destination.isEmpty) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Veuillez renseigner le départ et la destination.'),
-                                behavior: SnackBarBehavior.floating,
-                              ),
-                            );
-                            return;
-                          }
+                                if (depart.isEmpty || destination.isEmpty) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Veuillez renseigner le départ et la destination.',
+                                      ),
+                                      behavior: SnackBarBehavior.floating,
+                                    ),
+                                  );
+                                  return;
+                                }
 
-                          if (depart == destination) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Le départ et la destination doivent être différents.'),
-                                behavior: SnackBarBehavior.floating,
-                              ),
-                            );
-                            return;
-                          }
+                                if (depart == destination) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Le départ et la destination doivent être différents.',
+                                      ),
+                                      behavior: SnackBarBehavior.floating,
+                                    ),
+                                  );
+                                  return;
+                                }
 
-                          _searchTarif(depart: depart, destination: destination);
-                        },
+                                _searchTarif(
+                                  depart: depart,
+                                  destination: destination,
+                                );
+                              },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _fofanaGreen,
                           foregroundColor: Colors.white,
                           elevation: 4,
                           shadowColor: _fofanaGreen.withOpacity(0.4),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
                         ),
                         child: _isSearching
-                            ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white))
-                            : const Text('Rechercher', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+                            ? const SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.4,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Text(
+                                'Rechercher',
+                                style: TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                       ),
                     ),
 
@@ -941,24 +1042,41 @@ class _TarifsPageState extends State<TarifsPage> {
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(18),
-                            border: Border.all(color: _deepBlue.withValues(alpha: 0.08)),
+                            border: Border.all(
+                              color: _deepBlue.withValues(alpha: 0.08),
+                            ),
                           ),
                           child: const Center(
                             child: Text(
                               'Aucun tarif trouvé pour ce trajet à cette date.\nContactez une agence pour plus d’informations.',
                               textAlign: TextAlign.center,
-                              style: TextStyle(color: Color(0xFF5F6B86), fontWeight: FontWeight.w700, height: 1.4),
+                              style: TextStyle(
+                                color: Color(0xFF5F6B86),
+                                fontWeight: FontWeight.w700,
+                                height: 1.4,
+                              ),
                             ),
                           ),
                         )
                       else if (!_isSearching) ...[
                         Text(
                           '${_results.length} résultat${_results.length > 1 ? 's' : ''} trouvé${_results.length > 1 ? 's' : ''} :',
-                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF1A1A2E)),
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF1A1A2E),
+                          ),
                         ),
                         const SizedBox(height: 14),
                         Column(
-                          children: _results.map((r) => _TarifResultCard(result: r, onReserve: () => _reserveTarif(r))).toList(),
+                          children: _results
+                              .map(
+                                (r) => _TarifResultCard(
+                                  result: r,
+                                  onReserve: () => _reserveTarif(r),
+                                ),
+                              )
+                              .toList(),
                         ),
                       ],
                       const SizedBox(height: 24),
@@ -978,19 +1096,26 @@ class _TarifsPageState extends State<TarifsPage> {
                     const SizedBox(height: 14),
 
                     if (_isLoadingVoyagesDuJour)
-                      const Center(child: CircularProgressIndicator(strokeWidth: 2.5))
+                      const Center(
+                        child: CircularProgressIndicator(strokeWidth: 2.5),
+                      )
                     else if (_voyagesDuJour.isEmpty)
                       const Text(
                         'Aucun voyage programmé aujourd’hui.',
-                        style: TextStyle(color: Color(0xFF7B849B), fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                          color: Color(0xFF7B849B),
+                          fontWeight: FontWeight.w600,
+                        ),
                       )
                     else
                       Column(
                         children: _voyagesDuJour
-                            .map((v) => _VoyageDuJourCard(
-                                  voyage: v,
-                                  onTap: () => _reserveVoyageDuJour(v),
-                                ))
+                            .map(
+                              (v) => _VoyageDuJourCard(
+                                voyage: v,
+                                onTap: () => _reserveVoyageDuJour(v),
+                              ),
+                            )
                             .toList(),
                       ),
 
@@ -1024,7 +1149,7 @@ class _VoyageDuJourCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const deepBlue = Color(0xFF0B4F2A);
-    const green = Color(0xFF16A34A);
+    const red = Color(0xFFE53935);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
@@ -1046,10 +1171,14 @@ class _VoyageDuJourCard extends StatelessWidget {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: green.withValues(alpha: 0.10),
+                    color: red.withValues(alpha: 0.10),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.directions_bus_rounded, color: green, size: 20),
+                  child: const Icon(
+                    Icons.directions_bus_rounded,
+                    color: red,
+                    size: 20,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -1058,21 +1187,33 @@ class _VoyageDuJourCard extends StatelessWidget {
                     children: [
                       Text(
                         '${voyage.depart} → ${voyage.arrivee}',
-                        style: const TextStyle(color: deepBlue, fontWeight: FontWeight.w900, fontSize: 14.5),
+                        style: const TextStyle(
+                          color: deepBlue,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 14.5,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 4),
                       Text(
                         'Départ ${voyage.heure} · ${voyage.placesRestantes} place${voyage.placesRestantes > 1 ? 's' : ''} restante${voyage.placesRestantes > 1 ? 's' : ''}',
-                        style: const TextStyle(color: Color(0xFF7B849B), fontSize: 12, fontWeight: FontWeight.w600),
+                        style: const TextStyle(
+                          color: Color(0xFF7B849B),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ],
                   ),
                 ),
                 Text(
                   '${voyage.montant.toInt()} CFA',
-                  style: const TextStyle(color: green, fontWeight: FontWeight.w900, fontSize: 14),
+                  style: const TextStyle(
+                    color: red,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 14,
+                  ),
                 ),
               ],
             ),

@@ -3,6 +3,7 @@ import 'package:code_initial/models/controleur_models.dart';
 import 'package:code_initial/models/user_model.dart';
 import 'package:code_initial/data/local/session_store.dart';
 import 'package:code_initial/menus/menu_percepteur/menu_profil_percepteur.dart';
+import 'package:code_initial/widgets/profile_avatar.dart';
 
 // Profil controleur: edition locale des informations de compte.
 
@@ -18,20 +19,10 @@ class ControleurProfileTabContent extends StatelessWidget {
           child: ValueListenableBuilder<UserModel?>(
             valueListenable: SessionStore.currentUserNotifier,
             builder: (context, user, _) {
-              final photoUrl = user?.photoUrl;
-              return CircleAvatar(
+              return ProfileAvatar(
+                user: user,
                 radius: 52,
-                backgroundColor: const Color(0xFF58648D),
-                backgroundImage: photoUrl != null && photoUrl.isNotEmpty
-                    ? NetworkImage(photoUrl)
-                    : null,
-                child: photoUrl == null || photoUrl.isEmpty
-                    ? const Icon(
-                        Icons.verified_user_rounded,
-                        color: Colors.white,
-                        size: 64,
-                      )
-                    : null,
+                fallbackIcon: Icons.verified_user_rounded,
               );
             },
           ),

@@ -1,48 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'dart:math' as math;
-import 'package:geolocator/geolocator.dart';
+import 'dart:async';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:code_initial/models/models_and_stores.dart';
+import 'package:code_initial/models/ligne_model.dart';
+import 'package:code_initial/models/tax_group_model.dart';
+import 'package:code_initial/models/voyage_programme_model.dart';
+import 'package:code_initial/services/ligne_service.dart';
+import 'package:code_initial/services/tax_service.dart';
+import 'package:code_initial/services/ticket_service.dart';
+import 'package:code_initial/services/payment_service.dart';
+import 'package:code_initial/models/payment_provider_model.dart';
+import 'package:code_initial/services/feexpay_service.dart';
+import 'package:code_initial/services/kkiapay_service.dart';
+import 'package:code_initial/data/local/session_store.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:code_initial/screens/percepteur/parts/notifications_section.dart';
 import 'package:code_initial/screens/percepteur/parts/ticket_validation_section.dart';
+import 'package:code_initial/screens/percepteur/parts/percepteur_access_gate.dart';
+
 // Reservation percepteur: donnees, formulaire, paiement, billet et presence.
-
-class PercepteurCityPosition {
-  final double latitude;
-  final double longitude;
-
-  const PercepteurCityPosition(this.latitude, this.longitude);
-}
-
-const Map<String, PercepteurCityPosition> percepteurCityPositions = {
-  'Abomey': PercepteurCityPosition(7.1829, 1.9912),
-  'Abomey-Calavi': PercepteurCityPosition(6.4485, 2.3557),
-  'Adjohoun': PercepteurCityPosition(6.7167, 2.4833),
-  'Allada': PercepteurCityPosition(6.6655, 2.1514),
-  'Aplahoué': PercepteurCityPosition(6.9333, 1.6833),
-  'Banikoara': PercepteurCityPosition(11.2985, 2.4386),
-  'Bassila': PercepteurCityPosition(9.0081, 1.6654),
-  'Bembèrèkè': PercepteurCityPosition(10.2283, 2.6633),
-  'Bétérou': PercepteurCityPosition(9.1992, 2.2586),
-  'Bohicon': PercepteurCityPosition(7.1783, 2.0667),
-  'Cotonou': PercepteurCityPosition(6.3703, 2.3912),
-  'Dassa-Zoumè': PercepteurCityPosition(7.75, 2.1833),
-  'Djougou': PercepteurCityPosition(9.7085, 1.6659),
-  'Kandi': PercepteurCityPosition(11.1342, 2.9386),
-  'Lokossa': PercepteurCityPosition(6.6387, 1.7167),
-  'Natitingou': PercepteurCityPosition(10.3042, 1.3796),
-  'Ouidah': PercepteurCityPosition(6.3631, 2.0851),
-  'Parakou': PercepteurCityPosition(9.3372, 2.6303),
-  'Porto-Novo': PercepteurCityPosition(6.4969, 2.6289),
-  'Sakété': PercepteurCityPosition(6.7362, 2.6587),
-  'Savalou': PercepteurCityPosition(7.9281, 1.9756),
-  'Sèmè-Kpodji': PercepteurCityPosition(6.3654, 2.6161),
-  'Tchaourou': PercepteurCityPosition(8.8865, 2.5975),
-};
 
 class PercepteurReservationRecord {
   final String reference;
@@ -56,6 +36,16 @@ class PercepteurReservationRecord {
   final String price;
   final String busMatricule;
   final String status;
+  final String rawStatus;
+  final int? ligneId;
+  final int? voyageId;
+  final int? busId;
+  final int? userId;
+  final DateTime? travelDate;
+  final int? taxGroupId;
+  final double? baseAmount;
+  final String passengerFirstName;
+  final String passengerLastName;
 
   const PercepteurReservationRecord({
     required this.reference,
@@ -69,11 +59,25 @@ class PercepteurReservationRecord {
     required this.price,
     required this.busMatricule,
     required this.status,
+    this.rawStatus = '',
+    this.ligneId,
+    this.voyageId,
+    this.busId,
+    this.userId,
+    this.travelDate,
+    this.taxGroupId,
+    this.baseAmount,
+    this.passengerFirstName = '',
+    this.passengerLastName = '',
   });
 
-  PercepteurReservationRecord copyWith({String? status, String? busMatricule}) {
+  PercepteurReservationRecord copyWith({
+    String? status,
+    String? busMatricule,
+    String? reference,
+  }) {
     return PercepteurReservationRecord(
-      reference: reference,
+      reference: reference ?? this.reference,
       departure: departure,
       destination: destination,
       date: date,
@@ -84,6 +88,65 @@ class PercepteurReservationRecord {
       price: price,
       busMatricule: busMatricule ?? this.busMatricule,
       status: status ?? this.status,
+      rawStatus: rawStatus,
+      ligneId: ligneId,
+      voyageId: voyageId,
+      busId: busId,
+      userId: userId,
+      travelDate: travelDate,
+      taxGroupId: taxGroupId,
+      baseAmount: baseAmount,
+      passengerFirstName: passengerFirstName,
+      passengerLastName: passengerLastName,
+    );
+  }
+
+  factory PercepteurReservationRecord.fromTicket(Map<String, dynamic> json) {
+    final ligne = json['ligne'] is Map
+        ? Map<String, dynamic>.from(json['ligne'] as Map)
+        : <String, dynamic>{};
+    final bus = json['bus'] is Map
+        ? Map<String, dynamic>.from(json['bus'] as Map)
+        : <String, dynamic>{};
+    final voyage = json['voyage'] is Map
+        ? Map<String, dynamic>.from(json['voyage'] as Map)
+        : <String, dynamic>{};
+    final date = (json['date_voyage'] ?? '').toString();
+    final amount = double.tryParse(json['tarif_total']?.toString() ?? '') ?? 0;
+    final firstName = json['prenom_passager']?.toString() ?? '';
+    final lastName = json['nom_passager']?.toString() ?? '';
+    final rawStatus = json['statut']?.toString() ?? 'en_attente';
+    return PercepteurReservationRecord(
+      reference: json['reference']?.toString() ?? '',
+      departure:
+          ligne['trajet_depart']?.toString() ??
+          json['ville_depart']?.toString() ??
+          '',
+      destination:
+          json['ville_arrivee']?.toString() ??
+          ligne['trajet_arrivee']?.toString() ??
+          '',
+      date: date,
+      time: (json['heure_voyage'] ?? voyage['heure_depart'] ?? '').toString(),
+      passengerCount: int.tryParse(json['nbre_place']?.toString() ?? '') ?? 1,
+      passengerName: '$firstName $lastName'.trim(),
+      phone: json['numero_passager']?.toString() ?? '',
+      price: '${amount.round()} CFA',
+      busMatricule: bus['immatriculation']?.toString() ?? '',
+      status: switch (rawStatus) {
+        'en_cours' => 'Émis',
+        'en_attente' => 'En attente',
+        'annule' || 'annulé' => 'Annulé',
+        'utilisé' ||
+        'utilise' ||
+        'valide' ||
+        'embarque' ||
+        'present' ||
+        'présent' => 'Présent',
+        'absent' => 'Absent',
+        _ => rawStatus,
+      },
+      rawStatus: rawStatus,
     );
   }
 }
@@ -120,22 +183,33 @@ class PercepteurReservationPageState extends State<PercepteurReservationPage> {
   static const Color _deepBlue = Color(0xFF0B4F2A);
   static const Color _fofanaGreen = Color(0xFF16A34A);
 
-  final TextEditingController _departController = TextEditingController(
-    text: 'Cotonou',
-  );
-  final TextEditingController _destinationController = TextEditingController(
-    text: 'Porto-Novo',
-  );
+  final TextEditingController _departController = TextEditingController();
+  final TextEditingController _destinationController = TextEditingController();
   final TextEditingController _dateController = TextEditingController();
   final TextEditingController _amountController = TextEditingController();
   int _passengerCount = 1;
   DateTime? _travelDate;
-  Position? _currentPosition;
+  List<Ligne> _lines = [];
+  List<String> _departures = [];
+  List<String> _destinations = [];
+  bool _loadingCities = true;
+  Ligne? _selectedLigne;
+  List<VoyageProgramme> _programmes = [];
+  VoyageProgramme? _selectedVoyage;
+  String? _selectedHeure;
+  List<TaxGroup> _taxGroups = [];
+  TaxGroup? _selectedTax;
+  bool _loadingTrips = false;
+  int? _placesAvailable;
+  bool _checkingPlaces = false;
+  String? _placesError;
+  int _programmesRequest = 0;
+  int _placesRequest = 0;
 
   @override
   void initState() {
     super.initState();
-    _syncFareAmount();
+    _loadReservationOptions();
   }
 
   @override
@@ -148,25 +222,258 @@ class PercepteurReservationPageState extends State<PercepteurReservationPage> {
   }
 
   int get _fare {
-    final distance = _routeDistanceKm(
-      _departController.text.trim(),
-      _destinationController.text.trim(),
-    );
-    final base = 900;
-    final perPassenger = (base + distance * 95).round();
-    final roundedFare = ((perPassenger / 100).ceil() * 100)
-        .clamp(1200, 65000)
-        .toInt();
-    return roundedFare * _passengerCount;
+    final trip = _selectedVoyage;
+    if (trip == null) return 0;
+    final unit = trip.busType.toLowerCase() == 'vip'
+        ? (trip.montantVip ?? trip.montant)
+        : trip.montant;
+    return (unit * _passengerCount).round();
   }
 
+  double get _baseAmount {
+    final rate = _selectedTax?.rate ?? 0;
+    final total = _currentAmount();
+    return rate > 0
+        ? (total / (1 + rate / 100)).roundToDouble()
+        : total.toDouble();
+  }
+
+  bool get _hasDefaultTicketTax =>
+      _taxGroups.any((group) => group.appliesAsDefaultTo('ticket'));
+
+  bool get _canContinueToPassenger =>
+      _selectedLigne != null &&
+      _travelDate != null &&
+      _selectedVoyage != null &&
+      _selectedHeure != null &&
+      !_loadingTrips &&
+      !_checkingPlaces &&
+      _placesError == null &&
+      _placesAvailable != null &&
+      _placesAvailable! >= _passengerCount &&
+      _currentAmount() > 0;
+
   void _syncFareAmount() {
-    _amountController.text = _formatAmount(_fare);
+    _amountController.text = _fare == 0 ? '' : _formatAmount(_fare);
   }
 
   int _currentAmount() {
     final raw = _amountController.text.replaceAll(RegExp(r'[^0-9]'), '');
-    return int.tryParse(raw) ?? _fare;
+    return int.tryParse(raw) ?? 0;
+  }
+
+  Future<void> _loadReservationOptions() async {
+    List<Ligne> lines = [];
+    List<TaxGroup> groups = [];
+    Object? cityError;
+    Object? taxError;
+    try {
+      lines = await LigneService().getLignesPourReservation();
+    } catch (error) {
+      cityError = error;
+    }
+    try {
+      groups = await TaxService().getGroupsForModule('ticket');
+    } catch (error) {
+      taxError = error;
+    }
+    if (!mounted) return;
+    setState(() {
+      _lines = lines;
+      _departures =
+          lines
+              .map((line) => line.trajetDepart.trim())
+              .where((city) => city.isNotEmpty)
+              .toSet()
+              .toList()
+            ..sort();
+      _taxGroups = groups;
+      _selectedTax =
+          groups.where((g) => g.appliesAsDefaultTo('ticket')).firstOrNull ??
+          groups.firstOrNull;
+      _loadingCities = false;
+    });
+    final error = cityError ?? taxError;
+    if (error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            cityError != null
+                ? 'Impossible de charger les lignes : $cityError'
+                : 'Impossible de charger les taxes : $taxError',
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _refreshRouteAndTrips() async {
+    final departure = _departController.text.trim();
+    final destination = _destinationController.text.trim();
+    setState(() {
+      _programmesRequest++;
+      _selectedLigne = null;
+      _programmes = [];
+      _selectedVoyage = null;
+      _selectedHeure = null;
+      _placesAvailable = null;
+      _placesError = null;
+      _checkingPlaces = false;
+      _passengerCount = 1;
+      _syncFareAmount();
+    });
+    if (departure.isEmpty || destination.isEmpty || departure == destination) {
+      if (mounted) {
+        setState(() {
+          _destinations = _destinationsFor(departure);
+          _selectedLigne = null;
+          _programmes = [];
+        });
+      }
+      _syncFareAmount();
+      return;
+    }
+    try {
+      final lignesDuDepart = _lines
+          .where(
+            (line) =>
+                line.trajetDepart.trim().toLowerCase() ==
+                departure.toLowerCase(),
+          )
+          .toList();
+      final ligne =
+          lignesDuDepart.where((line) {
+            return line.trajetArrivee.trim().toLowerCase() ==
+                destination.toLowerCase();
+          }).firstOrNull ??
+          lignesDuDepart
+              .where(
+                (line) =>
+                    line.servesDestination(destination) &&
+                    line.trajetArrivee.trim().toLowerCase() !=
+                        destination.toLowerCase(),
+              )
+              .firstOrNull;
+      if (!mounted) return;
+      setState(() {
+        _selectedLigne = ligne;
+        _destinations = _destinationsFor(departure);
+      });
+      if (ligne != null && _travelDate != null) await _loadProgrammes();
+      _syncFareAmount();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Impossible de charger cet itinéraire : $error'),
+        ),
+      );
+    }
+  }
+
+  List<String> _destinationsFor(String departure) {
+    final arrivals = <String>{};
+    for (final line in _lines.where(
+      (line) =>
+          line.trajetDepart.trim().toLowerCase() == departure.toLowerCase(),
+    )) {
+      final end = line.trajetArrivee.trim();
+      if (end.isNotEmpty) arrivals.add(end);
+      for (final stage in line.villesEtapes) {
+        final city = stage['nom']?.toString().trim() ?? '';
+        if (city.isNotEmpty) arrivals.add(city);
+      }
+    }
+    return arrivals.toList()..sort();
+  }
+
+  Future<void> _loadProgrammes() async {
+    final ligne = _selectedLigne;
+    final date = _travelDate;
+    if (ligne == null || date == null) return;
+    setState(() {
+      _loadingTrips = true;
+      _programmes = [];
+      _selectedVoyage = null;
+      _selectedHeure = null;
+      _placesAvailable = null;
+      _placesError = null;
+      _checkingPlaces = false;
+      _passengerCount = 1;
+      _syncFareAmount();
+    });
+    final request = ++_programmesRequest;
+    try {
+      final trips = await TicketService().getProgrammesParDate(
+        ligneId: ligne.id,
+        date: date,
+        villeArrivee: _destinationController.text.trim(),
+      );
+      if (!mounted || request != _programmesRequest) return;
+      setState(() {
+        _programmes = trips;
+        _loadingTrips = false;
+      });
+    } catch (error) {
+      if (!mounted || request != _programmesRequest) return;
+      setState(() => _loadingTrips = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Impossible de charger les départs : $error')),
+      );
+    }
+  }
+
+  Future<void> _checkPlaces() async {
+    final trip = _selectedVoyage;
+    final date = _travelDate;
+    final time = _selectedHeure;
+    if (trip == null || date == null || time == null) {
+      _placesRequest++;
+      if (mounted) {
+        setState(() {
+          _placesAvailable = null;
+          _placesError = null;
+          _checkingPlaces = false;
+        });
+      }
+      return;
+    }
+    final request = ++_placesRequest;
+    setState(() {
+      _checkingPlaces = true;
+      _placesError = null;
+      _placesAvailable = null;
+    });
+    try {
+      final places = await TicketService().getPlacesDisponibles(
+        voyageId: trip.id,
+        busId: trip.busId,
+        date: date,
+        heure: time,
+      );
+      if (!mounted || request != _placesRequest) return;
+      if (_selectedVoyage?.id != trip.id ||
+          _travelDate != date ||
+          _selectedHeure != time) {
+        return;
+      }
+      setState(() {
+        _placesAvailable = places;
+        _checkingPlaces = false;
+      });
+    } catch (error) {
+      if (!mounted || request != _placesRequest) return;
+      if (_selectedVoyage?.id != trip.id ||
+          _travelDate != date ||
+          _selectedHeure != time) {
+        return;
+      }
+      setState(() {
+        _placesAvailable = null;
+        _checkingPlaces = false;
+        _placesError = error.toString().replaceFirst('Exception: ', '');
+      });
+    }
   }
 
   String _formatAmount(int amount) {
@@ -178,109 +485,6 @@ class PercepteurReservationPageState extends State<PercepteurReservationPage> {
       if (remaining > 1 && remaining % 3 == 1) buffer.write(' ');
     }
     return buffer.toString();
-  }
-
-  double _routeDistanceKm(String departure, String destination) {
-    final from = _positionFor(departure);
-    final to = _positionFor(destination);
-    if (from == null || to == null) {
-      final seed = departure.length * 17 + destination.length * 31;
-      return 35 + (seed % 420).toDouble();
-    }
-
-    return _distanceKm(
-      from.latitude,
-      from.longitude,
-      to.latitude,
-      to.longitude,
-    );
-  }
-
-  PercepteurCityPosition? _positionFor(String city) {
-    if (city.startsWith('Ma position') && _currentPosition != null) {
-      return PercepteurCityPosition(
-        _currentPosition!.latitude,
-        _currentPosition!.longitude,
-      );
-    }
-    return percepteurCityPositions[city];
-  }
-
-  double _distanceKm(
-    double latitudeA,
-    double longitudeA,
-    double latitudeB,
-    double longitudeB,
-  ) {
-    const earthRadiusKm = 6371.0;
-    final dLat = _degreesToRadians(latitudeB - latitudeA);
-    final dLon = _degreesToRadians(longitudeB - longitudeA);
-    final a =
-        math.sin(dLat / 2) * math.sin(dLat / 2) +
-        math.cos(_degreesToRadians(latitudeA)) *
-            math.cos(_degreesToRadians(latitudeB)) *
-            math.sin(dLon / 2) *
-            math.sin(dLon / 2);
-    return earthRadiusKm * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
-  }
-
-  double _degreesToRadians(double degrees) => degrees * math.pi / 180;
-
-  Future<void> _useCurrentLocation(TextEditingController controller) async {
-    Navigator.pop(context);
-
-    try {
-      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Activez la localisation pour utiliser Ma position.'),
-            backgroundColor: _fofanaGreen,
-          ),
-        );
-        return;
-      }
-
-      var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Permission de localisation refusée.'),
-            backgroundColor: _fofanaGreen,
-          ),
-        );
-        return;
-      }
-
-      final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-        ),
-      );
-
-      if (!mounted) return;
-      setState(() {
-        _currentPosition = position;
-        controller.text =
-            'Ma position (${position.latitude.toStringAsFixed(5)}, ${position.longitude.toStringAsFixed(5)})';
-        _syncFareAmount();
-      });
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Impossible de récupérer la position actuelle.'),
-          backgroundColor: _fofanaGreen,
-        ),
-      );
-    }
   }
 
   Future<void> _pickDate() async {
@@ -310,14 +514,18 @@ class PercepteurReservationPageState extends State<PercepteurReservationPage> {
       _travelDate = date;
       _dateController.text =
           '${date.day.toString().padLeft(2, '0')} ${_monthName(date.month)} ${date.year}';
+      _passengerCount = 1;
     });
+    await _loadProgrammes();
   }
 
   void _showCityPicker({
     required String title,
     required TextEditingController controller,
-    bool includeCurrentLocation = false,
   }) {
+    final choices = identical(controller, _departController)
+        ? _departures
+        : _destinations;
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -365,70 +573,57 @@ class PercepteurReservationPageState extends State<PercepteurReservationPage> {
                   ),
                 ),
                 Expanded(
-                  child: ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 18),
-                    itemCount:
-                        percepteurBeninCities.length +
-                        (includeCurrentLocation ? 1 : 0),
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
-                    itemBuilder: (context, index) {
-                      if (includeCurrentLocation && index == 0) {
-                        return Material(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          child: ListTile(
-                            shape: RoundedRectangleBorder(
+                  child: choices.isEmpty
+                      ? Center(
+                          child: Text(
+                            identical(controller, _departController)
+                                ? 'Aucune ville de départ disponible.'
+                                : 'Choisissez d’abord une ville de départ.',
+                          ),
+                        )
+                      : ListView.separated(
+                          padding: const EdgeInsets.fromLTRB(16, 4, 16, 18),
+                          itemCount: choices.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 8),
+                          itemBuilder: (context, index) {
+                            final city = choices[index];
+                            return Material(
+                              color: Colors.white,
                               borderRadius: BorderRadius.circular(16),
-                            ),
-                            leading: const Icon(
-                              Icons.my_location_rounded,
-                              color: _fofanaGreen,
-                            ),
-                            title: const Text(
-                              'Ma position',
-                              style: TextStyle(
-                                color: _deepBlue,
-                                fontWeight: FontWeight.w900,
+                              child: ListTile(
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                leading: const Icon(
+                                  Icons.location_on_outlined,
+                                  color: _fofanaGreen,
+                                ),
+                                title: Text(
+                                  city,
+                                  style: const TextStyle(
+                                    color: _deepBlue,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                                onTap: () {
+                                  setState(() {
+                                    controller.text = city;
+                                    if (identical(
+                                      controller,
+                                      _departController,
+                                    )) {
+                                      _destinationController.clear();
+                                      _destinations = _destinationsFor(city);
+                                    }
+                                  });
+                                  Navigator.pop(context);
+                                  _refreshRouteAndTrips();
+                                },
                               ),
-                            ),
-                            onTap: () => _useCurrentLocation(controller),
-                          ),
-                        );
-                      }
-
-                      final cityIndex = includeCurrentLocation
-                          ? index - 1
-                          : index;
-                      final city = percepteurBeninCities[cityIndex];
-                      return Material(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        child: ListTile(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          leading: const Icon(
-                            Icons.location_on_outlined,
-                            color: _fofanaGreen,
-                          ),
-                          title: Text(
-                            city,
-                            style: const TextStyle(
-                              color: _deepBlue,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                          onTap: () {
-                            setState(() {
-                              controller.text = city;
-                              _syncFareAmount();
-                            });
-                            Navigator.pop(context);
+                            );
                           },
                         ),
-                      );
-                    },
-                  ),
                 ),
               ],
             ),
@@ -443,24 +638,60 @@ class PercepteurReservationPageState extends State<PercepteurReservationPage> {
     setState(() {
       _departController.text = _destinationController.text;
       _destinationController.text = first;
-      _syncFareAmount();
     });
+    _refreshRouteAndTrips();
   }
 
   Future<void> _confirmReservation() async {
-    if (_departController.text.isEmpty ||
-        _destinationController.text.isEmpty ||
-        _travelDate == null) {
+    if (_selectedLigne == null ||
+        _travelDate == null ||
+        _selectedVoyage == null ||
+        _selectedHeure == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Veuillez compléter tous les champs.')),
+        const SnackBar(
+          content: Text(
+            'Choisissez un trajet, une date et un départ disponibles.',
+          ),
+        ),
       );
       return;
     }
 
-    if (_departController.text == _destinationController.text) {
+    if (_placesAvailable != null && _placesAvailable! < _passengerCount) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('La destination doit être différente du départ.'),
+          content: Text('Le nombre de places disponibles est insuffisant.'),
+        ),
+      );
+      return;
+    }
+    if (_checkingPlaces || _placesAvailable == null || _placesError != null) {
+      if (!_checkingPlaces) await _checkPlaces();
+      if (!mounted) return;
+      if (_placesAvailable == null || _placesError != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              _placesError ??
+                  'Vérifiez la disponibilité des places avant de continuer.',
+            ),
+          ),
+        );
+        return;
+      }
+      if (_placesAvailable! < _passengerCount) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Le nombre de places disponibles est insuffisant.'),
+          ),
+        );
+        return;
+      }
+    }
+    if (_currentAmount() <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Le montant du ticket doit être supérieur à zéro.'),
         ),
       );
       return;
@@ -475,7 +706,14 @@ class PercepteurReservationPageState extends State<PercepteurReservationPage> {
               '${_travelDate!.day.toString().padLeft(2, '0')} ${_monthName(_travelDate!.month)} ${_travelDate!.year}',
           priceAmount: _currentAmount(),
           passengers: _passengerCount,
-          time: '10:00',
+          time: _selectedHeure!,
+          ligneId: _selectedLigne!.id,
+          voyageId: _selectedVoyage!.id,
+          busId: _selectedVoyage!.busId,
+          busMatricule: _selectedVoyage!.busMatricule,
+          travelDate: _travelDate!,
+          taxGroupId: _selectedTax?.id,
+          baseAmount: _baseAmount,
         ),
       ),
     );
@@ -502,101 +740,103 @@ class PercepteurReservationPageState extends State<PercepteurReservationPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF7F9FF),
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            Container(
-              width: double.infinity,
-              decoration: const BoxDecoration(
-                image: DecorationImage(
-                  image: AssetImage('assets/images/coli1.jpg'),
-                  fit: BoxFit.cover,
-                  colorFilter: ColorFilter.mode(
-                    Color(0x99060E27),
-                    BlendMode.darken,
+    return PercepteurAccessGate(
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF7F9FF),
+        body: SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              Container(
+                width: double.infinity,
+                decoration: const BoxDecoration(
+                  image: DecorationImage(
+                    image: AssetImage('assets/images/coli1.jpg'),
+                    fit: BoxFit.cover,
+                    colorFilter: ColorFilter.mode(
+                      Color(0x99060E27),
+                      BlendMode.darken,
+                    ),
+                  ),
+                  borderRadius: BorderRadius.vertical(
+                    bottom: Radius.circular(30),
                   ),
                 ),
-                borderRadius: BorderRadius.vertical(
-                  bottom: Radius.circular(30),
-                ),
-              ),
-              padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: PercepteurHeaderIconButton(
-                          icon: Icons.arrow_back_rounded,
-                          onTap: () => Navigator.of(context).maybePop(),
+                padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: PercepteurHeaderIconButton(
+                            icon: Icons.arrow_back_rounded,
+                            onTap: () => Navigator.of(context).maybePop(),
+                          ),
                         ),
-                      ),
-                      Image.asset(
-                        'assets/images/logo_fofana_no_background.png',
-                        height: 44,
-                        width: 142,
-                        fit: BoxFit.contain,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 22),
-                  const Text(
-                    'Réserver un billet',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 26,
-                      fontWeight: FontWeight.w900,
+                        Image.asset(
+                          'assets/images/logo_fofana_no_background.png',
+                          height: 44,
+                          width: 142,
+                          fit: BoxFit.contain,
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 14),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 18,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.18),
-                      borderRadius: BorderRadius.circular(999),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.35),
-                      ),
-                    ),
-                    child: const Text(
-                      'Réservation percepteur',
+                    const SizedBox(height: 22),
+                    const Text(
+                      'Réserver un billet',
                       style: TextStyle(
                         color: Colors.white,
+                        fontSize: 26,
                         fontWeight: FontWeight.w900,
-                        fontSize: 14,
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _buildReservationForm(),
-                    const SizedBox(height: 18),
-                    if (PercepteurReservationStore.reservations.isNotEmpty)
-                      ...PercepteurReservationStore.reservations.map(
-                        (item) => PercepteurReservationCard(item: item),
+                    const SizedBox(height: 14),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 18,
+                        vertical: 10,
                       ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.18),
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.35),
+                        ),
+                      ),
+                      child: const Text(
+                        'Réservation percepteur',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
-            ),
-          ],
+              Expanded(
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _buildReservationForm(),
+                      const SizedBox(height: 18),
+                      if (PercepteurReservationStore.reservations.isNotEmpty)
+                        ...PercepteurReservationStore.reservations.map(
+                          (item) => PercepteurReservationCard(item: item),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -619,6 +859,16 @@ class PercepteurReservationPageState extends State<PercepteurReservationPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          const Text(
+            '1. TRAJET & VOYAGE',
+            style: TextStyle(
+              color: Color(0xFF5F6B86),
+              fontSize: 13,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.5,
+            ),
+          ),
+          const SizedBox(height: 14),
           Container(
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
@@ -642,11 +892,12 @@ class PercepteurReservationPageState extends State<PercepteurReservationPage> {
                       label: 'De',
                       hint: 'Ville de départ',
                       isFirst: true,
-                      onTap: () => _showCityPicker(
-                        title: 'Choisir la ville de départ',
-                        controller: _departController,
-                        includeCurrentLocation: true,
-                      ),
+                      onTap: _loadingCities
+                          ? () {}
+                          : () => _showCityPicker(
+                              title: 'Choisir la ville de départ',
+                              controller: _departController,
+                            ),
                     ),
                     PercepteurCityField(
                       controller: _destinationController,
@@ -694,61 +945,253 @@ class PercepteurReservationPageState extends State<PercepteurReservationPage> {
             ),
           ),
           const SizedBox(height: 18),
-          PercepteurSmallField(
-            label: 'Date de départ',
-            value: _dateController.text.isEmpty
-                ? 'Sélectionner une date'
-                : _dateController.text,
-            icon: Icons.calendar_month_rounded,
-            onTap: _pickDate,
-          ),
-          const SizedBox(height: 14),
-          if (_destinationController.text.isNotEmpty) ...[
+          if (_departController.text.isNotEmpty &&
+              _destinationController.text.isNotEmpty &&
+              _selectedLigne == null)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 12),
+              child: Text(
+                'Aucun itinéraire configuré pour ce trajet.',
+                style: TextStyle(
+                  color: Colors.red,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          if (_selectedLigne != null) ...[
+            PercepteurSmallField(
+              label: 'Date de départ',
+              value: _dateController.text.isEmpty
+                  ? 'Sélectionner une date'
+                  : _dateController.text,
+              icon: Icons.calendar_month_rounded,
+              onTap: _pickDate,
+            ),
+            const SizedBox(height: 14),
+          ],
+          if (_selectedLigne != null) ...[
+            if (_travelDate == null)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 12),
+                child: Text(
+                  'Choisissez la date de départ pour afficher les bus.',
+                  style: TextStyle(color: Color(0xFF5F6B86)),
+                ),
+              ),
+            if (_travelDate != null) ...[
+              if (!_loadingTrips && _programmes.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 12),
+                  child: Text(
+                    'Aucun départ disponible pour cette date.',
+                    style: TextStyle(color: Colors.red),
+                  ),
+                ),
+              DropdownButtonFormField<VoyageProgramme>(
+                initialValue: _selectedVoyage,
+                decoration: const InputDecoration(
+                  labelText: 'Bus pour ce voyage',
+                  border: OutlineInputBorder(),
+                ),
+                hint: Text(_loadingTrips ? 'Chargement...' : 'Choisir un bus'),
+                items: _programmes.map((trip) {
+                  final isDirect =
+                      trip.ligneArrivee.trim().toLowerCase() ==
+                      _destinationController.text.trim().toLowerCase();
+                  final route = isDirect
+                      ? '${trip.ligneDepart} → ${trip.ligneArrivee}'
+                      : '${trip.ligneDepart} → ${trip.ligneArrivee} (passage par ${_destinationController.text.trim()})';
+                  return DropdownMenuItem(
+                    value: trip,
+                    child: Text(
+                      '${trip.busName.isEmpty ? 'Bus' : trip.busName}'
+                      '${trip.busMatricule.isEmpty ? '' : ' • ${trip.busMatricule}'}'
+                      '${route.trim().isEmpty ? '' : ' — $route'}',
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  );
+                }).toList(),
+                onChanged: (trip) {
+                  setState(() {
+                    _selectedVoyage = trip;
+                    _selectedHeure = null;
+                    _placesAvailable = null;
+                    _placesError = null;
+                    _passengerCount = 1;
+                    _syncFareAmount();
+                  });
+                  _checkPlaces();
+                },
+              ),
+              const SizedBox(height: 12),
+              if (_selectedVoyage != null)
+                DropdownButtonFormField<String>(
+                  initialValue: _selectedHeure,
+                  decoration: const InputDecoration(
+                    labelText: 'Heure disponible',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: _selectedVoyage!.heuresDepart
+                      .map(
+                        (time) =>
+                            DropdownMenuItem(value: time, child: Text(time)),
+                      )
+                      .toList(),
+                  onChanged: (time) {
+                    setState(() {
+                      _selectedHeure = time;
+                      _placesAvailable = null;
+                      _placesError = null;
+                    });
+                    _checkPlaces();
+                  },
+                ),
+              if (_selectedVoyage != null &&
+                  _selectedVoyage!.heuresDepart.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.only(top: 8),
+                  child: Text(
+                    'Aucune heure de départ n’est configurée pour ce bus.',
+                    style: TextStyle(
+                      color: Colors.red,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              if (_selectedHeure != null) ...[
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _ReservationChoiceInfo(
+                        label: 'Type du bus',
+                        value: _selectedVoyage!.busType.toLowerCase() == 'vip'
+                            ? 'Climatisé (VIP)'
+                            : 'Standard',
+                        icon: Icons.directions_bus_rounded,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _ReservationChoiceInfo(
+                        label: 'Places disponibles',
+                        value: _checkingPlaces
+                            ? 'Vérification...'
+                            : _placesAvailable == null
+                            ? 'Non vérifiées'
+                            : '$_placesAvailable / ${_selectedVoyage!.busCapacite}',
+                        icon: Icons.event_seat_rounded,
+                        isWarning:
+                            _placesError != null ||
+                            (_placesAvailable != null &&
+                                _placesAvailable! < _passengerCount),
+                      ),
+                    ),
+                  ],
+                ),
+                if (_placesError != null) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Vérification impossible : $_placesError',
+                          style: const TextStyle(
+                            color: Colors.red,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Réessayer',
+                        onPressed: _checkPlaces,
+                        icon: const Icon(Icons.refresh_rounded),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ],
+            if (_selectedHeure != null &&
+                _placesAvailable != null &&
+                _placesAvailable! > 0 &&
+                _taxGroups.isNotEmpty &&
+                !_hasDefaultTicketTax)
+              DropdownButtonFormField<TaxGroup>(
+                initialValue: _selectedTax,
+                decoration: const InputDecoration(
+                  labelText: 'Taxe applicable',
+                  border: OutlineInputBorder(),
+                ),
+                items: _taxGroups
+                    .map(
+                      (group) => DropdownMenuItem(
+                        value: group,
+                        child: Text('${group.label} (${group.rate}%)'),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (group) {
+                  setState(() {
+                    _selectedTax = group;
+                    _syncFareAmount();
+                  });
+                },
+              ),
+          ],
+          if (_selectedHeure != null &&
+              _placesAvailable != null &&
+              _placesAvailable! > 0) ...[
+            const SizedBox(height: 12),
             PercepteurTextInput(
               controller: _amountController,
               label: 'Montant',
               icon: Icons.payments_rounded,
               keyboardType: TextInputType.number,
               suffixText: 'CFA',
+              readOnly: true,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
             ),
             const SizedBox(height: 14),
+            PercepteurPassengerCard(
+              count: _passengerCount,
+              onMinus: () {
+                if (_passengerCount > 1) {
+                  setState(() {
+                    _passengerCount -= 1;
+                    _syncFareAmount();
+                  });
+                }
+              },
+              onPlus: () {
+                if (_placesAvailable != null &&
+                    _passengerCount < _placesAvailable!) {
+                  setState(() {
+                    _passengerCount += 1;
+                    _syncFareAmount();
+                  });
+                }
+              },
+            ),
           ],
-          PercepteurPassengerCard(
-            count: _passengerCount,
-            onMinus: () {
-              if (_passengerCount > 1) {
-                setState(() {
-                  _passengerCount -= 1;
-                  _syncFareAmount();
-                });
-              }
-            },
-            onPlus: () {
-              if (_passengerCount < 8) {
-                setState(() {
-                  _passengerCount += 1;
-                  _syncFareAmount();
-                });
-              }
-            },
-          ),
           const SizedBox(height: 22),
           SizedBox(
             height: 52,
             child: ElevatedButton(
-              onPressed: _confirmReservation,
+              onPressed: _canContinueToPassenger ? _confirmReservation : null,
               style: ElevatedButton.styleFrom(
                 backgroundColor: _fofanaGreen,
+                disabledBackgroundColor: Colors.grey.shade400,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
                 elevation: 0,
               ),
               child: const Text(
-                'Suivant',
+                'Suivant : informations du passager',
+                textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 16.5,
+                  fontSize: 15,
                   fontWeight: FontWeight.w900,
                   color: Colors.white,
                 ),
@@ -903,6 +1346,65 @@ class PercepteurSmallField extends StatelessWidget {
   }
 }
 
+class _ReservationChoiceInfo extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData icon;
+  final bool isWarning;
+
+  const _ReservationChoiceInfo({
+    required this.label,
+    required this.value,
+    required this.icon,
+    this.isWarning = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isWarning ? const Color(0xFFE53935) : const Color(0xFF0B4F2A);
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isWarning ? const Color(0xFFFFF3F2) : const Color(0xFFF8FBFF),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.12)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              color: Color(0xFF5F6B86),
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Icon(icon, size: 17, color: color),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  value,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class PercepteurPassengerCard extends StatelessWidget {
   final int count;
   final VoidCallback onMinus;
@@ -1018,6 +1520,13 @@ class PercepteurPaymentDetailsPage extends StatefulWidget {
   final int priceAmount;
   final int passengers;
   final String time;
+  final int ligneId;
+  final int voyageId;
+  final int busId;
+  final String busMatricule;
+  final DateTime travelDate;
+  final int? taxGroupId;
+  final double baseAmount;
 
   const PercepteurPaymentDetailsPage({
     super.key,
@@ -1026,7 +1535,14 @@ class PercepteurPaymentDetailsPage extends StatefulWidget {
     required this.date,
     required this.priceAmount,
     required this.passengers,
-    this.time = '10:00',
+    required this.ligneId,
+    required this.voyageId,
+    required this.busId,
+    required this.busMatricule,
+    required this.travelDate,
+    required this.baseAmount,
+    this.taxGroupId,
+    required this.time,
   });
 
   @override
@@ -1040,11 +1556,20 @@ class PercepteurPaymentDetailsPageState
       TextEditingController();
   final TextEditingController _passengerNameController =
       TextEditingController();
+  final List<Map<String, dynamic>> _suggestions = [];
+  Timer? _searchTimer;
+  int? _selectedUserId;
+  String? _selectedFirstName;
+  String? _selectedLastName;
+  bool _searching = false;
+  int _passengerSearchRequest = 0;
+  String? _passengerSearchError;
 
   @override
   void dispose() {
     _requesterPhoneController.dispose();
     _passengerNameController.dispose();
+    _searchTimer?.cancel();
     super.dispose();
   }
 
@@ -1052,9 +1577,13 @@ class PercepteurPaymentDetailsPageState
     final phone = _requesterPhoneController.text.trim();
     final passenger = _passengerNameController.text.trim();
 
-    if (phone.isEmpty || passenger.isEmpty) {
+    if (phone.isEmpty || passenger.split(RegExp(r'\s+')).length < 2) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Veuillez compléter les informations.')),
+        const SnackBar(
+          content: Text(
+            'Saisissez le prénom, le nom et le téléphone du passager.',
+          ),
+        ),
       );
       return;
     }
@@ -1079,7 +1608,7 @@ class PercepteurPaymentDetailsPageState
     required String status,
   }) {
     return PercepteurReservationRecord(
-      reference: 'TB${DateTime.now().millisecondsSinceEpoch}',
+      reference: '',
       departure: widget.departure,
       destination: widget.destination,
       date: widget.date,
@@ -1088,19 +1617,99 @@ class PercepteurPaymentDetailsPageState
       passengerName: passengerName,
       phone: phone,
       price: '${_formatAmount(widget.priceAmount)} CFA',
-      busMatricule: _generateBusMatricule(widget.departure, widget.destination),
+      busMatricule: widget.busMatricule,
       status: status,
+      rawStatus: status.startsWith('Confirmée') ? 'en_cours' : 'en_attente',
+      ligneId: widget.ligneId,
+      voyageId: widget.voyageId,
+      busId: widget.busId,
+      userId: _selectedUserId,
+      travelDate: widget.travelDate,
+      taxGroupId: widget.taxGroupId,
+      baseAmount: widget.baseAmount,
+      passengerFirstName:
+          _selectedFirstName ??
+          _passengerNameController.text.trim().split(RegExp(r'\s+')).first,
+      passengerLastName:
+          _selectedLastName ??
+          _passengerNameController.text
+              .trim()
+              .split(RegExp(r'\s+'))
+              .skip(1)
+              .join(' '),
     );
   }
 
-  String _generateBusMatricule(String departure, String destination) {
-    final routeKey =
-        '${departure.trim().replaceAll(RegExp(r"[^A-Za-z0-9]"), '').toUpperCase()}_${destination.trim().replaceAll(RegExp(r"[^A-Za-z0-9]"), '').toUpperCase()}';
-    final hash = routeKey.hashCode.abs() % 9000 + 1000;
-    final suffix = routeKey.length >= 2
-        ? routeKey.substring(0, 2)
-        : routeKey.padRight(2, 'X');
-    return 'BJ-$hash-$suffix';
+  void _searchPassenger(String value) {
+    _selectedUserId = null;
+    _selectedFirstName = null;
+    _selectedLastName = null;
+    _searchTimer?.cancel();
+    final query = value.trim();
+    final request = ++_passengerSearchRequest;
+    setState(() {
+      _suggestions.clear();
+      _searching = false;
+      _passengerSearchError = null;
+    });
+    if (query.isEmpty) {
+      return;
+    }
+    _searchTimer = Timer(const Duration(milliseconds: 300), () async {
+      if (!mounted) return;
+      setState(() {
+        _searching = true;
+        _passengerSearchError = null;
+      });
+      try {
+        final results = await TicketService().searchClients(query);
+        if (!mounted ||
+            request != _passengerSearchRequest ||
+            query != _passengerNameController.text.trim()) {
+          return;
+        }
+        setState(() {
+          _suggestions
+            ..clear()
+            ..addAll(results);
+          _searching = false;
+        });
+      } catch (error) {
+        if (!mounted ||
+            request != _passengerSearchRequest ||
+            query != _passengerNameController.text.trim()) {
+          return;
+        }
+        setState(() {
+          _searching = false;
+          _passengerSearchError = error.toString().replaceFirst(
+            'Exception: ',
+            '',
+          );
+        });
+      }
+    });
+  }
+
+  void _selectPassenger(Map<String, dynamic> user) {
+    _passengerSearchRequest++;
+    _searchTimer?.cancel();
+    final phone = user['numero']?.toString() ?? '';
+    setState(() {
+      _searching = false;
+      _selectedUserId = int.tryParse(user['id']?.toString() ?? '');
+      _selectedFirstName = user['prenom']?.toString() ?? '';
+      _selectedLastName = user['nom']?.toString() ?? '';
+      _passengerNameController.text =
+          '${user['prenom'] ?? ''} ${user['nom'] ?? ''}'.trim();
+      _requesterPhoneController.text = phone.startsWith('+')
+          ? phone
+          : phone.startsWith('229')
+          ? '+$phone'
+          : '+229$phone';
+      _suggestions.clear();
+      _passengerSearchError = null;
+    });
   }
 
   String _formatAmount(int amount) {
@@ -1126,7 +1735,7 @@ class PercepteurPaymentDetailsPageState
         foregroundColor: Colors.white,
         elevation: 0,
         title: const Text(
-          'Confirmation',
+          'Informations du passager',
           style: TextStyle(fontWeight: FontWeight.w900),
         ),
       ),
@@ -1136,6 +1745,16 @@ class PercepteurPaymentDetailsPageState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              const Text(
+                '2. PASSAGER',
+                style: TextStyle(
+                  color: Color(0xFF5F6B86),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 12),
               PercepteurTripSummaryCard(
                 departure: widget.departure,
                 destination: widget.destination,
@@ -1145,15 +1764,66 @@ class PercepteurPaymentDetailsPageState
                 price: '${_formatAmount(widget.priceAmount)} CFA',
               ),
               const SizedBox(height: 16),
-              PercepteurTextInput(
+              TextField(
                 controller: _passengerNameController,
-                label: 'Nom du passager',
-                icon: Icons.person_rounded,
+                onChanged: _searchPassenger,
+                decoration: InputDecoration(
+                  labelText: 'Nom et prénom du passager',
+                  prefixIcon: const Icon(Icons.person_rounded),
+                  suffixIcon: _searching
+                      ? const Padding(
+                          padding: EdgeInsets.all(12),
+                          child: SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        )
+                      : null,
+                  border: const OutlineInputBorder(),
+                ),
               ),
+              if (_suggestions.isNotEmpty)
+                Container(
+                  margin: const EdgeInsets.only(top: 4),
+                  constraints: const BoxConstraints(maxHeight: 180),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border.all(color: Colors.black12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: ListView(
+                    shrinkWrap: true,
+                    children: _suggestions.map((user) {
+                      return ListTile(
+                        dense: true,
+                        title: Text(
+                          '${user['prenom'] ?? ''} ${user['nom'] ?? ''}'.trim(),
+                        ),
+                        subtitle: Text(user['numero']?.toString() ?? ''),
+                        onTap: () => _selectPassenger(user),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              if (_passengerSearchError != null) ...[
+                const SizedBox(height: 6),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    _passengerSearchError!,
+                    style: const TextStyle(
+                      color: Color(0xFFE53935),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 12),
               PercepteurTextInput(
                 controller: _requesterPhoneController,
-                label: 'Téléphone du demandeur',
+                label: 'Téléphone du passager',
                 icon: Icons.phone_rounded,
                 keyboardType: TextInputType.phone,
               ),
@@ -1162,8 +1832,8 @@ class PercepteurPaymentDetailsPageState
                 height: 54,
                 child: ElevatedButton.icon(
                   onPressed: _finishReservation,
-                  icon: const Icon(Icons.check_circle_rounded),
-                  label: const Text('Confirmer la réservation'),
+                  icon: const Icon(Icons.arrow_forward_rounded),
+                  label: const Text('Suivant : mode de paiement'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: red,
                     foregroundColor: Colors.white,
@@ -1204,63 +1874,318 @@ class PercepteurPaymentChoicePage extends StatefulWidget {
 class PercepteurPaymentChoicePageState
     extends State<PercepteurPaymentChoicePage> {
   String _mode = 'cash';
-  String? _method;
-  final TextEditingController _clientCodeController = TextEditingController();
-  bool _paymentRequestSent = false;
+  List<PaymentProvider> _providers = [];
+  PaymentProvider? _selectedProvider;
+  String? _selectedMethod;
+  String? _ticketReference;
+  bool _loadingProviders = true;
+  bool _processing = false;
+  bool _checkingPayment = false;
+  Timer? _pollTimer;
+  String? _paymentMessage;
 
   static const Color _deepBlue = Color(0xFF0B4F2A);
 
   @override
+  void initState() {
+    super.initState();
+    _loadProviders();
+  }
+
+  @override
   void dispose() {
-    _clientCodeController.dispose();
+    _pollTimer?.cancel();
     super.dispose();
   }
 
-  void _confirmCash() {
-    _completeReservation('Confirmée - Cash');
+  Future<void> _loadProviders() async {
+    try {
+      final providers = await PaymentService().getProvidersActifs();
+      if (!mounted) return;
+      final available = providers
+          .where((provider) => provider.configured)
+          .toList();
+      setState(() {
+        _providers = available;
+        _selectedProvider = available.firstOrNull;
+        _selectedMethod = _selectedProvider?.methods.keys.firstOrNull;
+        _loadingProviders = false;
+      });
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _loadingProviders = false;
+          _paymentMessage =
+              'Impossible de charger les moyens de paiement : $error';
+        });
+      }
+    }
   }
 
-  void _sendPaymentRequest() {
-    if (_method == null) {
+  Future<void> _confirmCash() async {
+    await _emitTicket('ESPECES');
+  }
+
+  Future<void> _startMobilePayment() async {
+    final provider = _selectedProvider;
+    final method = _selectedMethod;
+    if (provider == null || method == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Choisissez une méthode de paiement.')),
+        const SnackBar(content: Text('Choisissez un moyen de paiement.')),
       );
       return;
     }
-
-    setState(() => _paymentRequestSent = true);
-    PercepteurNotificationStore.add(
-      title: 'Demande de paiement',
-      message:
-          'Demande envoyée au ${widget.reservation.phone} via ${_methodLabel(_method!)}.',
-    );
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Demande envoyée au ${widget.reservation.phone}. Le client peut saisir son code.',
-        ),
-        backgroundColor: _deepBlue,
-      ),
-    );
+    if (_ticketReference == null) {
+      await _emitTicket('MOBILEMONEY', continueToPayment: true);
+      return;
+    }
+    await _initiatePayment(provider, method);
   }
 
-  void _confirmRemotePayment() {
-    if (!_paymentRequestSent || _clientCodeController.text.trim().length < 4) {
+  Future<void> _emitTicket(
+    String modePaiement, {
+    bool continueToPayment = false,
+  }) async {
+    if (_processing || _ticketReference != null) return;
+    final draft = widget.reservation;
+    if (draft.ligneId == null ||
+        draft.voyageId == null ||
+        draft.busId == null ||
+        draft.travelDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'Veuillez envoyer la demande puis saisir le code client.',
-          ),
+          content: Text('Les informations du voyage sont incomplètes.'),
         ),
       );
       return;
     }
-
-    _completeReservation('Confirmée - ${_methodLabel(_method!)}');
+    setState(() {
+      _processing = true;
+      _paymentMessage = null;
+    });
+    try {
+      final trip = await TicketService().getProgrammationParDate(
+        ligneId: draft.ligneId!,
+        date: draft.travelDate!,
+        voyageId: draft.voyageId!,
+        villeArrivee: draft.destination,
+      );
+      final selectedTime = draft.time.length > 5
+          ? draft.time.substring(0, 5)
+          : draft.time;
+      if (trip == null ||
+          trip.busId != draft.busId ||
+          !trip.heuresDepart.any(
+            (time) => time.length > 5
+                ? time.substring(0, 5) == selectedTime
+                : time == selectedTime,
+          )) {
+        throw Exception(
+          'Ce départ n’est plus disponible. Choisissez un autre voyage.',
+        );
+      }
+      final availablePlaces = await TicketService().getPlacesDisponibles(
+        voyageId: trip.id,
+        busId: trip.busId,
+        date: draft.travelDate!,
+        heure: selectedTime,
+      );
+      if (availablePlaces < draft.passengerCount) {
+        throw Exception('Le nombre de places disponibles est insuffisant.');
+      }
+      final response = await TicketService().storeTicket(
+        ligneId: draft.ligneId!,
+        voyageId: trip.id,
+        busId: trip.busId,
+        villeArrivee: draft.destination,
+        dateVoyage: draft.travelDate!,
+        heureVoyage: selectedTime,
+        tiers: true,
+        nomPassager: draft.passengerLastName,
+        prenomPassager: draft.passengerFirstName,
+        numeroPassager: draft.phone,
+        userId: draft.userId,
+        nbrePlace: draft.passengerCount,
+        taxGroupId: draft.taxGroupId,
+        montantBase: draft.baseAmount,
+        montantManuel: widget.priceAmount.toDouble(),
+        modePaiement: modePaiement,
+      );
+      final ticket = response['ticket'] is Map
+          ? Map<String, dynamic>.from(response['ticket'] as Map)
+          : response;
+      final reference = ticket['reference']?.toString();
+      if (reference == null || reference.isEmpty) {
+        throw Exception('La référence du ticket est absente.');
+      }
+      if (!mounted) return;
+      setState(() {
+        _ticketReference = reference;
+        _processing = false;
+      });
+      if (continueToPayment) {
+        await _initiatePayment(_selectedProvider!, _selectedMethod!);
+      } else {
+        _completeReservation('Confirmée - Espèces', reference: reference);
+      }
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _processing = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
+        ),
+      );
+    }
   }
 
-  void _completeReservation(String status) {
-    final reservation = widget.reservation.copyWith(status: status);
+  Future<void> _initiatePayment(PaymentProvider provider, String method) async {
+    if (_ticketReference == null || _processing) return;
+    setState(() {
+      _processing = true;
+      _paymentMessage = null;
+    });
+    try {
+      final result = await PaymentService().initierPaiement(
+        payableRef: _ticketReference!,
+        provider: provider.slug,
+        method: method,
+        payableType: 'ticket',
+        clientEmail: SessionStore.currentUser?.email,
+      );
+      if (!mounted) return;
+      final transaction = result['transaction'] as Map<String, dynamic>?;
+      final transactionReference = transaction?['reference']?.toString();
+      if (transactionReference == null || transactionReference.isEmpty) {
+        throw Exception('La référence de transaction est absente.');
+      }
+      final activeProvider = result['provider']?.toString() ?? provider.slug;
+      if (activeProvider == 'feexpay') {
+        await FeexPayService.openPayment(
+          context: context,
+          amount:
+              num.tryParse(result['amount']?.toString() ?? '') ??
+              widget.priceAmount,
+          token: result['token']?.toString() ?? '',
+          shopId:
+              result['shop_id']?.toString() ??
+              result['public_key']?.toString() ??
+              '',
+          reference: transactionReference,
+          onResult: (paymentResult) async {
+            if (paymentResult.isSuccess) {
+              _pollPayment(
+                transactionReference,
+                externalId: paymentResult.reference,
+              );
+            } else if (mounted) {
+              setState(() => _processing = false);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    paymentResult.message ??
+                        'Le paiement n’a pas été confirmé.',
+                  ),
+                ),
+              );
+            }
+          },
+        );
+        return;
+      }
+      if (activeProvider == 'kkiapay') {
+        final customer = result['customer'] as Map<String, dynamic>?;
+        final externalId = await KkiapayService.openPayment(
+          context: context,
+          amount:
+              int.tryParse(result['amount']?.toString() ?? '') ??
+              widget.priceAmount,
+          publicKey: result['public_key']?.toString() ?? '',
+          sandbox: result['environment']?.toString() != 'live',
+          reference: transactionReference,
+          phone: customer?['phone']?.toString() ?? widget.reservation.phone,
+          name: widget.reservation.passengerName,
+          email: customer?['email']?.toString(),
+        );
+        if (externalId == null || externalId.isEmpty) {
+          if (mounted) setState(() => _processing = false);
+          return;
+        }
+        _pollPayment(transactionReference, externalId: externalId);
+        return;
+      }
+      final paymentUrl = result['payment_url']?.toString();
+      if (paymentUrl == null || paymentUrl.isEmpty) {
+        throw Exception('Le prestataire n’a pas fourni de page de paiement.');
+      }
+      final opened = await launchUrl(
+        Uri.parse(paymentUrl),
+        mode: LaunchMode.externalApplication,
+      );
+      if (!opened) throw Exception('Impossible d’ouvrir la page de paiement.');
+      _pollPayment(transactionReference);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _processing = false;
+        _paymentMessage = error.toString().replaceFirst('Exception: ', '');
+      });
+    }
+  }
+
+  void _pollPayment(String reference, {String? externalId}) {
+    _pollTimer?.cancel();
+    var attempts = 0;
+    var currentExternalId = externalId;
+    _pollTimer = Timer.periodic(const Duration(seconds: 4), (timer) async {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (_checkingPayment) return;
+      if (++attempts > 45) {
+        timer.cancel();
+        setState(() {
+          _processing = false;
+          _paymentMessage =
+              'Délai dépassé. Vérifiez le statut du ticket dans votre historique.';
+        });
+        return;
+      }
+      _checkingPayment = true;
+      try {
+        final result = await PaymentService().verifierPaiement(
+          reference: reference,
+          payableType: 'ticket',
+          externalId: currentExternalId,
+        );
+        currentExternalId = null;
+        if (result['verified'] == true) {
+          timer.cancel();
+          _completeReservation(
+            'Confirmée - Mobile Money',
+            reference: _ticketReference,
+          );
+        }
+      } catch (error) {
+        if (mounted) {
+          setState(() {
+            _paymentMessage =
+                'La vérification du paiement a échoué : '
+                '${error.toString().replaceFirst('Exception: ', '')}';
+          });
+        }
+      } finally {
+        _checkingPayment = false;
+      }
+    });
+  }
+
+  void _completeReservation(String status, {String? reference}) {
+    final reservation = widget.reservation.copyWith(
+      reference: reference ?? _ticketReference,
+      status: status,
+    );
     PercepteurReservationStore.add(reservation);
     PercepteurNotificationStore.add(
       title: 'Réservation confirmée',
@@ -1273,23 +2198,6 @@ class PercepteurPaymentChoicePageState
         builder: (_) => PercepteurGeneratedTicketPage(reservation: reservation),
       ),
     );
-  }
-
-  String _methodLabel(String value) {
-    switch (value) {
-      case 'moov':
-        return 'Moov';
-      case 'celtiis':
-        return 'Celtiis';
-      case 'mtn':
-        return 'MTN';
-      case 'wave':
-        return 'Wave';
-      case 'card':
-        return 'Carte bancaire';
-      default:
-        return value;
-    }
   }
 
   @override
@@ -1311,6 +2219,16 @@ class PercepteurPaymentChoicePageState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              const Text(
+                '3. MODE DE PAIEMENT',
+                style: TextStyle(
+                  color: Color(0xFF5F6B86),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 12),
               PercepteurTripSummaryCard(
                 departure: widget.reservation.departure,
                 destination: widget.reservation.destination,
@@ -1352,16 +2270,24 @@ class PercepteurPaymentChoicePageState
                             label: 'Cash',
                             icon: Icons.payments_rounded,
                             selected: _mode == 'cash',
-                            onTap: () => setState(() => _mode = 'cash'),
+                            onTap: () {
+                              if (_ticketReference == null) {
+                                setState(() => _mode = 'cash');
+                              }
+                            },
                           ),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
                           child: PercepteurModeButton(
-                            label: 'Autre paiement',
+                            label: 'Mobile Money',
                             icon: Icons.phone_android_rounded,
-                            selected: _mode == 'remote',
-                            onTap: () => setState(() => _mode = 'remote'),
+                            selected: _mode == 'mobilemoney',
+                            onTap: () {
+                              if (_ticketReference == null) {
+                                setState(() => _mode = 'mobilemoney');
+                              }
+                            },
                           ),
                         ),
                       ],
@@ -1369,19 +2295,98 @@ class PercepteurPaymentChoicePageState
                     const SizedBox(height: 16),
                     if (_mode == 'cash')
                       PercepteurCashPaymentPanel(onConfirm: _confirmCash)
-                    else
-                      PercepteurRemotePaymentPanel(
-                        selectedMethod: _method,
-                        requestSent: _paymentRequestSent,
-                        clientCodeController: _clientCodeController,
-                        onMethodTap: (method) => setState(() {
-                          _method = method;
-                          _paymentRequestSent = false;
-                          _clientCodeController.clear();
-                        }),
-                        onSendRequest: _sendPaymentRequest,
-                        onConfirmPayment: _confirmRemotePayment,
-                      ),
+                    else ...[
+                      if (_loadingProviders)
+                        const Center(child: CircularProgressIndicator())
+                      else ...[
+                        if (_providers.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.only(bottom: 12),
+                            child: Text(
+                              'Aucun prestataire de paiement mobile n’est configuré.',
+                            ),
+                          ),
+                        DropdownButtonFormField<PaymentProvider>(
+                          initialValue: _selectedProvider,
+                          decoration: const InputDecoration(
+                            labelText: 'Prestataire',
+                            border: OutlineInputBorder(),
+                          ),
+                          items: _providers
+                              .map(
+                                (provider) => DropdownMenuItem(
+                                  value: provider,
+                                  child: Text(provider.name),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (provider) => setState(() {
+                            _selectedProvider = provider;
+                            _selectedMethod =
+                                provider?.methods.keys.firstOrNull;
+                          }),
+                        ),
+                        const SizedBox(height: 12),
+                        if ((_selectedProvider?.methods.isNotEmpty ?? false))
+                          DropdownButtonFormField<String>(
+                            initialValue: _selectedMethod,
+                            decoration: const InputDecoration(
+                              labelText: 'Méthode de paiement',
+                              border: OutlineInputBorder(),
+                            ),
+                            items: _selectedProvider!.methods.entries
+                                .map(
+                                  (entry) => DropdownMenuItem(
+                                    value: entry.key,
+                                    child: Text(entry.value),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (method) =>
+                                setState(() => _selectedMethod = method),
+                          ),
+                        const SizedBox(height: 14),
+                        SizedBox(
+                          height: 54,
+                          child: ElevatedButton.icon(
+                            onPressed: _processing || _providers.isEmpty
+                                ? null
+                                : _startMobilePayment,
+                            icon: _processing
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Icon(Icons.lock_rounded),
+                            label: Text(
+                              _processing
+                                  ? 'Vérification du paiement...'
+                                  : 'Payer par Mobile Money',
+                            ),
+                          ),
+                        ),
+                      ],
+                      if (_ticketReference != null)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 12),
+                          child: Text(
+                            'Réservation créée. Le ticket sera confirmé après vérification du paiement.',
+                            style: TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                      if (_paymentMessage != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 12),
+                          child: Text(
+                            _paymentMessage!,
+                            style: const TextStyle(color: Colors.red),
+                          ),
+                        ),
+                    ],
                   ],
                 ),
               ),
@@ -1495,195 +2500,6 @@ class PercepteurCashPaymentPanel extends StatelessWidget {
   }
 }
 
-class PercepteurRemotePaymentPanel extends StatelessWidget {
-  final String? selectedMethod;
-  final bool requestSent;
-  final TextEditingController clientCodeController;
-  final ValueChanged<String> onMethodTap;
-  final VoidCallback onSendRequest;
-  final VoidCallback onConfirmPayment;
-
-  const PercepteurRemotePaymentPanel({
-    super.key,
-    required this.selectedMethod,
-    required this.requestSent,
-    required this.clientCodeController,
-    required this.onMethodTap,
-    required this.onSendRequest,
-    required this.onConfirmPayment,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    const methods = [
-      ('moov', 'Moov', 'assets/images/logo_moov.png'),
-      ('celtiis', 'Celtiis', 'assets/images/logo_celtiis.png'),
-      ('mtn', 'MTN', 'assets/images/logo_mtn.png'),
-      ('wave', 'Wave', null),
-      ('card', 'Carte bancaire', 'assets/images/logo_carte.png'),
-    ];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        GridView.count(
-          crossAxisCount: 2,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisSpacing: 10,
-          mainAxisSpacing: 10,
-          childAspectRatio: 2.3,
-          children: methods.map((method) {
-            return PercepteurPaymentMethodTile(
-              value: method.$1,
-              label: method.$2,
-              imagePath: method.$3,
-              selected: selectedMethod == method.$1,
-              onTap: () => onMethodTap(method.$1),
-            );
-          }).toList(),
-        ),
-        const SizedBox(height: 14),
-        SizedBox(
-          height: 52,
-          child: OutlinedButton.icon(
-            onPressed: onSendRequest,
-            icon: const Icon(Icons.send_to_mobile_rounded),
-            label: const Text('Envoyer la demande au client'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: const Color(0xFF0B4F2A),
-              side: BorderSide(
-                color: const Color(0xFF0B4F2A).withValues(alpha: 0.2),
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              textStyle: const TextStyle(fontWeight: FontWeight.w900),
-            ),
-          ),
-        ),
-        if (requestSent) ...[
-          const SizedBox(height: 14),
-          TextField(
-            controller: clientCodeController,
-            keyboardType: TextInputType.number,
-            maxLength: 6,
-            style: const TextStyle(
-              color: Color(0xFF0B4F2A),
-              fontWeight: FontWeight.w900,
-            ),
-            decoration: InputDecoration(
-              counterText: '',
-              labelText: 'Code reçu par le client',
-              prefixIcon: const Icon(
-                Icons.password_rounded,
-                color: Color(0xFF16A34A),
-              ),
-              filled: true,
-              fillColor: const Color(0xFFF8FBFF),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(18),
-                borderSide: BorderSide.none,
-              ),
-            ),
-          ),
-          const SizedBox(height: 14),
-          SizedBox(
-            height: 54,
-            child: ElevatedButton.icon(
-              onPressed: onConfirmPayment,
-              icon: const Icon(Icons.verified_rounded),
-              label: const Text('Valider le paiement'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF16A34A),
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                textStyle: const TextStyle(fontWeight: FontWeight.w900),
-              ),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-class PercepteurPaymentMethodTile extends StatelessWidget {
-  final String value;
-  final String label;
-  final String? imagePath;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const PercepteurPaymentMethodTile({
-    super.key,
-    required this.value,
-    required this.label,
-    required this.imagePath,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-        decoration: BoxDecoration(
-          color: selected ? const Color(0xFFEAF7EF) : const Color(0xFFF8FBFF),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: selected
-                ? const Color(0xFF16A34A)
-                : const Color(0xFF0B4F2A).withValues(alpha: 0.08),
-            width: selected ? 1.5 : 1,
-          ),
-        ),
-        child: Row(
-          children: [
-            if (imagePath != null)
-              Image.asset(
-                imagePath!,
-                width: 30,
-                height: 30,
-                fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) => _methodIcon(),
-              )
-            else
-              _methodIcon(),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Color(0xFF0B4F2A),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _methodIcon() {
-    final icon = value == 'wave'
-        ? Icons.waves_rounded
-        : Icons.credit_card_rounded;
-
-    return Icon(icon, color: const Color(0xFF16A34A), size: 28);
-  }
-}
-
 class PercepteurTextInput extends StatelessWidget {
   final TextEditingController controller;
   final String label;
@@ -1691,6 +2507,7 @@ class PercepteurTextInput extends StatelessWidget {
   final TextInputType? keyboardType;
   final String? suffixText;
   final List<TextInputFormatter>? inputFormatters;
+  final bool readOnly;
 
   const PercepteurTextInput({
     super.key,
@@ -1700,6 +2517,7 @@ class PercepteurTextInput extends StatelessWidget {
     this.keyboardType,
     this.suffixText,
     this.inputFormatters,
+    this.readOnly = false,
   });
 
   @override
@@ -1708,6 +2526,7 @@ class PercepteurTextInput extends StatelessWidget {
       controller: controller,
       keyboardType: keyboardType,
       inputFormatters: inputFormatters,
+      readOnly: readOnly,
       style: const TextStyle(
         color: Color(0xFF0B4F2A),
         fontWeight: FontWeight.w900,
@@ -2124,17 +2943,55 @@ class PercepteurReservationCard extends StatelessWidget {
 class PercepteurAttendanceList extends StatelessWidget {
   final String title;
   final String emptyMessage;
+  final List<PercepteurReservationRecord> reservations;
+  final bool isLoading;
+  final String? error;
+  final Future<void> Function() onRetry;
 
   const PercepteurAttendanceList({
     super.key,
     required this.title,
     required this.emptyMessage,
+    required this.reservations,
+    required this.isLoading,
+    required this.error,
+    required this.onRetry,
   });
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      children: [PercepteurEmptyCard(title: title, message: emptyMessage)],
+    return RefreshIndicator(
+      onRefresh: onRetry,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          if (isLoading)
+            const Padding(
+              padding: EdgeInsets.all(24),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (error != null)
+            Column(
+              children: [
+                PercepteurEmptyCard(
+                  title: 'Historique indisponible',
+                  message: error!,
+                ),
+                TextButton.icon(
+                  onPressed: () => onRetry(),
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: const Text('Réessayer'),
+                ),
+              ],
+            )
+          else if (reservations.isEmpty)
+            PercepteurEmptyCard(title: title, message: emptyMessage)
+          else
+            ...reservations.map(
+              (item) => PercepteurReservationCard(item: item),
+            ),
+        ],
+      ),
     );
   }
 }

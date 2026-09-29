@@ -9,6 +9,7 @@ class Ligne {
   final double? montantVip;
   final int dureeMoyenne;
   final String status;
+  final List<Map<String, dynamic>> villesEtapes;
 
   Ligne({
     required this.id,
@@ -21,6 +22,7 @@ class Ligne {
     this.montantVip,
     required this.dureeMoyenne,
     required this.status,
+    this.villesEtapes = const [],
   });
 
   // ⬇️ AJOUT : parsing tolérant (String OU num)
@@ -34,7 +36,9 @@ class Ligne {
   static int? _toInt(dynamic value) {
     if (value == null) return null;
     if (value is num) return value.toInt();
-    if (value is String) return int.tryParse(value) ?? double.tryParse(value)?.toInt();
+    if (value is String) {
+      return int.tryParse(value) ?? double.tryParse(value)?.toInt();
+    }
     return null;
   }
 
@@ -44,12 +48,28 @@ class Ligne {
       trajetDepart: json['trajet_depart']?.toString() ?? '',
       trajetArrivee: json['trajet_arrivee']?.toString() ?? '',
       agenceResponsableId: _toInt(json['agence_responsable_id']),
-      agenceResponsableNom: json['agence_responsable']?['nom_agence']?.toString(),
+      agenceResponsableNom: json['agence_responsable']?['nom_agence']
+          ?.toString(),
       distance: _toInt(json['distance']) ?? 0,
       montant: _toDouble(json['montant']) ?? 0,
       montantVip: _toDouble(json['montant_vip']),
       dureeMoyenne: _toInt(json['duree_moyenne']) ?? 0,
       status: json['status']?.toString() ?? 'actif',
+      villesEtapes: (json['villes_etapes'] as List? ?? const [])
+          .whereType<Map>()
+          .map((etape) => Map<String, dynamic>.from(etape))
+          .toList(),
     );
+  }
+
+  bool servesDestination(String destination) {
+    final normalizedDestination = destination.trim().toLowerCase();
+    if (normalizedDestination.isEmpty) return false;
+    return trajetArrivee.trim().toLowerCase() == normalizedDestination ||
+        villesEtapes.any(
+          (etape) =>
+              etape['nom']?.toString().trim().toLowerCase() ==
+              normalizedDestination,
+        );
   }
 }

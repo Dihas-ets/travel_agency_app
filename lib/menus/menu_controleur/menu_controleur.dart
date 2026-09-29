@@ -7,6 +7,7 @@ import 'package:code_initial/screens/percepteur/parts/assignments_section.dart';
 import 'package:code_initial/screens/percepteur/parts/ticket_validation_section.dart';
 import 'package:code_initial/screens/controleur/controleur_history_section.dart';
 import 'package:code_initial/services/staff_ticket_service.dart';
+import 'package:code_initial/widgets/profile_avatar.dart';
 
 class ControleurVoyageContent extends StatelessWidget {
   const ControleurVoyageContent({super.key});
@@ -270,20 +271,10 @@ class ControleurMainMenuSheet extends StatelessWidget {
               ValueListenableBuilder<UserModel?>(
                 valueListenable: SessionStore.currentUserNotifier,
                 builder: (context, user, _) {
-                  final photoUrl = user?.photoUrl;
-                  return CircleAvatar(
+                  return ProfileAvatar(
+                    user: user,
                     radius: 48,
-                    backgroundColor: const Color(0xFF58648D),
-                    backgroundImage: photoUrl != null && photoUrl.isNotEmpty
-                        ? NetworkImage(photoUrl)
-                        : null,
-                    child: photoUrl == null || photoUrl.isEmpty
-                        ? const Icon(
-                            Icons.verified_user_rounded,
-                            color: Colors.white,
-                            size: 58,
-                          )
-                        : null,
+                    fallbackIcon: Icons.verified_user_rounded,
                   );
                 },
               ),
