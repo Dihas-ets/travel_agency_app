@@ -3,6 +3,57 @@ import 'package:http/http.dart' as http;
 import 'package:code_initial/config/app_config.dart';
 import 'package:code_initial/auth/stockage_auth_local.dart';
 
+String? ticketReferenceFromQr(String payload) {
+  final value = payload.trim();
+  if (value.isEmpty) return null;
+
+  final referencePattern = RegExp(
+    r'FV-TKT-\d{8}-[A-Z0-9]{4}',
+    caseSensitive: false,
+  );
+  final embeddedReference = referencePattern.firstMatch(value);
+  if (embeddedReference != null) return embeddedReference.group(0);
+
+  if (value.startsWith('{')) {
+    try {
+      final decoded = jsonDecode(value);
+      if (decoded is Map) {
+        for (final key in const [
+          'reference',
+          'ticket_reference',
+          'ticketReference',
+          'ref',
+        ]) {
+          final reference = decoded[key]?.toString().trim();
+          if (reference != null && reference.isNotEmpty) return reference;
+        }
+      }
+    } on FormatException {
+      return null;
+    }
+  }
+
+  final uri = Uri.tryParse(value);
+  if (uri != null) {
+    for (final key in const [
+      'reference',
+      'ticket_reference',
+      'ticketReference',
+      'ref',
+    ]) {
+      final reference = uri.queryParameters[key]?.trim();
+      if (reference != null && reference.isNotEmpty) return reference;
+    }
+    for (final segment in uri.pathSegments.reversed) {
+      final match = referencePattern.firstMatch(segment);
+      if (match != null) return match.group(0);
+    }
+  }
+
+  if (!value.contains(RegExp(r'\s')) && !value.contains('://')) return value;
+  return null;
+}
+
 // Service pour les operations ticket des espaces Staff (Controleur & Percepteur).
 // Utilise uniquement les endpoints API existants, sans modification backend.
 
@@ -10,6 +61,7 @@ class StaffTicketModel {
   final int id;
   final String reference;
   final String statut;
+  final String? statutPaiement;
   final String? nomPassager;
   final String? prenomPassager;
   final String? numeroPassager;
@@ -19,12 +71,23 @@ class StaffTicketModel {
   final String? heureVoyage;
   final String? numPlace;
   final String? busMatricule;
+  final String? busMarque;
   final String? ligneTitre;
+  final String? classe;
+  final int? nombrePlaces;
+  final double? tarifUnitaire;
+  final double? montantTotal;
+  final double? montantBase;
+  final double? tauxTaxe;
+  final double? montantTaxe;
+  final String? modePaiement;
+  final String? emetteurNom;
 
   const StaffTicketModel({
     required this.id,
     required this.reference,
     required this.statut,
+    this.statutPaiement,
     this.nomPassager,
     this.prenomPassager,
     this.numeroPassager,
@@ -34,7 +97,17 @@ class StaffTicketModel {
     this.heureVoyage,
     this.numPlace,
     this.busMatricule,
+    this.busMarque,
     this.ligneTitre,
+    this.classe,
+    this.nombrePlaces,
+    this.tarifUnitaire,
+    this.montantTotal,
+    this.montantBase,
+    this.tauxTaxe,
+    this.montantTaxe,
+    this.modePaiement,
+    this.emetteurNom,
   });
 
   String get fullPassengerName {
@@ -58,11 +131,16 @@ class StaffTicketModel {
   String get statutLabel {
     switch (statut) {
       case 'valide':
+      case 'utilise':
+      case 'utilisé':
         return 'Embarque';
       case 'annule':
+      case 'annulé':
         return 'Annule';
       case 'en_attente':
         return 'En attente';
+      case 'en_cours':
+        return 'En cours';
       case 'paye':
         return 'Paye';
       default:
@@ -70,21 +148,85 @@ class StaffTicketModel {
     }
   }
 
+  String get statutPaiementLabel {
+    final normalized = (statutPaiement ?? '').toLowerCase();
+    if (normalized == 'payé' || normalized == 'paye' || normalized == 'paid') {
+      return 'Payé';
+    }
+    if (normalized == 'en_attente_paiement' || normalized == 'pending') {
+      return 'Paiement en attente';
+    }
+    if (normalized.isEmpty) return 'Non renseigné';
+    return statutPaiement!;
+  }
+
+  bool get canValidateBoarding {
+    final paymentStatus = (statutPaiement ?? '').toLowerCase();
+    final isPaid =
+        paymentStatus == 'payé' ||
+        paymentStatus == 'paye' ||
+        paymentStatus == 'paid';
+    return statut == 'en_cours' && isPaid;
+  }
+
+  bool get isBoarded =>
+      statut == 'utilisé' || statut == 'utilise' || statut == 'valide';
+
+  StaffTicketModel copyWith({String? statut, String? statutPaiement}) {
+    return StaffTicketModel(
+      id: id,
+      reference: reference,
+      statut: statut ?? this.statut,
+      statutPaiement: statutPaiement ?? this.statutPaiement,
+      nomPassager: nomPassager,
+      prenomPassager: prenomPassager,
+      numeroPassager: numeroPassager,
+      villeDepart: villeDepart,
+      villeArrivee: villeArrivee,
+      dateVoyage: dateVoyage,
+      heureVoyage: heureVoyage,
+      numPlace: numPlace,
+      busMatricule: busMatricule,
+      busMarque: busMarque,
+      ligneTitre: ligneTitre,
+      classe: classe,
+      nombrePlaces: nombrePlaces,
+      tarifUnitaire: tarifUnitaire,
+      montantTotal: montantTotal,
+      montantBase: montantBase,
+      tauxTaxe: tauxTaxe,
+      montantTaxe: montantTaxe,
+      modePaiement: modePaiement,
+      emetteurNom: emetteurNom,
+    );
+  }
+
   factory StaffTicketModel.fromJson(Map<String, dynamic> json) {
-    final ligne = json['ligne'] as Map<String, dynamic>?;
-    final voyage = json['voyage'] as Map<String, dynamic>?;
-    final bus = json['bus'] as Map<String, dynamic>?;
-    final user = json['user'] as Map<String, dynamic>?;
+    Map<String, dynamic> mapValue(Object? value) =>
+        value is Map ? Map<String, dynamic>.from(value) : {};
+
+    double? doubleValue(Object? value) =>
+        double.tryParse(value?.toString() ?? '');
+    int? intValue(Object? value) => int.tryParse(value?.toString() ?? '');
+
+    final ligne = mapValue(json['ligne']);
+    final voyage = mapValue(json['voyage']);
+    final bus = mapValue(json['bus']);
+    final user = mapValue(json['user']);
+    final emetteur = mapValue(json['emetteur']);
 
     String? nomPassager = json['nom_passager']?.toString();
     String? prenomPassager = json['prenom_passager']?.toString();
     String? numeroPassager = json['numero_passager']?.toString();
 
-    if ((nomPassager == null || nomPassager.isEmpty) && user != null) {
+    if ((nomPassager == null || nomPassager.isEmpty) && user.isNotEmpty) {
       nomPassager = user['nom']?.toString();
       prenomPassager = user['prenom']?.toString();
       numeroPassager = user['numero']?.toString();
     }
+
+    final issuerFirstName = emetteur['prenom']?.toString() ?? '';
+    final issuerLastName = emetteur['nom']?.toString() ?? '';
 
     return StaffTicketModel(
       id: json['id'] is int
@@ -92,24 +234,37 @@ class StaffTicketModel {
           : (int.tryParse(json['id']?.toString() ?? '0') ?? 0),
       reference: json['reference']?.toString() ?? '',
       statut: json['statut']?.toString() ?? 'en_attente',
+      statutPaiement: json['statut_paiement']?.toString(),
       nomPassager: nomPassager,
       prenomPassager: prenomPassager,
       numeroPassager: numeroPassager,
       villeDepart:
-          ligne?['ville_depart']?.toString() ??
+          ligne['trajet_depart']?.toString() ??
           json['ville_depart']?.toString(),
       villeArrivee:
           json['ville_arrivee']?.toString() ??
-          ligne?['ville_arrivee']?.toString(),
+          ligne['trajet_arrivee']?.toString(),
       dateVoyage:
-          voyage?['date_voyage']?.toString() ?? json['date_voyage']?.toString(),
+          voyage['date_voyage']?.toString() ?? json['date_voyage']?.toString(),
       heureVoyage:
-          voyage?['heure_depart']?.toString() ??
+          voyage['heure_depart']?.toString() ??
           json['heure_voyage']?.toString(),
       numPlace: json['num_place']?.toString(),
       busMatricule:
-          bus?['matricule']?.toString() ?? json['bus_matricule']?.toString(),
-      ligneTitre: ligne?['titre']?.toString(),
+          bus['immatriculation']?.toString() ??
+          bus['matricule']?.toString() ??
+          json['bus_matricule']?.toString(),
+      busMarque: bus['marque']?.toString(),
+      ligneTitre: ligne['titre']?.toString(),
+      classe: json['classe']?.toString(),
+      nombrePlaces: intValue(json['nbre_place']),
+      tarifUnitaire: doubleValue(json['tarif_unitaire']),
+      montantTotal: doubleValue(json['tarif_total']),
+      montantBase: doubleValue(json['montant_base']),
+      tauxTaxe: doubleValue(json['taxe_taux']),
+      montantTaxe: doubleValue(json['montant_taxe']),
+      modePaiement: json['mode_paiement']?.toString(),
+      emetteurNom: '$issuerFirstName $issuerLastName'.trim(),
     );
   }
 }
@@ -133,17 +288,38 @@ class StaffTicketService {
     if (ref.isEmpty) return null;
     try {
       final response = await http
-          .get(Uri.parse('$_base/tickets/$ref'), headers: await _headers())
+          .get(
+            Uri.parse('$_base/tickets/${Uri.encodeComponent(ref)}'),
+            headers: await _headers(),
+          )
           .timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
-        final ticketJson = data['ticket'] as Map<String, dynamic>? ?? data;
+        final decoded = jsonDecode(response.body);
+        if (decoded is! Map) {
+          throw Exception('Réponse invalide lors du chargement du ticket.');
+        }
+        final data = Map<String, dynamic>.from(decoded);
+        final rawTicket = data['ticket'];
+        final ticketJson = rawTicket is Map
+            ? Map<String, dynamic>.from(rawTicket)
+            : data;
         return StaffTicketModel.fromJson(ticketJson);
       }
+      if (response.statusCode == 404) {
+        throw Exception('Ticket introuvable. Vérifiez la référence.');
+      }
+      final errorBody = response.body.isEmpty
+          ? <String, dynamic>{}
+          : jsonDecode(response.body);
+      final message = errorBody is Map
+          ? errorBody['message']?.toString()
+          : null;
       throw Exception(
-        'Erreur ${response.statusCode} lors du chargement du ticket.',
+        message ??
+            'Erreur ${response.statusCode} lors du chargement du ticket.',
       );
     } catch (error) {
+      if (error is Exception) rethrow;
       throw Exception('Impossible de charger le ticket : $error');
     }
   }

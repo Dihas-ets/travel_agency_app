@@ -206,6 +206,45 @@ class AuthService {
     return null;
   }
 
+  /// Charge le profil connecté et remonte les erreurs au lieu de les masquer.
+  Future<UserModel> refreshCurrentProfile() async {
+    final token = await AuthLocalStore.getToken();
+    if (token == null || token.isEmpty) {
+      throw Exception('Votre session a expiré. Veuillez vous reconnecter.');
+    }
+
+    final response = await http
+        .get(
+          Uri.parse('$baseUrl/auth/moi'),
+          headers: {
+            'Accept': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+        )
+        .timeout(const Duration(seconds: 15));
+    final decoded = jsonDecode(response.body);
+
+    if (response.statusCode != 200) {
+      final message = decoded is Map ? decoded['message']?.toString() : null;
+      throw Exception(
+        message ??
+            'Erreur ${response.statusCode} lors du chargement du profil.',
+      );
+    }
+    if (decoded is! Map || decoded['user'] is! Map) {
+      throw const FormatException(
+        'Réponse invalide lors du chargement du profil.',
+      );
+    }
+
+    final user = UserModel.fromJson(
+      Map<String, dynamic>.from(decoded['user'] as Map),
+    );
+    SessionStore.setCurrentUser(user);
+    await AuthLocalStore.saveCurrentUser(user);
+    return user;
+  }
+
   /// MODIFIER LE PROFIL DU CLIENT : POST /api/auth/client/modifier-profil
   Future<Map<String, dynamic>> updateProfile({
     String? nom,

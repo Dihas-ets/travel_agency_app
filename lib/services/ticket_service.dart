@@ -268,6 +268,8 @@ class TicketService {
     int? taxGroupId,
     double? montantBase,
     double? montantManuel,
+    double? montantTaxe,
+    double? taxeTaux,
   }) async {
     final dateStr =
         '${dateVoyage.year.toString().padLeft(4, '0')}-${dateVoyage.month.toString().padLeft(2, '0')}-${dateVoyage.day.toString().padLeft(2, '0')}';
@@ -288,6 +290,8 @@ class TicketService {
       if (taxGroupId != null) 'taxe_group_id': taxGroupId,
       if (montantBase != null) 'montant_base': montantBase,
       if (montantManuel != null) 'montant_manuel': montantManuel,
+      if (montantTaxe != null) 'montant_taxe': montantTaxe,
+      if (taxeTaux != null) 'taxe_taux': taxeTaux,
     };
     final response = await http
         .post(

@@ -27,6 +27,8 @@ class _PercepteurDepenseContentState extends State<PercepteurDepenseContent>
   CashSummary? _cashSummary;
   String? _cashError;
   bool _cashLoading = true;
+  bool _expensesLoading = true;
+  String? _expenseError;
 
   @override
   void initState() {
@@ -36,6 +38,30 @@ class _PercepteurDepenseContentState extends State<PercepteurDepenseContent>
       if (mounted) setState(() {});
     });
     _loadCashSummary();
+    _loadExpenses();
+  }
+
+  Future<void> _loadExpenses() async {
+    if (mounted) {
+      setState(() {
+        _expensesLoading = true;
+        _expenseError = null;
+      });
+    }
+    try {
+      await expenseStore.refresh();
+      if (!mounted) return;
+      setState(() => _expensesLoading = false);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _expensesLoading = false;
+        _expenseError = error
+            .toString()
+            .replaceFirst('Exception: ', '')
+            .replaceFirst('FormatException: ', '');
+      });
+    }
   }
 
   Future<void> _loadCashSummary() async {
@@ -127,75 +153,47 @@ class _PercepteurDepenseContentState extends State<PercepteurDepenseContent>
   }
 
   List<ExpenseModel> _ongoingExpenses(List<ExpenseModel> expenses) {
-    return expenses.where((expense) => expense.status == 'En cours').toList();
+    return expenses.where((expense) => expense.isDraft).toList();
   }
 
   List<ExpenseModel> _historicalExpenses(List<ExpenseModel> expenses) {
-    return expenses.where((expense) => expense.status != 'En cours').toList();
+    return expenses.where((expense) => !expense.isDraft).toList();
   }
 
-  void _openManualExpense() {
-    final assignment = _currentAssignmentContext();
-    Navigator.push(
+  Future<void> _openManualExpense() async {
+    final created = await Navigator.push<bool>(
       context,
-      MaterialPageRoute(
-        builder: (context) => ManualExpensePage(
-          assignmentReference: assignment?.reference,
-          tripRoute: assignment?.route,
-          busMatricule: assignment?.busMatricule,
-        ),
-      ),
+      MaterialPageRoute(builder: (context) => const ManualExpensePage()),
     );
+    if (created == true) {
+      await _loadExpenses();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Dépense soumise en brouillon.'),
+            backgroundColor: Color(0xFF16A34A),
+          ),
+        );
+      }
+    }
   }
 
-  void _openScanner() {
-    final assignment = _currentAssignmentContext();
-    Navigator.push(
+  Future<void> _openScanner() async {
+    final created = await Navigator.push<bool>(
       context,
-      MaterialPageRoute(
-        builder: (context) => QRScannerPage(
-          assignmentReference: assignment?.reference,
-          tripRoute: assignment?.route,
-          busMatricule: assignment?.busMatricule,
-        ),
-      ),
+      MaterialPageRoute(builder: (context) => const QRScannerPage()),
     );
+    if (created == true) await _loadExpenses();
   }
 
   void _openManualExpenseForReservation(
     PercepteurReservationRecord reservation,
   ) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => ManualExpensePage(
-          reservationReference: reservation.reference,
-          assignmentReference: _assignmentReferenceFromRoute(
-            _reservationRoute(reservation),
-            reservation.busMatricule,
-          ),
-          tripRoute: _reservationRoute(reservation),
-          busMatricule: reservation.busMatricule,
-        ),
-      ),
-    );
+    _openManualExpense();
   }
 
   void _openScannerForReservation(PercepteurReservationRecord reservation) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => QRScannerPage(
-          reservationReference: reservation.reference,
-          assignmentReference: _assignmentReferenceFromRoute(
-            _reservationRoute(reservation),
-            reservation.busMatricule,
-          ),
-          tripRoute: _reservationRoute(reservation),
-          busMatricule: reservation.busMatricule,
-        ),
-      ),
-    );
+    _openScanner();
   }
 
   void _openRechargePage() {
@@ -208,8 +206,6 @@ class _PercepteurDepenseContentState extends State<PercepteurDepenseContent>
   }
 
   void _showAddExpenseSheet() {
-    final assignment = _currentAssignmentContext();
-
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -266,19 +262,6 @@ class _PercepteurDepenseContentState extends State<PercepteurDepenseContent>
                       ),
                     ],
                   ),
-                  if (assignment != null) ...[
-                    const SizedBox(height: 10),
-                    Text(
-                      '${assignment.route} - ${assignment.busMatricule}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.82),
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ],
                   const SizedBox(height: 16),
                   Row(
                     children: [
@@ -342,7 +325,7 @@ class _PercepteurDepenseContentState extends State<PercepteurDepenseContent>
   // ignore: unused_element
   Widget _buildDashboardHeader(List<ExpenseModel> expenses) {
     final ongoingExpenses = expenses
-        .where((expense) => expense.status == 'En cours')
+        .where((expense) => expense.isDraft)
         .toList();
     final totalEnCours = ongoingExpenses.fold<double>(
       0,
@@ -424,7 +407,7 @@ class _PercepteurDepenseContentState extends State<PercepteurDepenseContent>
                     children: [
                       const Expanded(
                         child: Text(
-                          'Total en cours',
+                          'Total brouillon',
                           style: TextStyle(
                             color: Color(0xFFEAF7EF),
                             fontWeight: FontWeight.w800,
@@ -448,19 +431,8 @@ class _PercepteurDepenseContentState extends State<PercepteurDepenseContent>
                     Expanded(
                       child: ElevatedButton.icon(
                         onPressed: () {
-                          final reservation = _latestReservation();
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => QRScannerPage(
-                                reservationReference: reservation?.reference,
-                                tripRoute: reservation == null
-                                    ? null
-                                    : _reservationRoute(reservation),
-                                busMatricule: reservation?.busMatricule,
-                              ),
-                            ),
-                          );
+                          Navigator.pop(context);
+                          _openScanner();
                         },
                         icon: const Icon(Icons.qr_code_scanner_rounded),
                         label: const Text('Scanner'),
@@ -482,19 +454,8 @@ class _PercepteurDepenseContentState extends State<PercepteurDepenseContent>
                     Expanded(
                       child: OutlinedButton.icon(
                         onPressed: () {
-                          final reservation = _latestReservation();
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => ManualExpensePage(
-                                reservationReference: reservation?.reference,
-                                tripRoute: reservation == null
-                                    ? null
-                                    : _reservationRoute(reservation),
-                                busMatricule: reservation?.busMatricule,
-                              ),
-                            ),
-                          );
+                          Navigator.pop(context);
+                          _openManualExpense();
                         },
                         icon: const Icon(Icons.edit_note_rounded),
                         label: const Text('Saisie'),
@@ -538,7 +499,7 @@ class _PercepteurDepenseContentState extends State<PercepteurDepenseContent>
           _buildMenuButton(
             selected: _tabController.index == 0,
             icon: Icons.hourglass_top_rounded,
-            title: 'En cours',
+            title: 'Brouillons',
             detail: '${ongoingTotal.toStringAsFixed(0)} FCFA',
             onTap: () => _tabController.animateTo(0),
           ),
@@ -663,61 +624,7 @@ class _PercepteurDepenseContentState extends State<PercepteurDepenseContent>
   }
 
   Widget _buildAssignmentHeader() {
-    final assignment = _currentAssignmentContext();
-    if (assignment == null) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 14),
-        child: SizedBox.shrink(),
-      );
-    }
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 0, 14, 6),
-      child: Row(
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFEBEE),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.assignment_turned_in_rounded,
-              color: Color(0xFFEF4444),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  assignment.route,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFF0F172A),
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Affectation: ${assignment.busMatricule}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFF64748B),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
+    return const SizedBox.shrink();
   }
 
   // ignore: unused_element
@@ -906,7 +813,7 @@ class _PercepteurDepenseContentState extends State<PercepteurDepenseContent>
     );
   }
 
-  // Onglet "En cours"
+  // Brouillons en attente de traitement.
   Widget _buildOngoingTab() {
     return ValueListenableBuilder<List<ExpenseModel>>(
       valueListenable: expenseStore.expensesNotifier,
@@ -914,6 +821,12 @@ class _PercepteurDepenseContentState extends State<PercepteurDepenseContent>
         final ongoingExpenses = _ongoingExpenses(expenses)
           ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
+        if (_expensesLoading && expenses.isEmpty) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (_expenseError != null && expenses.isEmpty) {
+          return _buildExpenseLoadError();
+        }
         if (ongoingExpenses.isEmpty) {
           return Center(
             child: Column(
@@ -926,7 +839,7 @@ class _PercepteurDepenseContentState extends State<PercepteurDepenseContent>
                 ),
                 SizedBox(height: 14),
                 Text(
-                  'Aucune dépense en cours',
+                  'Aucun brouillon en attente',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Color(0xFF0B4F2A),
@@ -936,7 +849,7 @@ class _PercepteurDepenseContentState extends State<PercepteurDepenseContent>
                 ),
                 SizedBox(height: 8),
                 Text(
-                  'Ajoutez une dépense manuelle ou scannez un justificatif.',
+                  'Les dépenses soumises en brouillon apparaîtront ici.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Color(0xFF5F6B86),
@@ -1092,6 +1005,12 @@ class _PercepteurDepenseContentState extends State<PercepteurDepenseContent>
         final historicalExpenses = _historicalExpenses(expenses)
           ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
+        if (_expensesLoading && expenses.isEmpty) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (_expenseError != null && expenses.isEmpty) {
+          return _buildExpenseLoadError();
+        }
         if (historicalExpenses.isEmpty) {
           return Center(
             child: Column(
@@ -1133,6 +1052,39 @@ class _PercepteurDepenseContentState extends State<PercepteurDepenseContent>
           },
         );
       },
+    );
+  }
+
+  Widget _buildExpenseLoadError() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.cloud_off_rounded,
+              color: Color(0xFFB42318),
+              size: 42,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              _expenseError ?? 'Impossible de charger les dépenses.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Color(0xFF334155),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: _loadExpenses,
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Réessayer'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1282,7 +1234,7 @@ class _PercepteurDepenseContentState extends State<PercepteurDepenseContent>
                     child: Text(
                       expenses.isEmpty
                           ? 'Ancien trajet'
-                          : '${expenses.where((e) => e.status == "Validé").length}/${expenses.length} validées',
+                          : '${expenses.where((e) => e.status == "validé").length}/${expenses.length} validées',
                       style: const TextStyle(
                         color: Color(0xFF16A34A),
                         fontSize: 11,
@@ -1300,10 +1252,6 @@ class _PercepteurDepenseContentState extends State<PercepteurDepenseContent>
   }
 
   void _showExpenseDetail(ExpenseModel expense) {
-    final totalAmount = expense.cost * expense.quantity;
-    final trajet = _expenseTrajet(expense);
-    final matricule = _expenseMatricule(expense);
-
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1313,6 +1261,9 @@ class _PercepteurDepenseContentState extends State<PercepteurDepenseContent>
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             child: Container(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.85,
+              ),
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -1325,99 +1276,95 @@ class _PercepteurDepenseContentState extends State<PercepteurDepenseContent>
                   ),
                 ],
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFEAF7EF),
-                          borderRadius: BorderRadius.circular(15),
-                        ),
-                        child: const Icon(
-                          Icons.receipt_long_rounded,
-                          color: Color(0xFF16A34A),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      const Expanded(
-                        child: Text(
-                          'Détails dépense',
-                          style: TextStyle(
-                            color: Color(0xFF0B4F2A),
-                            fontSize: 19,
-                            fontWeight: FontWeight.w900,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEAF7EF),
+                            borderRadius: BorderRadius.circular(15),
+                          ),
+                          child: const Icon(
+                            Icons.receipt_long_rounded,
+                            color: Color(0xFF16A34A),
                           ),
                         ),
-                      ),
-                      IconButton(
-                        onPressed: () => Navigator.pop(context),
-                        icon: const Icon(Icons.close_rounded),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Text(
+                            'Détails dépense',
+                            style: TextStyle(
+                              color: Color(0xFF0B4F2A),
+                              fontSize: 19,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.pop(context),
+                          icon: const Icon(Icons.close_rounded),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    _buildExpenseDetailRow(
+                      Icons.numbers_rounded,
+                      'Code',
+                      expense.code,
+                    ),
+                    _buildExpenseDetailRow(
+                      Icons.verified_rounded,
+                      'Statut',
+                      expense.statusLabel,
+                    ),
+                    _buildExpenseDetailRow(
+                      Icons.storefront_rounded,
+                      'Fournisseur',
+                      expense.supplierName ?? 'Non renseigné',
+                    ),
+                    _buildExpenseDetailRow(
+                      Icons.business_rounded,
+                      'Agence',
+                      expense.agencyName ?? 'Agence ${expense.agencyId ?? '-'}',
+                    ),
+                    for (final item in expense.items) ...[
+                      _buildExpenseDetailRow(
+                        Icons.receipt_long_rounded,
+                        item.designation,
+                        '${item.quantity} ${item.unit} × ${item.unitPrice.toStringAsFixed(2)} HT · '
+                        '${item.amountTtc.toStringAsFixed(2)} TTC',
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 14),
-                  _buildExpenseDetailRow(Icons.route_rounded, 'Trajet', trajet),
-                  _buildExpenseDetailRow(
-                    Icons.directions_bus_rounded,
-                    'Matricule du bus',
-                    matricule,
-                  ),
-                  _buildExpenseDetailRow(
-                    Icons.label_rounded,
-                    'Libellé',
-                    expense.libelle,
-                  ),
-                  _buildExpenseDetailRow(
-                    Icons.description_rounded,
-                    'Description',
-                    expense.description.isEmpty
-                        ? 'Aucune description'
-                        : expense.description,
-                  ),
-                  _buildExpenseDetailRow(
-                    Icons.payments_rounded,
-                    'Coût',
-                    '${expense.cost.toStringAsFixed(0)} FCFA',
-                  ),
-                  if (expense.costInWords.isNotEmpty)
                     _buildExpenseDetailRow(
-                      Icons.text_fields_rounded,
-                      'Coût en lettres',
-                      expense.costInWords,
+                      Icons.account_balance_wallet_rounded,
+                      'Total TTC',
+                      '${expense.totalAmount.toStringAsFixed(2)} FCFA',
                     ),
-                  _buildExpenseDetailRow(
-                    Icons.numbers_rounded,
-                    'Quantité',
-                    _quantityLabel(expense),
-                  ),
-                  _buildExpenseDetailRow(
-                    Icons.account_balance_wallet_rounded,
-                    'Total',
-                    '${totalAmount.toStringAsFixed(0)} FCFA',
-                  ),
-                  _buildExpenseDetailRow(
-                    Icons.sticky_note_2_rounded,
-                    'Note',
-                    expense.note.isEmpty ? 'Aucune note' : expense.note,
-                  ),
-                  _buildExpenseDetailRow(
-                    Icons.chat_bubble_outline_rounded,
-                    'Remarque',
-                    expense.qrCode != null
-                        ? 'Dépense ajoutée depuis un QR code'
-                        : 'Dépense ajoutée en saisie manuelle',
-                  ),
-                  _buildExpenseDetailRow(
-                    Icons.schedule_rounded,
-                    'Date et heure',
-                    _formatDate(expense.createdAt),
-                  ),
-                ],
+                    _buildExpenseDetailRow(
+                      Icons.sticky_note_2_rounded,
+                      'Note',
+                      expense.note.isEmpty ? 'Aucune note' : expense.note,
+                    ),
+                    _buildExpenseDetailRow(
+                      Icons.source_rounded,
+                      'Source',
+                      expense.source == 'mecef_verified'
+                          ? 'Facture MECeF vérifiée'
+                          : 'Saisie manuelle',
+                    ),
+                    _buildExpenseDetailRow(
+                      Icons.schedule_rounded,
+                      'Date',
+                      _formatDate(expense.createdAt),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -1672,15 +1619,15 @@ class _PercepteurDepenseContentState extends State<PercepteurDepenseContent>
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: expense.status == "Validé"
+                      color: expense.status == "validé"
                           ? const Color(0xFFEAF7EF)
                           : const Color(0xFFFEF3C7),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
-                      expense.status,
+                      expense.statusLabel,
                       style: TextStyle(
-                        color: expense.status == "Validé"
+                        color: expense.status == "validé"
                             ? const Color(0xFF16A34A)
                             : const Color(0xFFB45309),
                         fontSize: 10,
@@ -1787,55 +1734,16 @@ class _PercepteurDepenseContentState extends State<PercepteurDepenseContent>
     );
   }
 
-  String _expenseTrajet(ExpenseModel expense) {
-    final route = expense.tripRoute?.trim();
-    if (route != null && route.isNotEmpty) return route;
-    final description = expense.description.trim();
-    if (description.isNotEmpty) return description;
-    return 'Trajet non renseigné';
-  }
-
-  String _expenseMatricule(ExpenseModel expense) {
-    final matricule = expense.busMatricule?.trim();
-    if (matricule != null && matricule.isNotEmpty) return matricule;
-    final source = '${expense.libelle} ${expense.description} ${expense.note}';
-    final match = RegExp(
-      r'(?:matricule|bus)\s*[:\-]?\s*([A-Za-z0-9\- ]{3,})',
-      caseSensitive: false,
-    ).firstMatch(source);
-    final value = match?.group(1)?.trim();
-    if (value != null && value.isNotEmpty) return value;
-    return 'Matricule non renseigné';
-  }
-
   String _quantityLabel(ExpenseModel expense) {
     final unit = expense.quantityUnit.trim();
     if (unit.isEmpty) return '${expense.quantity}';
     return '${expense.quantity} $unit';
   }
 
-  PercepteurReservationRecord? _latestReservation() {
-    return PercepteurReservationStore.activeReservation;
-  }
-
   PercepteurReservationRecord? _latestHistoricalReservation() {
     final reservations = PercepteurReservationStore.historicalReservations;
     if (reservations.isEmpty) return null;
     return reservations.first;
-  }
-
-  _PercepteurExpenseAssignmentContext? _currentAssignmentContext() {
-    return const _PercepteurExpenseAssignmentContext(
-      route: 'Cotonou -> Parakou',
-      busMatricule: 'BJ-6248-RB',
-      date: '29 mai 2026',
-      time: '08:30',
-      status: 'Session ouverte',
-    );
-  }
-
-  String _assignmentReferenceFromRoute(String route, String busMatricule) {
-    return '$route|$busMatricule';
   }
 
   String _reservationRoute(PercepteurReservationRecord reservation) {
@@ -1845,9 +1753,7 @@ class _PercepteurDepenseContentState extends State<PercepteurDepenseContent>
   // ignore: unused_element
   Widget _buildModernExpenseCard(ExpenseModel expense) {
     final statusColor = _getStatusColor(expense.status);
-    final fromQr = expense.qrCode != null;
-    final trajet = _expenseTrajet(expense);
-    final matricule = _expenseMatricule(expense);
+    final firstItem = expense.items.isEmpty ? null : expense.items.first;
 
     return Material(
       color: Colors.white,
@@ -1873,7 +1779,6 @@ class _PercepteurDepenseContentState extends State<PercepteurDepenseContent>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
                     width: 46,
@@ -1883,7 +1788,7 @@ class _PercepteurDepenseContentState extends State<PercepteurDepenseContent>
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Icon(
-                      fromQr
+                      expense.source == 'mecef_verified'
                           ? Icons.qr_code_2_rounded
                           : Icons.receipt_long_rounded,
                       color: statusColor,
@@ -1895,114 +1800,62 @@ class _PercepteurDepenseContentState extends State<PercepteurDepenseContent>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          expense.libelle,
+                          expense.code,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             color: Color(0xFF0F172A),
-                            fontSize: 16,
+                            fontSize: 14,
                             fontWeight: FontWeight.w900,
-                            height: 1.2,
                           ),
                         ),
-                        if (expense.description.isNotEmpty) ...[
-                          const SizedBox(height: 5),
-                          Text(
-                            expense.description,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Color(0xFF64748B),
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                        const SizedBox(height: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFEBEE),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  const Icon(
-                                    Icons.route_rounded,
-                                    color: Color(0xFFE53935),
-                                    size: 15,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      trajet,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        color: Color(0xFF0F172A),
-                                        fontSize: 11.5,
-                                        fontWeight: FontWeight.w900,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  const Icon(
-                                    Icons.directions_bus_rounded,
-                                    color: Color(0xFFE53935),
-                                    size: 15,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      'Bus: $matricule',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        color: Color(0xFF64748B),
-                                        fontSize: 11.5,
-                                        fontWeight: FontWeight.w800,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
+                        const SizedBox(height: 4),
+                        Text(
+                          firstItem?.designation ?? 'Dépense sans ligne',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Color(0xFF64748B),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(width: 10),
-                  // n'affiche pas le label 'En cours' sur la carte
-                  if (expense.status != 'En cours')
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 7,
-                        horizontal: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: statusColor.withValues(alpha: 0.10),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Text(
-                        expense.status,
-                        style: TextStyle(
-                          color: statusColor,
-                          fontSize: 11.2,
-                          fontWeight: FontWeight.w900,
-                        ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 7,
+                      horizontal: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: statusColor.withValues(alpha: 0.10),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Text(
+                      expense.statusLabel,
+                      style: TextStyle(
+                        color: statusColor,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
                       ),
                     ),
+                  ),
                 ],
               ),
+              if (expense.note.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Text(
+                  expense.note,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF64748B),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
               const SizedBox(height: 14),
               Row(
                 children: [
@@ -2030,27 +1883,45 @@ class _PercepteurDepenseContentState extends State<PercepteurDepenseContent>
                       ],
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        fromQr
-                            ? Icons.qr_code_rounded
-                            : Icons.edit_note_rounded,
-                        color: const Color(0xFF64748B),
-                        size: 16,
-                      ),
-                      const SizedBox(width: 5),
-                      Text(
-                        fromQr ? 'QR' : 'Manuel',
-                        style: const TextStyle(
-                          color: Color(0xFF64748B),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ],
+                  Text(
+                    '${expense.totalAmount.toStringAsFixed(0)} FCFA',
+                    style: const TextStyle(
+                      color: Color(0xFF0B4F2A),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Icon(
+                    expense.source == 'mecef_verified'
+                        ? Icons.qr_code_rounded
+                        : Icons.edit_note_rounded,
+                    color: const Color(0xFF64748B),
+                    size: 16,
+                  ),
+                  const SizedBox(width: 5),
+                  Text(
+                    expense.source == 'mecef_verified'
+                        ? 'Facture MECeF'
+                        : 'Saisie manuelle',
+                    style: const TextStyle(
+                      color: Color(0xFF64748B),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    '${expense.items.length} ligne${expense.items.length == 1 ? '' : 's'}',
+                    style: const TextStyle(
+                      color: Color(0xFF64748B),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ],
               ),
@@ -2261,7 +2132,7 @@ class _PercepteurDepenseContentState extends State<PercepteurDepenseContent>
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  expense.status,
+                  expense.statusLabel,
                   style: TextStyle(
                     color: _getStatusColor(expense.status),
                     fontSize: 11,
@@ -2271,46 +2142,6 @@ class _PercepteurDepenseContentState extends State<PercepteurDepenseContent>
               ),
             ],
           ),
-          if (expense.status == 'En cours') ...[
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      ExpenseStore().updateExpenseStatus(expense.id, 'Validé');
-                    },
-                    icon: const Icon(Icons.check_circle, size: 18),
-                    label: const Text('Valider'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF16A34A),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () {
-                      ExpenseStore().updateExpenseStatus(expense.id, 'Rejeté');
-                    },
-                    icon: const Icon(Icons.cancel, size: 18),
-                    label: const Text('Rejeter'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFFEF4444),
-                      side: const BorderSide(color: Color(0xFFEF4444)),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
         ],
       ),
     );
@@ -2318,13 +2149,11 @@ class _PercepteurDepenseContentState extends State<PercepteurDepenseContent>
 
   Color _getStatusColor(String status) {
     switch (status) {
-      case "En cours":
+      case "brouillon":
         return const Color(0xFFFF9500);
-      case "Historique":
+      case "validé":
         return const Color(0xFF16A34A);
-      case "Validé":
-        return const Color(0xFF16A34A);
-      case "Rejeté":
+      case "rejeté":
         return const Color(0xFFEF4444);
       default:
         return const Color(0xFF5F6B86);
@@ -2339,24 +2168,6 @@ class _PercepteurDepenseContentState extends State<PercepteurDepenseContent>
     final minutes = date.minute.toString().padLeft(2, '0');
     return '$day/$month/$year $hours:$minutes';
   }
-}
-
-class _PercepteurExpenseAssignmentContext {
-  final String route;
-  final String busMatricule;
-  final String date;
-  final String time;
-  final String status;
-
-  const _PercepteurExpenseAssignmentContext({
-    required this.route,
-    required this.busMatricule,
-    required this.date,
-    required this.time,
-    required this.status,
-  });
-
-  String get reference => '$date|$time|$busMatricule';
 }
 
 class _PercepteurWalletRechargePage extends StatefulWidget {

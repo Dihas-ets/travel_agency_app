@@ -188,4 +188,108 @@ class ColisService {
     }
     return [];
   }
+
+  /// Liste les colis visibles par le personnel via GET /api/colis.
+  Future<List<ColisModel>> getColisStaff({
+    String? statut,
+    String? search,
+  }) async {
+    final token = await AuthLocalStore.getToken();
+    final parcels = <ColisModel>[];
+    var page = 1;
+    var lastPage = 1;
+
+    do {
+      final uri = Uri.parse('$baseUrl/colis').replace(
+        queryParameters: {
+          'page': page.toString(),
+          'per_page': '100',
+          if (statut != null && statut.isNotEmpty) 'statut': statut,
+          if (search != null && search.trim().isNotEmpty)
+            'search': search.trim(),
+        },
+      );
+      final response = await http
+          .get(
+            uri,
+            headers: {
+              'Accept': 'application/json',
+              if (token != null) 'Authorization': 'Bearer $token',
+            },
+          )
+          .timeout(const Duration(seconds: 15));
+      final decoded = jsonDecode(response.body);
+
+      if (response.statusCode != 200) {
+        final message = decoded is Map ? decoded['message']?.toString() : null;
+        throw Exception(
+          message ??
+              'Erreur ${response.statusCode} lors du chargement des colis.',
+        );
+      }
+      if (decoded is! Map || decoded['data'] is! List) {
+        throw const FormatException(
+          'Réponse invalide lors du chargement des colis.',
+        );
+      }
+
+      final data = Map<String, dynamic>.from(decoded);
+      parcels.addAll(
+        (data['data'] as List).map(
+          (item) => ColisModel.fromJson(Map<String, dynamic>.from(item as Map)),
+        ),
+      );
+      page = int.tryParse(data['current_page']?.toString() ?? '') ?? page;
+      lastPage = int.tryParse(data['last_page']?.toString() ?? '') ?? page;
+      page++;
+    } while (page <= lastPage);
+
+    return parcels;
+  }
+
+  /// Confirme le paiement et l'enregistrement d'un colis brouillon.
+  Future<void> validerColisStaff({
+    required int id,
+    required String modePaiement,
+    required double montant,
+  }) async {
+    await _sendStaffColisAction(
+      id: id,
+      action: 'valider',
+      body: {'mode_paiement': modePaiement, 'montant': montant},
+    );
+  }
+
+  /// Passe un colis enregistré au statut en_transit.
+  Future<void> chargerColisStaff(int id) async {
+    await _sendStaffColisAction(id: id, action: 'charger');
+  }
+
+  Future<void> _sendStaffColisAction({
+    required int id,
+    required String action,
+    Map<String, dynamic>? body,
+  }) async {
+    final token = await AuthLocalStore.getToken();
+    final response = await http
+        .put(
+          Uri.parse('$baseUrl/colis/$id/$action'),
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            if (token != null) 'Authorization': 'Bearer $token',
+          },
+          body: body == null ? null : jsonEncode(body),
+        )
+        .timeout(const Duration(seconds: 20));
+    final decoded = jsonDecode(response.body);
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      final message = decoded is Map ? decoded['message']?.toString() : null;
+      throw Exception(
+        message ??
+            'Erreur ${response.statusCode} lors de l’action sur le colis.',
+      );
+    }
+  }
 }

@@ -5,6 +5,8 @@ import 'package:code_initial/data/local/session_store.dart';
 import 'package:code_initial/screens/client/colis/colis_attente_page.dart';
 import 'package:code_initial/screens/percepteur/parts/assignments_section.dart';
 import 'package:code_initial/widgets/profile_avatar.dart';
+import 'package:code_initial/menus/menu_percepteur/percepteur_profile_panel.dart'
+    as live_profile;
 
 // Menu principal percepteur, profil editable et conditions.
 
@@ -440,25 +442,7 @@ class PercepteurProfilePanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<PercepteurProfileData>(
-      valueListenable: PercepteurProfileStore.profile,
-      builder: (context, profile, _) {
-        return ValueListenableBuilder<UserModel?>(
-          valueListenable: SessionStore.currentUserNotifier,
-          builder: (context, user, _) {
-            final currentProfile = profile.fullName.isNotEmpty
-                ? profile
-                : PercepteurProfileData(
-                    fullName: user?.fullName ?? '',
-                    phone: user?.numero ?? '',
-                    agency: user?.agence?['nom_agence']?.toString() ?? '',
-                    role: user?.role ?? '',
-                  );
-            return PercepteurProfileEditor(profile: currentProfile);
-          },
-        );
-      },
-    );
+    return const live_profile.PercepteurProfilePanel();
   }
 }
 
@@ -668,28 +652,7 @@ class PercepteurProfileTabContent extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView(
       padding: const EdgeInsets.only(bottom: 18),
-      children: [
-        Center(
-          child: ValueListenableBuilder<UserModel?>(
-            valueListenable: SessionStore.currentUserNotifier,
-            builder: (context, user, _) {
-              return ProfileAvatar(user: user, radius: 52);
-            },
-          ),
-        ),
-        const SizedBox(height: 16),
-        const Text(
-          'Profil percepteur',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: Color(0xFF0B4F2A),
-            fontSize: 24,
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-        const SizedBox(height: 18),
-        const PercepteurProfilePanel(),
-      ],
+      children: const [PercepteurProfilePanel()],
     );
   }
 }

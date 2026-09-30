@@ -1,35 +1,21 @@
 import 'package:flutter/material.dart';
-import 'package:code_initial/models/expense_model.dart';
+import 'package:flutter/services.dart';
+import 'package:code_initial/auth/stockage_auth_local.dart';
+import 'package:code_initial/models/tax_group_model.dart';
+import 'package:code_initial/models/user_model.dart';
 import 'package:code_initial/models/store/expense_store.dart';
+import 'package:code_initial/services/auth_service.dart';
+import 'package:code_initial/services/expense_service.dart';
+import 'package:code_initial/services/tax_service.dart';
 
 class ManualExpensePage extends StatefulWidget {
-  final String? initialLibelle;
-  final String? initialDescription;
-  final double? initialCost;
-  final int? initialQuantity;
-  final String? initialQuantityUnit;
-  final String? initialCostInWords;
-  final String? initialNote;
-  final String? qrCode;
-  final String? reservationReference;
-  final String? assignmentReference;
-  final String? tripRoute;
-  final String? busMatricule;
+  final String? initialMecefCode;
+  final String? initialMecefNim;
 
   const ManualExpensePage({
     super.key,
-    this.initialLibelle,
-    this.initialDescription,
-    this.initialCost,
-    this.initialQuantity,
-    this.initialQuantityUnit,
-    this.initialCostInWords,
-    this.initialNote,
-    this.qrCode,
-    this.reservationReference,
-    this.assignmentReference,
-    this.tripRoute,
-    this.busMatricule,
+    this.initialMecefCode,
+    this.initialMecefNim,
   });
 
   @override
@@ -37,96 +23,373 @@ class ManualExpensePage extends StatefulWidget {
 }
 
 class _ManualExpensePageState extends State<ManualExpensePage> {
-  late TextEditingController libelleController;
-  late TextEditingController descriptionController;
-  late TextEditingController costController;
-  late TextEditingController quantityController;
-  late TextEditingController quantityUnitController;
-  late TextEditingController noteController;
-
   final _formKey = GlobalKey<FormState>();
+  final _service = ExpenseService();
+  final _noteController = TextEditingController();
+  final _mecefCodeController = TextEditingController();
+  final _nimController = TextEditingController();
+  final List<_ExpenseLineDraft> _lines = [_ExpenseLineDraft()];
+  final List<TaxGroup> _taxGroups = [];
+  final List<Map<String, dynamic>> _suppliers = [];
+  String _selectedSupplierId = '';
+  UserModel? _user;
+  DateTime _expenseDate = DateTime.now();
+  Map<String, dynamic>? _verifiedInvoice;
+  bool _invoiceConfirmed = false;
+  bool _isMecefSource = false;
+  bool _isLoading = true;
+  bool _isVerifying = false;
+  bool _isSaving = false;
+  bool _isCreatingSupplier = false;
+  String? _loadError;
+  String? _requestError;
 
   static const _darkGreen = Color(0xFF0B4F2A);
   static const _green = Color(0xFF16A34A);
-  static const _orange = Color(0xFFFF9500);
-  static const _textMuted = Color(0xFF64748B);
 
   @override
   void initState() {
     super.initState();
-    libelleController = TextEditingController(text: widget.initialLibelle);
-    descriptionController = TextEditingController(
-      text: widget.initialDescription,
-    );
-    costController = TextEditingController(
-      text: widget.initialCost == null
-          ? ''
-          : widget.initialCost!.toStringAsFixed(0),
-    );
-    quantityController = TextEditingController(
-      text: (widget.initialQuantity ?? 1).toString(),
-    );
-    quantityUnitController = TextEditingController(
-      text: widget.initialQuantityUnit,
-    );
-    noteController = TextEditingController(text: widget.initialNote);
+    _mecefCodeController.text = widget.initialMecefCode ?? '';
+    _nimController.text = widget.initialMecefNim ?? '';
+    _isMecefSource =
+        (widget.initialMecefCode?.isNotEmpty ?? false) ||
+        (widget.initialMecefNim?.isNotEmpty ?? false);
+    _loadFormData();
   }
 
   @override
   void dispose() {
-    libelleController.dispose();
-    descriptionController.dispose();
-    costController.dispose();
-    quantityController.dispose();
-    quantityUnitController.dispose();
-    noteController.dispose();
+    _noteController.dispose();
+    _mecefCodeController.dispose();
+    _nimController.dispose();
+    for (final line in _lines) {
+      line.dispose();
+    }
     super.dispose();
   }
 
-  void _submitExpense() {
-    if (!_formKey.currentState!.validate()) return;
-
+  Future<void> _loadFormData() async {
+    setState(() {
+      _isLoading = true;
+      _loadError = null;
+    });
     try {
-      final expense = ExpenseModel(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        libelle: libelleController.text.trim(),
-        description: descriptionController.text.trim(),
-        cost: double.parse(costController.text.trim()),
-        quantity: int.parse(quantityController.text.trim()),
-        quantityUnit: quantityUnitController.text.trim(),
-        costInWords: widget.initialCostInWords?.trim() ?? '',
-        note: noteController.text.trim(),
-        createdAt: DateTime.now(),
-        status: 'En cours',
-        qrCode: widget.qrCode,
-        reservationReference: widget.reservationReference,
-        assignmentReference: widget.assignmentReference,
-        tripRoute: widget.tripRoute,
-        busMatricule: widget.busMatricule,
-      );
-
-      ExpenseStore().addExpense(expense);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Dépense "${expense.libelle}" enregistrée'),
-          backgroundColor: _green,
-          duration: const Duration(seconds: 2),
-        ),
-      );
-
-      Future.delayed(const Duration(seconds: 2), () {
-        if (!mounted) return;
-        Navigator.of(context).pop();
+      var user = await AuthLocalStore.getCurrentUser();
+      if (user?.agenceId == null) {
+        user = await AuthService().getProfile() ?? user;
+      }
+      if (user == null) {
+        throw Exception(
+          'Impossible de récupérer votre profil connecté. Reconnectez-vous.',
+        );
+      }
+      final groups = await TaxService().getGroupsForModule('depense');
+      final suppliers = await _service.listSuppliers();
+      if (!mounted) return;
+      setState(() {
+        _user = user;
+        _taxGroups
+          ..clear()
+          ..addAll(groups);
+        _suppliers
+          ..clear()
+          ..addAll(suppliers);
+        _isLoading = false;
       });
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur: ${e.toString()}'),
-          backgroundColor: Colors.red.shade700,
-        ),
-      );
+      if (user.agenceId == null) {
+        setState(() {
+          _loadError =
+              "Votre compte n'est associé à aucune agence. Contactez l'administrateur.";
+        });
+      }
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _loadError = _errorText(error);
+      });
     }
+  }
+
+  String _errorText(Object error) => error
+      .toString()
+      .replaceFirst('Exception: ', '')
+      .replaceFirst('FormatException: ', '');
+
+  String _dateValue(DateTime date) =>
+      '${date.year.toString().padLeft(4, '0')}-'
+      '${date.month.toString().padLeft(2, '0')}-'
+      '${date.day.toString().padLeft(2, '0')}';
+
+  Future<void> _chooseDate() async {
+    final selected = await showDatePicker(
+      context: context,
+      initialDate: _expenseDate,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (selected != null) setState(() => _expenseDate = selected);
+  }
+
+  Future<void> _createSupplier() async {
+    final nameController = TextEditingController();
+    final contactController = TextEditingController();
+    final emailController = TextEditingController();
+    final ifuController = TextEditingController();
+    final addressController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    final details = await showDialog<Map<String, String>>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Nouveau fournisseur'),
+        content: Form(
+          key: formKey,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: nameController,
+                  decoration: const InputDecoration(labelText: 'Nom *'),
+                  validator: (value) => value == null || value.trim().isEmpty
+                      ? 'Le nom est obligatoire'
+                      : null,
+                ),
+                TextFormField(
+                  controller: contactController,
+                  decoration: const InputDecoration(labelText: 'Contact'),
+                ),
+                TextFormField(
+                  controller: emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: const InputDecoration(labelText: 'Email'),
+                ),
+                TextFormField(
+                  controller: ifuController,
+                  decoration: const InputDecoration(labelText: 'IFU'),
+                ),
+                TextFormField(
+                  controller: addressController,
+                  decoration: const InputDecoration(labelText: 'Adresse'),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (!formKey.currentState!.validate()) return;
+              Navigator.pop(dialogContext, {
+                'nom': nameController.text.trim(),
+                'contact': contactController.text.trim(),
+                'email': emailController.text.trim(),
+                'ifu': ifuController.text.trim(),
+                'adresse': addressController.text.trim(),
+              });
+            },
+            child: const Text('Créer'),
+          ),
+        ],
+      ),
+    );
+
+    if (details == null) {
+      nameController.dispose();
+      contactController.dispose();
+      emailController.dispose();
+      ifuController.dispose();
+      addressController.dispose();
+      return;
+    }
+
+    setState(() {
+      _isCreatingSupplier = true;
+      _requestError = null;
+    });
+    try {
+      final supplier = await _service.createSupplier({
+        'nom': details['nom'],
+        'contact': details['contact']!.isEmpty ? null : details['contact'],
+        'email': details['email']!.isEmpty ? null : details['email'],
+        'ifu': details['ifu']!.isEmpty ? null : details['ifu'],
+        'adresse': details['adresse']!.isEmpty ? null : details['adresse'],
+      });
+      if (!mounted) return;
+      setState(() {
+        _suppliers.add(supplier);
+        _selectedSupplierId = supplier['id']?.toString() ?? '';
+        _isCreatingSupplier = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _isCreatingSupplier = false;
+        _requestError = _errorText(error);
+      });
+    } finally {
+      nameController.dispose();
+      contactController.dispose();
+      emailController.dispose();
+      ifuController.dispose();
+      addressController.dispose();
+    }
+  }
+
+  double _lineUnitPriceTtc(_ExpenseLineDraft line) =>
+      double.tryParse(line.unitPriceTtcController.text.replaceAll(',', '.')) ??
+      0;
+
+  double _lineUnitPriceHt(_ExpenseLineDraft line) {
+    final rate = _taxRate(line);
+    return ((_lineUnitPriceTtc(line) / (1 + rate / 100)) * 100).round() / 100;
+  }
+
+  double _lineBase(_ExpenseLineDraft line) =>
+      _lineUnitPriceHt(line) *
+      (double.tryParse(line.quantityController.text.replaceAll(',', '.')) ?? 0);
+
+  double get _totalHt =>
+      _lines.fold<double>(0, (sum, line) => sum + _lineBase(line));
+
+  double _taxRate(_ExpenseLineDraft line) {
+    final id = int.tryParse(line.taxGroupId);
+    for (final group in _taxGroups) {
+      if (group.id == id) return group.rate;
+    }
+    return 0;
+  }
+
+  double get _totalTtc => _lines.fold<double>(
+    0,
+    (sum, line) =>
+        sum +
+        _lineUnitPriceTtc(line) *
+            (double.tryParse(
+                  line.quantityController.text.replaceAll(',', '.'),
+                ) ??
+                0),
+  );
+
+  Future<void> _verifyMecefInvoice() async {
+    final code = _mecefCodeController.text.trim();
+    final nim = _nimController.text.trim();
+    if (code.isEmpty || nim.isEmpty) {
+      setState(() => _requestError = 'Saisissez le code MECeF et le NIM.');
+      return;
+    }
+    setState(() {
+      _isVerifying = true;
+      _requestError = null;
+      _verifiedInvoice = null;
+      _invoiceConfirmed = false;
+    });
+    try {
+      final response = await _service.verifyMecefInvoice(code: code, nim: nim);
+      final invoice = response['data'];
+      if (response['found'] != true || invoice is! Map) {
+        throw Exception('Facture non trouvée ou invalide.');
+      }
+      if (!mounted) return;
+      setState(() {
+        _verifiedInvoice = Map<String, dynamic>.from(invoice);
+        _isVerifying = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _isVerifying = false;
+        _requestError = _errorText(error);
+      });
+    }
+  }
+
+  Future<void> _submitExpense() async {
+    if (_isSaving || _user?.agenceId == null) return;
+    if (_isMecefSource) {
+      if (_verifiedInvoice == null || !_invoiceConfirmed) {
+        setState(() {
+          _requestError =
+              'Vérifiez puis confirmez la facture avant de créer la dépense.';
+        });
+        return;
+      }
+    } else if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() {
+      _isSaving = true;
+      _requestError = null;
+    });
+    try {
+      final createdExpense = _isMecefSource
+          ? await _service.createFromVerifiedInvoice(
+              agencyId: _user!.agenceId!,
+              code: _mecefCodeController.text.trim(),
+              nim: _nimController.text.trim(),
+              note: _noteController.text.trim(),
+            )
+          : await _service.createManual({
+              'agency_id': _user!.agenceId,
+              'source': 'manual',
+              'payment_method': 'ESPECES',
+              'expense_date': _dateValue(_expenseDate),
+              'status': 'brouillon',
+              'note': _noteController.text.trim().isEmpty
+                  ? null
+                  : _noteController.text.trim(),
+              'items': _lines
+                  .map(
+                    (line) => {
+                      'designation': line.designationController.text.trim(),
+                      'quantity': double.parse(
+                        line.quantityController.text.trim().replaceAll(
+                          ',',
+                          '.',
+                        ),
+                      ),
+                      'unit': line.unitController.text.trim().isEmpty
+                          ? 'unité'
+                          : line.unitController.text.trim(),
+                      'unit_price': _lineUnitPriceHt(line),
+                      'tax_group_id': line.taxGroupId.isEmpty
+                          ? null
+                          : int.parse(line.taxGroupId),
+                      'note': line.noteController.text.trim().isEmpty
+                          ? null
+                          : line.noteController.text.trim(),
+                    },
+                  )
+                  .toList(),
+              if (_selectedSupplierId.isNotEmpty)
+                'supplier_id': int.parse(_selectedSupplierId),
+            });
+      ExpenseStore().addOrUpdate(createdExpense);
+      if (!mounted) return;
+      Navigator.pop(context, true);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _isSaving = false;
+        _requestError = _errorText(error);
+      });
+    }
+  }
+
+  void _addLine() => setState(() => _lines.add(_ExpenseLineDraft()));
+
+  void _removeLine(int index) {
+    if (_lines.length <= 1) return;
+    final line = _lines.removeAt(index);
+    line.dispose();
+    setState(() {});
   }
 
   @override
@@ -138,196 +401,377 @@ class _ManualExpensePageState extends State<ManualExpensePage> {
         foregroundColor: Colors.white,
         elevation: 0,
         title: const Text(
-          'Ajouter une dépense',
+          'Nouvelle dépense',
           style: TextStyle(fontWeight: FontWeight.w900),
         ),
       ),
-      body: SafeArea(
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
-            children: [
-              _buildHero(),
-              if (widget.tripRoute != null || widget.busMatricule != null) ...[
-                const SizedBox(height: 14),
-                _buildTripContextCard(),
-              ],
-              const SizedBox(height: 18),
-              _buildSectionCard(
-                title: 'Informations',
-                icon: Icons.receipt_long_rounded,
-                children: [
-                  _buildTextField(
-                    controller: libelleController,
-                    label: 'Libellé',
-                    hintText: 'Ex: Carburant',
-                    icon: Icons.label_important_rounded,
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Le libellé est requis';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 14),
-                  _buildTextField(
-                    controller: descriptionController,
-                    label: 'Description',
-                    hintText: 'Détails supplémentaires',
-                    icon: Icons.description_rounded,
-                    maxLines: 3,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              _buildSectionCard(
-                title: 'Montant',
-                icon: Icons.payments_rounded,
-                children: [
-                  _buildTextField(
-                    controller: costController,
-                    label: 'Coût (FCFA)',
-                    hintText: 'Ex: 150000',
-                    icon: Icons.account_balance_wallet_rounded,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: _green))
+          : SafeArea(
+              child: Form(
+                key: _formKey,
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(18, 18, 18, 28),
+                  children: [
+                    _buildSourceSelector(),
+                    const SizedBox(height: 16),
+                    if (_loadError != null) _buildMessage(_loadError!, true),
+                    if (_requestError != null) ...[
+                      _buildMessage(_requestError!, true),
+                      const SizedBox(height: 12),
+                    ],
+                    if (_isMecefSource)
+                      _buildMecefForm()
+                    else
+                      _buildManualForm(),
+                    const SizedBox(height: 18),
+                    _buildNoteField(),
+                    const SizedBox(height: 18),
+                    ElevatedButton.icon(
+                      onPressed: _isSaving || _loadError != null
+                          ? null
+                          : _submitExpense,
+                      icon: _isSaving
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.send_rounded),
+                      label: Text(
+                        _isSaving
+                            ? 'Enregistrement...'
+                            : 'Soumettre en brouillon',
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _green,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        textStyle: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
                     ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Le coût est requis';
-                      }
-                      if (double.tryParse(value.trim()) == null) {
-                        return 'Entrez un nombre valide';
-                      }
-                      return null;
-                    },
+                  ],
+                ),
+              ),
+            ),
+    );
+  }
+
+  Widget _buildSourceSelector() {
+    return Row(
+      children: [
+        Expanded(
+          child: _sourceButton(
+            title: 'Saisie manuelle',
+            icon: Icons.edit_note_rounded,
+            selected: !_isMecefSource,
+            onTap: () => setState(() {
+              _isMecefSource = false;
+              _requestError = null;
+            }),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _sourceButton(
+            title: 'Facture MECEF',
+            icon: Icons.qr_code_2_rounded,
+            selected: _isMecefSource,
+            onTap: () => setState(() {
+              _isMecefSource = true;
+              _requestError = null;
+            }),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _sourceButton({
+    required String title,
+    required IconData icon,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return OutlinedButton.icon(
+      onPressed: onTap,
+      icon: Icon(icon, size: 19),
+      label: Text(title, textAlign: TextAlign.center),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: selected ? _darkGreen : const Color(0xFF64748B),
+        backgroundColor: selected ? const Color(0xFFEAF7EF) : Colors.white,
+        side: BorderSide(
+          color: selected ? _green : const Color(0xFFE2E8F0),
+          width: selected ? 1.5 : 1,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 13),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+      ),
+    );
+  }
+
+  Widget _buildManualForm() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _dateSelector(),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: DropdownButtonFormField<String>(
+                initialValue: _selectedSupplierId,
+                decoration: _decoration('Fournisseur (optionnel)'),
+                items: [
+                  const DropdownMenuItem(
+                    value: '',
+                    child: Text('Aucun fournisseur'),
                   ),
-                  const SizedBox(height: 14),
-                  _buildTextField(
-                    controller: quantityController,
-                    label: 'Quantité',
-                    hintText: 'Ex: 20',
-                    icon: Icons.numbers_rounded,
-                    keyboardType: TextInputType.number,
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'La quantité est requise';
-                      }
-                      final quantity = int.tryParse(value.trim());
-                      if (quantity == null || quantity <= 0) {
-                        return 'Entrez un nombre entier valide';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 14),
-                  _buildTextField(
-                    controller: quantityUnitController,
-                    label: 'Unité',
-                    hintText: 'Ex: litre, sac, pièce',
-                    icon: Icons.straighten_rounded,
+                  ..._suppliers.map(
+                    (supplier) => DropdownMenuItem(
+                      value: supplier['id']?.toString() ?? '',
+                      child: Text(
+                        supplier['nom']?.toString() ?? 'Fournisseur',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
                   ),
                 ],
+                onChanged: (value) =>
+                    setState(() => _selectedSupplierId = value ?? ''),
               ),
-              const SizedBox(height: 16),
-              _buildSectionCard(
-                title: 'Note',
-                icon: Icons.sticky_note_2_rounded,
-                children: [
-                  _buildTextField(
-                    controller: noteController,
-                    label: 'Remarque',
-                    hintText: 'Ajoutez une précision utile',
-                    icon: Icons.edit_note_rounded,
-                    maxLines: 4,
-                  ),
-                ],
+            ),
+            const SizedBox(width: 8),
+            IconButton(
+              tooltip: 'Créer un fournisseur',
+              onPressed: _isCreatingSupplier ? null : _createSupplier,
+              icon: _isCreatingSupplier
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.person_add_alt_1_rounded),
+              style: IconButton.styleFrom(
+                foregroundColor: _green,
+                backgroundColor: const Color(0xFFEAF7EF),
+                padding: const EdgeInsets.all(13),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(13),
+                ),
               ),
-              const SizedBox(height: 22),
-              ElevatedButton.icon(
-                onPressed: _submitExpense,
-                icon: const Icon(Icons.check_circle_rounded),
-                label: const Text('Enregistrer la dépense'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _green,
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                  textStyle: const TextStyle(
-                    fontSize: 15,
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            const Expanded(
+              child: Text(
+                'Lignes de dépense',
+                style: TextStyle(
+                  color: _darkGreen,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+            TextButton.icon(
+              onPressed: _addLine,
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('Ajouter'),
+            ),
+          ],
+        ),
+        for (var index = 0; index < _lines.length; index++) ...[
+          _lineCard(index),
+          const SizedBox(height: 12),
+        ],
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: const Color(0xFFEAF7EF),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Total HT / TTC estimé',
+                  style: TextStyle(
+                    color: _darkGreen,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
               ),
-              const SizedBox(height: 10),
-              OutlinedButton.icon(
-                onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.close_rounded),
-                label: const Text('Annuler'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: _darkGreen,
-                  side: BorderSide(color: _darkGreen.withValues(alpha: 0.28)),
-                  padding: const EdgeInsets.symmetric(vertical: 15),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(18),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text('${_totalHt.toStringAsFixed(2)} HT'),
+                  Text(
+                    '${_totalTtc.toStringAsFixed(2)} TTC',
+                    style: const TextStyle(
+                      color: _darkGreen,
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
-                  textStyle: const TextStyle(fontWeight: FontWeight.w900),
-                ),
+                ],
               ),
             ],
           ),
         ),
+      ],
+    );
+  }
+
+  Widget _dateSelector() {
+    final date =
+        '${_expenseDate.day.toString().padLeft(2, '0')}/'
+        '${_expenseDate.month.toString().padLeft(2, '0')}/'
+        '${_expenseDate.year}';
+    return InkWell(
+      onTap: _chooseDate,
+      borderRadius: BorderRadius.circular(14),
+      child: InputDecorator(
+        decoration: _decoration('Date de la dépense'),
+        child: Row(
+          children: [
+            const Icon(Icons.calendar_month_rounded, color: _green),
+            const SizedBox(width: 10),
+            Text(date, style: const TextStyle(fontWeight: FontWeight.w700)),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildTripContextCard() {
+  Widget _lineCard(int index) {
+    final line = _lines[index];
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFEBEE),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: const Color(0xFFE53935).withValues(alpha: 0.18),
-        ),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
-      child: Row(
+      child: Column(
         children: [
-          const _FieldIcon(
-            icon: Icons.directions_bus_filled_rounded,
-            color: Color(0xFFE53935),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  widget.tripRoute ?? 'Trajet non renseigné',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Ligne ${index + 1}',
                   style: const TextStyle(
                     color: _darkGreen,
-                    fontSize: 14,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  'Bus: ${widget.busMatricule ?? 'Matricule non renseigné'}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: _textMuted,
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w800,
-                  ),
+              ),
+              if (_lines.length > 1)
+                IconButton(
+                  tooltip: 'Supprimer la ligne',
+                  onPressed: () => _removeLine(index),
+                  icon: const Icon(Icons.delete_outline, color: Colors.red),
                 ),
-              ],
+            ],
+          ),
+          TextFormField(
+            controller: line.designationController,
+            decoration: _decoration('Désignation'),
+            textCapitalization: TextCapitalization.sentences,
+            validator: (value) => value == null || value.trim().isEmpty
+                ? 'La désignation est requise'
+                : null,
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: TextFormField(
+                  controller: line.quantityController,
+                  decoration: _decoration('Quantité'),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+                  ],
+                  onChanged: (_) => setState(() {}),
+                  validator: (value) {
+                    final number =
+                        double.tryParse((value ?? '').replaceAll(',', '.')) ??
+                        0;
+                    return number <= 0 ? 'Quantité invalide' : null;
+                  },
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: TextFormField(
+                  controller: line.unitController,
+                  decoration: _decoration('Unité'),
+                  textCapitalization: TextCapitalization.sentences,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: line.unitPriceTtcController,
+            decoration: _decoration('Prix unitaire TTC (FCFA)'),
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+            ],
+            onChanged: (_) => setState(() {}),
+            validator: (value) {
+              final number =
+                  double.tryParse((value ?? '').replaceAll(',', '.')) ?? -1;
+              return number < 0 ? 'Prix invalide' : null;
+            },
+          ),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            initialValue: line.taxGroupId.isEmpty ? '' : line.taxGroupId,
+            decoration: _decoration('Groupe de taxe'),
+            items: [
+              const DropdownMenuItem(value: '', child: Text('Sans taxe')),
+              ..._taxGroups.map(
+                (group) => DropdownMenuItem(
+                  value: group.id.toString(),
+                  child: Text('${group.label} (${group.rate}%)'),
+                ),
+              ),
+            ],
+            onChanged: (value) => setState(() => line.taxGroupId = value ?? ''),
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: line.noteController,
+            decoration: _decoration('Note de la ligne (optionnelle)'),
+            maxLines: 2,
+          ),
+          const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Text(
+              'PU HT calculé : ${_lineUnitPriceHt(line).toStringAsFixed(2)} FCFA · '
+              'Total TTC : ${(_lineUnitPriceTtc(line) * (double.tryParse(line.quantityController.text.replaceAll(',', '.')) ?? 0)).toStringAsFixed(2)} FCFA',
+              style: const TextStyle(
+                color: _darkGreen,
+                fontWeight: FontWeight.w800,
+              ),
             ),
           ),
         ],
@@ -335,187 +779,174 @@ class _ManualExpensePageState extends State<ManualExpensePage> {
     );
   }
 
-  Widget _buildHero() {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: _darkGreen,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: _darkGreen.withValues(alpha: 0.18),
-            blurRadius: 24,
-            offset: const Offset(0, 12),
+  Widget _buildMecefForm() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TextField(
+          controller: _mecefCodeController,
+          onChanged: (_) => _clearInvoiceVerification(),
+          decoration: _decoration('Code MECeF / DGI'),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _nimController,
+          onChanged: (_) => _clearInvoiceVerification(),
+          decoration: _decoration('NIM'),
+        ),
+        const SizedBox(height: 12),
+        OutlinedButton.icon(
+          onPressed: _isVerifying ? null : _verifyMecefInvoice,
+          icon: _isVerifying
+              ? const SizedBox(
+                  width: 17,
+                  height: 17,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.verified_outlined),
+          label: Text(_isVerifying ? 'Vérification...' : 'Vérifier la facture'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: _darkGreen,
+            side: const BorderSide(color: _green),
+            padding: const EdgeInsets.symmetric(vertical: 13),
           ),
+        ),
+        if (_verifiedInvoice != null) ...[
+          const SizedBox(height: 14),
+          _verifiedInvoiceCard(),
         ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 58,
-            height: 58,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: const Icon(
-              Icons.add_card_rounded,
-              color: Colors.white,
-              size: 30,
-            ),
-          ),
-          const SizedBox(width: 14),
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Nouvelle dépense',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 21,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                SizedBox(height: 6),
-                Text(
-                  'Renseignez les informations puis envoyez la dépense en validation.',
-                  style: TextStyle(
-                    color: Color(0xFFD8F3E2),
-                    fontSize: 13.4,
-                    height: 1.35,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+      ],
     );
   }
 
-  Widget _buildSectionCard({
-    required String title,
-    required IconData icon,
-    required List<Widget> children,
-  }) {
+  void _clearInvoiceVerification() {
+    if (_verifiedInvoice == null && !_invoiceConfirmed) return;
+    setState(() {
+      _verifiedInvoice = null;
+      _invoiceConfirmed = false;
+    });
+  }
+
+  Widget _verifiedInvoiceCard() {
+    final invoice = _verifiedInvoice!;
+    final total =
+        invoice['total']?.toString() ??
+        invoice['montant_ttc']?.toString() ??
+        'Non renseigné';
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
+        color: const Color(0xFFEAF7EF),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _green.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          const Row(
             children: [
-              _FieldIcon(icon: icon, color: _green),
-              const SizedBox(width: 10),
+              Icon(Icons.verified_rounded, color: _green),
+              SizedBox(width: 8),
               Text(
-                title,
-                style: const TextStyle(
+                'Facture vérifiée',
+                style: TextStyle(
                   color: _darkGreen,
-                  fontSize: 16,
                   fontWeight: FontWeight.w900,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          ...children,
+          const SizedBox(height: 10),
+          _invoiceDetail('Fournisseur', invoice['vendeur_nom']),
+          _invoiceDetail('IFU', invoice['vendeur_ifu']),
+          _invoiceDetail('Date', invoice['date_heure']),
+          _invoiceDetail('Total TTC', total),
+          const SizedBox(height: 8),
+          CheckboxListTile(
+            contentPadding: EdgeInsets.zero,
+            value: _invoiceConfirmed,
+            onChanged: (value) =>
+                setState(() => _invoiceConfirmed = value ?? false),
+            title: const Text(
+              'Je confirme les informations de cette facture.',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+            ),
+            controlAffinity: ListTileControlAffinity.leading,
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String label,
-    required String hintText,
-    required IconData icon,
-    TextInputType keyboardType = TextInputType.text,
-    int maxLines = 1,
-    String? suffixText,
-    String? Function(String?)? validator,
-  }) {
-    return TextFormField(
-      controller: controller,
-      keyboardType: keyboardType,
-      maxLines: maxLines,
-      style: const TextStyle(
-        color: Color(0xFF0F172A),
-        fontWeight: FontWeight.w800,
+  Widget _invoiceDetail(String label, Object? value) {
+    final text = value?.toString().trim() ?? '';
+    if (text.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 5),
+      child: Text(
+        '$label : $text',
+        style: const TextStyle(color: Color(0xFF334155), fontSize: 13),
       ),
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: hintText,
-        suffixText: suffixText,
-        filled: true,
-        fillColor: const Color(0xFFF8FAFC),
-        prefixIcon: Padding(
-          padding: const EdgeInsets.all(9),
-          child: _FieldIcon(icon: icon, color: _orange),
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(18),
-          borderSide: BorderSide.none,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(18),
-          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(18),
-          borderSide: const BorderSide(color: _green, width: 1.4),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(18),
-          borderSide: BorderSide(color: Colors.red.shade400),
-        ),
-        labelStyle: const TextStyle(
-          color: _textMuted,
-          fontWeight: FontWeight.w800,
-        ),
-        hintStyle: const TextStyle(
-          color: Color(0xFF94A3B8),
-          fontWeight: FontWeight.w600,
-        ),
-        contentPadding: const EdgeInsets.symmetric(
-          vertical: 17,
-          horizontal: 14,
-        ),
-      ),
-      validator: validator,
     );
   }
+
+  Widget _buildNoteField() => TextField(
+    controller: _noteController,
+    maxLines: 3,
+    decoration: _decoration('Note générale (optionnelle)'),
+  );
+
+  Widget _buildMessage(String message, bool isError) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: isError ? const Color(0xFFFFEBEE) : const Color(0xFFEAF7EF),
+        borderRadius: BorderRadius.circular(13),
+      ),
+      child: Text(
+        message,
+        style: TextStyle(
+          color: isError ? const Color(0xFFB42318) : _darkGreen,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+
+  InputDecoration _decoration(String label) => InputDecoration(
+    labelText: label,
+    filled: true,
+    fillColor: Colors.white,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 13, vertical: 14),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(13),
+      borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(13),
+      borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(13),
+      borderSide: const BorderSide(color: _green, width: 1.4),
+    ),
+  );
 }
 
-class _FieldIcon extends StatelessWidget {
-  final IconData icon;
-  final Color color;
+class _ExpenseLineDraft {
+  final designationController = TextEditingController();
+  final quantityController = TextEditingController(text: '1');
+  final unitController = TextEditingController(text: 'unité');
+  final unitPriceTtcController = TextEditingController();
+  final noteController = TextEditingController();
+  String taxGroupId = '';
 
-  const _FieldIcon({required this.icon, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 36,
-      height: 36,
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Icon(icon, color: color, size: 19),
-    );
+  void dispose() {
+    designationController.dispose();
+    quantityController.dispose();
+    unitController.dispose();
+    unitPriceTtcController.dispose();
+    noteController.dispose();
   }
 }

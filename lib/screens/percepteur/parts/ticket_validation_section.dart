@@ -18,8 +18,10 @@ class _TicketValidationPageState extends State<TicketValidationPage> {
   String? _scannedCode;
   bool _ticketVisible = false;
   bool _isLoading = false;
+  bool _isValidating = false;
   StaffTicketModel? _ticketData;
   String? _errorMessage;
+  String? _lastScannedPayload;
   final TextEditingController _manualCodeController = TextEditingController();
   final _ticketService = StaffTicketService();
 
@@ -30,14 +32,27 @@ class _TicketValidationPageState extends State<TicketValidationPage> {
   }
 
   Future<void> _loadAndShowTicket({String? code}) async {
-    final ref = (code ?? _scannedCode ?? '').trim();
-    if (ref.isEmpty) {
+    final rawCode = (code ?? _scannedCode ?? '').trim();
+    if (rawCode.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Aucun code a charger.'),
           backgroundColor: Color(0xFFE53935),
         ),
       );
+      return;
+    }
+
+    final ref = ticketReferenceFromQr(rawCode);
+    if (ref == null || ref.isEmpty) {
+      setState(() {
+        _scannedCode = null;
+        _ticketVisible = false;
+        _ticketData = null;
+        _errorMessage =
+            'Ce QR code ne contient pas la référence du ticket. '
+            'Saisissez manuellement la référence imprimée sur le billet.';
+      });
       return;
     }
 
@@ -66,13 +81,23 @@ class _TicketValidationPageState extends State<TicketValidationPage> {
           _errorMessage = 'Ticket introuvable : $ref';
         });
       }
-    } catch (e) {
+    } catch (error) {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Erreur de connexion. Verifiez votre reseau.';
+        _errorMessage = error
+            .toString()
+            .replaceFirst('Exception: ', '')
+            .replaceFirst('Bad state: ', '');
       });
     }
+  }
+
+  void _onQrDetected(String payload) {
+    final value = payload.trim();
+    if (value.isEmpty || _isLoading || value == _lastScannedPayload) return;
+    _lastScannedPayload = value;
+    _loadAndShowTicket(code: value);
   }
 
   void _validateCurrentScan() {
@@ -88,8 +113,42 @@ class _TicketValidationPageState extends State<TicketValidationPage> {
     _loadAndShowTicket();
   }
 
+  Future<void> _validateBoarding() async {
+    final ticket = _ticketData;
+    if (ticket == null || !ticket.canValidateBoarding || _isValidating) return;
+
+    setState(() => _isValidating = true);
+    final result = await _ticketService.validerEmbarquement(ticket.id);
+    if (!mounted) return;
+
+    final success = result['success'] as bool? ?? false;
+    if (success) {
+      final returnedTicket = result['ticket'] as StaffTicketModel?;
+      final updatedTicket = ticket.copyWith(
+        statut: returnedTicket?.statut ?? 'utilisé',
+        statutPaiement: returnedTicket?.statutPaiement,
+      );
+      setState(() {
+        _ticketData = updatedTicket;
+        _isValidating = false;
+      });
+      ControleurScannedTicketStore.addFromApi(updatedTicket);
+    } else {
+      setState(() => _isValidating = false);
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(result['message']?.toString() ?? ''),
+        backgroundColor: success
+            ? const Color(0xFF16A34A)
+            : const Color(0xFFE53935),
+      ),
+    );
+  }
+
   Future<void> _openManualValidationDialog() async {
-    _manualCodeController.text = _scannedCode ?? '';
+    _manualCodeController.text = '';
 
     await showDialog<void>(
       context: context,
@@ -106,8 +165,8 @@ class _TicketValidationPageState extends State<TicketValidationPage> {
             controller: _manualCodeController,
             textInputAction: TextInputAction.done,
             decoration: const InputDecoration(
-              labelText: 'Code du ticket',
-              hintText: 'TK-2026-0001',
+              labelText: 'Référence du ticket',
+              hintText: 'FV-TKT-20260930-ABCD',
             ),
           ),
           actions: [
@@ -137,7 +196,7 @@ class _TicketValidationPageState extends State<TicketValidationPage> {
                   borderRadius: BorderRadius.circular(14),
                 ),
               ),
-              child: const Text('Valider'),
+              child: const Text('Rechercher'),
             ),
           ],
         );
@@ -179,7 +238,7 @@ class _TicketValidationPageState extends State<TicketValidationPage> {
                           if (capture.barcodes.isEmpty) return;
                           final value = capture.barcodes.first.rawValue;
                           if (value == null || value.trim().isEmpty) return;
-                          setState(() => _scannedCode = value.trim());
+                          _onQrDetected(value);
                         },
                       ),
                       Container(color: Colors.black.withValues(alpha: 0.18)),
@@ -207,9 +266,11 @@ class _TicketValidationPageState extends State<TicketValidationPage> {
                             borderRadius: BorderRadius.circular(16),
                           ),
                           child: Text(
-                            _scannedCode == null
+                            _isLoading
+                                ? 'Recherche du ticket...'
+                                : _scannedCode == null
                                 ? 'Placez le QR code du ticket dans le cadre'
-                                : 'Code détecté : $_scannedCode',
+                                : 'Référence détectée : $_scannedCode',
                             textAlign: TextAlign.center,
                             style: const TextStyle(
                               color: Colors.white,
@@ -229,9 +290,11 @@ class _TicketValidationPageState extends State<TicketValidationPage> {
                     child: SizedBox(
                       height: 58,
                       child: ElevatedButton.icon(
-                        onPressed: _validateCurrentScan,
-                        icon: const Icon(Icons.qr_code_scanner_rounded),
-                        label: const Text('Scanner'),
+                        onPressed: _scannedCode == null || _isLoading
+                            ? null
+                            : _validateCurrentScan,
+                        icon: const Icon(Icons.search_rounded),
+                        label: const Text('Rechercher'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: red,
                           foregroundColor: Colors.white,
@@ -313,27 +376,8 @@ class _TicketValidationPageState extends State<TicketValidationPage> {
                 const SizedBox(height: 16),
                 _TicketInfoCard(
                   ticket: _ticketData!,
-                  onValider: () async {
-                    final result = await _ticketService.validerEmbarquement(
-                      _ticketData!.id,
-                    );
-                    if (!mounted) return;
-                    final success = result['success'] as bool? ?? false;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(result['message']?.toString() ?? ''),
-                        backgroundColor: success
-                            ? const Color(0xFF16A34A)
-                            : const Color(0xFFE53935),
-                      ),
-                    );
-                    if (success && result['ticket'] != null) {
-                      final updatedTicket =
-                          result['ticket'] as StaffTicketModel;
-                      setState(() => _ticketData = updatedTicket);
-                      ControleurScannedTicketStore.addFromApi(updatedTicket);
-                    }
-                  },
+                  isValidating: _isValidating,
+                  onValider: _isValidating ? null : _validateBoarding,
                 ),
               ],
             ],
@@ -347,8 +391,32 @@ class _TicketValidationPageState extends State<TicketValidationPage> {
 class _TicketInfoCard extends StatelessWidget {
   final StaffTicketModel ticket;
   final VoidCallback? onValider;
+  final bool isValidating;
 
-  const _TicketInfoCard({required this.ticket, this.onValider});
+  const _TicketInfoCard({
+    required this.ticket,
+    this.onValider,
+    this.isValidating = false,
+  });
+
+  String _formatDate(String? value) {
+    if (value == null || value.isEmpty) return '';
+    final dateOnly = value.split(RegExp(r'[T ]')).first;
+    final parts = dateOnly.split('-');
+    if (parts.length == 3 && parts[0].length == 4) {
+      return '${parts[2]}/${parts[1]}/${parts[0]}';
+    }
+    return value;
+  }
+
+  String _formatMoney(double? value) {
+    if (value == null) return '';
+    final formatted = value.round().toString().replaceAllMapped(
+      RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
+      (match) => '${match.group(1)} ',
+    );
+    return '$formatted FCFA';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -356,8 +424,12 @@ class _TicketInfoCard extends StatelessWidget {
     const red = Color(0xFFE53935);
     const green = Color(0xFF16A34A);
 
-    final isEmbarque = ticket.statut == 'valide';
-    final statusColor = isEmbarque ? green : red;
+    final isEmbarque = ticket.isBoarded;
+    final statusColor = ticket.canValidateBoarding
+        ? const Color(0xFF2563EB)
+        : isEmbarque
+        ? green
+        : red;
 
     return Container(
       width: double.infinity,
@@ -385,9 +457,11 @@ class _TicketInfoCard extends StatelessWidget {
                   color: statusColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(15),
                 ),
-                child: const Icon(
-                  Icons.confirmation_number_rounded,
-                  color: red,
+                child: Icon(
+                  isEmbarque
+                      ? Icons.verified_rounded
+                      : Icons.confirmation_number_rounded,
+                  color: statusColor,
                 ),
               ),
               const SizedBox(width: 12),
@@ -420,25 +494,94 @@ class _TicketInfoCard extends StatelessWidget {
             ),
           PercepteurTicketInfoRow(title: 'Trajet', value: ticket.route),
           if (ticket.dateVoyage != null && ticket.dateVoyage!.isNotEmpty)
-            PercepteurTicketInfoRow(title: 'Date', value: ticket.dateVoyage!),
+            PercepteurTicketInfoRow(
+              title: 'Date du voyage',
+              value: _formatDate(ticket.dateVoyage),
+            ),
           if (ticket.heureVoyage != null && ticket.heureVoyage!.isNotEmpty)
             PercepteurTicketInfoRow(title: 'Heure', value: ticket.heureVoyage!),
+          if (ticket.busMatricule?.isNotEmpty ?? false)
+            PercepteurTicketInfoRow(
+              title: 'Bus',
+              value: [ticket.busMatricule, ticket.busMarque]
+                  .whereType<String>()
+                  .where((value) => value.isNotEmpty)
+                  .join(' · '),
+            ),
+          if (ticket.classe?.isNotEmpty ?? false)
+            PercepteurTicketInfoRow(title: 'Classe', value: ticket.classe!),
+          if (ticket.nombrePlaces != null)
+            PercepteurTicketInfoRow(
+              title: 'Nombre de places',
+              value: ticket.nombrePlaces.toString(),
+            ),
           if (ticket.numPlace != null && ticket.numPlace!.isNotEmpty)
-            PercepteurTicketInfoRow(title: 'Siege', value: ticket.numPlace!),
+            PercepteurTicketInfoRow(title: 'Siège', value: ticket.numPlace!),
+          if (ticket.tarifUnitaire != null)
+            PercepteurTicketInfoRow(
+              title: 'Tarif unitaire',
+              value: _formatMoney(ticket.tarifUnitaire),
+            ),
+          if (ticket.montantBase != null)
+            PercepteurTicketInfoRow(
+              title: 'Montant HT',
+              value: _formatMoney(ticket.montantBase),
+            ),
+          if (ticket.tauxTaxe != null || ticket.montantTaxe != null)
+            PercepteurTicketInfoRow(
+              title: 'Taxe',
+              value:
+                  '${ticket.tauxTaxe == null ? '' : '${ticket.tauxTaxe}%'}'
+                  '${ticket.tauxTaxe != null && ticket.montantTaxe != null ? ' · ' : ''}'
+                  '${ticket.montantTaxe == null ? '' : _formatMoney(ticket.montantTaxe)}',
+            ),
+          if (ticket.montantTotal != null)
+            PercepteurTicketInfoRow(
+              title: 'Montant total',
+              value: _formatMoney(ticket.montantTotal),
+            ),
+          if (ticket.modePaiement?.isNotEmpty ?? false)
+            PercepteurTicketInfoRow(
+              title: 'Mode de paiement',
+              value: ticket.modePaiement!,
+            ),
+          PercepteurTicketInfoRow(
+            title: 'Paiement',
+            value: ticket.statutPaiementLabel,
+            color: ticket.canValidateBoarding ? green : null,
+          ),
+          if (ticket.emetteurNom?.isNotEmpty ?? false)
+            PercepteurTicketInfoRow(
+              title: 'Émis par',
+              value: ticket.emetteurNom!,
+            ),
           PercepteurTicketInfoRow(
             title: 'Statut',
             value: ticket.statutLabel,
-            color: isEmbarque ? green : null,
+            color: statusColor,
           ),
-          if (onValider != null && !isEmbarque) ...[
+          if (ticket.canValidateBoarding && onValider != null) ...[
             const SizedBox(height: 14),
             SizedBox(
               width: double.infinity,
               height: 50,
               child: ElevatedButton.icon(
-                onPressed: onValider,
-                icon: const Icon(Icons.check_circle_outline_rounded),
-                label: const Text('Valider embarquement'),
+                onPressed: isValidating ? null : onValider,
+                icon: isValidating
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.check_circle_outline_rounded),
+                label: Text(
+                  isValidating
+                      ? 'Validation en cours...'
+                      : 'Valider embarquement',
+                ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF16A34A),
                   foregroundColor: Colors.white,
@@ -451,6 +594,41 @@ class _TicketInfoCard extends StatelessWidget {
                     fontWeight: FontWeight.w900,
                   ),
                 ),
+              ),
+            ),
+          ] else ...[
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: statusColor.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    isEmbarque
+                        ? Icons.check_circle_outline_rounded
+                        : Icons.info_outline_rounded,
+                    color: statusColor,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      isEmbarque
+                          ? 'Embarquement déjà validé.'
+                          : ticket.statutPaiementLabel != 'Payé'
+                          ? 'Validation impossible : le paiement du ticket n’est pas confirmé.'
+                          : 'Ticket non valide pour embarquement (statut : ${ticket.statutLabel}).',
+                      style: TextStyle(
+                        color: statusColor,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],

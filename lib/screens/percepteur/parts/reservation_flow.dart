@@ -20,7 +20,8 @@ import 'package:code_initial/data/local/session_store.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:code_initial/screens/percepteur/parts/notifications_section.dart';
 import 'package:code_initial/screens/percepteur/parts/ticket_validation_section.dart';
-import 'package:code_initial/screens/percepteur/parts/percepteur_access_gate.dart';
+import 'package:code_initial/screens/percepteur/parts/assignments_section.dart';
+import 'package:code_initial/screens/percepteur/parts/percepteur_ticket_print_page.dart';
 
 // Reservation percepteur: donnees, formulaire, paiement, billet et presence.
 
@@ -44,6 +45,16 @@ class PercepteurReservationRecord {
   final DateTime? travelDate;
   final int? taxGroupId;
   final double? baseAmount;
+  final double? taxAmount;
+  final double? taxRate;
+  final String? taxGroupLabel;
+  final String? taxGroupCode;
+  final String? mecefCode;
+  final String? mecefNim;
+  final String? mecefCounters;
+  final String? mecefDate;
+  final String? mecefQrCode;
+  final String issuerName;
   final String passengerFirstName;
   final String passengerLastName;
 
@@ -67,6 +78,16 @@ class PercepteurReservationRecord {
     this.travelDate,
     this.taxGroupId,
     this.baseAmount,
+    this.taxAmount,
+    this.taxRate,
+    this.taxGroupLabel,
+    this.taxGroupCode,
+    this.mecefCode,
+    this.mecefNim,
+    this.mecefCounters,
+    this.mecefDate,
+    this.mecefQrCode,
+    this.issuerName = '',
     this.passengerFirstName = '',
     this.passengerLastName = '',
   });
@@ -75,6 +96,17 @@ class PercepteurReservationRecord {
     String? status,
     String? busMatricule,
     String? reference,
+    double? baseAmount,
+    double? taxAmount,
+    double? taxRate,
+    String? taxGroupLabel,
+    String? taxGroupCode,
+    String? mecefCode,
+    String? mecefNim,
+    String? mecefCounters,
+    String? mecefDate,
+    String? mecefQrCode,
+    String? issuerName,
   }) {
     return PercepteurReservationRecord(
       reference: reference ?? this.reference,
@@ -95,7 +127,17 @@ class PercepteurReservationRecord {
       userId: userId,
       travelDate: travelDate,
       taxGroupId: taxGroupId,
-      baseAmount: baseAmount,
+      baseAmount: baseAmount ?? this.baseAmount,
+      taxAmount: taxAmount ?? this.taxAmount,
+      taxRate: taxRate ?? this.taxRate,
+      taxGroupLabel: taxGroupLabel ?? this.taxGroupLabel,
+      taxGroupCode: taxGroupCode ?? this.taxGroupCode,
+      mecefCode: mecefCode ?? this.mecefCode,
+      mecefNim: mecefNim ?? this.mecefNim,
+      mecefCounters: mecefCounters ?? this.mecefCounters,
+      mecefDate: mecefDate ?? this.mecefDate,
+      mecefQrCode: mecefQrCode ?? this.mecefQrCode,
+      issuerName: issuerName ?? this.issuerName,
       passengerFirstName: passengerFirstName,
       passengerLastName: passengerLastName,
     );
@@ -116,6 +158,19 @@ class PercepteurReservationRecord {
     final firstName = json['prenom_passager']?.toString() ?? '';
     final lastName = json['nom_passager']?.toString() ?? '';
     final rawStatus = json['statut']?.toString() ?? 'en_attente';
+    final rawTaxGroup = json['taxe_groupe'];
+    final taxGroup = rawTaxGroup is Map
+        ? Map<String, dynamic>.from(rawTaxGroup)
+        : <String, dynamic>{};
+    final rawMecef = json['mecef_response'];
+    final mecef = rawMecef is Map
+        ? Map<String, dynamic>.from(rawMecef)
+        : <String, dynamic>{};
+    final rawIssuer = json['emetteur'];
+    final issuer = rawIssuer is Map
+        ? Map<String, dynamic>.from(rawIssuer)
+        : <String, dynamic>{};
+    final mecefConfirmed = mecef['status']?.toString() == 'confirmed';
     return PercepteurReservationRecord(
       reference: json['reference']?.toString() ?? '',
       departure:
@@ -147,8 +202,43 @@ class PercepteurReservationRecord {
         _ => rawStatus,
       },
       rawStatus: rawStatus,
+      taxGroupId: int.tryParse(json['taxe_group_id']?.toString() ?? ''),
+      baseAmount: double.tryParse(json['montant_base']?.toString() ?? ''),
+      taxAmount: double.tryParse(json['montant_taxe']?.toString() ?? ''),
+      taxRate: double.tryParse(json['taxe_taux']?.toString() ?? ''),
+      taxGroupLabel: taxGroup['label']?.toString(),
+      taxGroupCode: taxGroup['code']?.toString(),
+      mecefCode: mecefConfirmed ? mecef['code_mecef']?.toString() : null,
+      mecefNim: mecef['nim']?.toString(),
+      mecefCounters: mecef['counters']?.toString(),
+      mecefDate: mecef['date_mecef']?.toString(),
+      mecefQrCode: mecef['qr_code']?.toString(),
+      issuerName: '${issuer['prenom'] ?? ''} ${issuer['nom'] ?? ''}'.trim(),
     );
   }
+
+  Map<String, dynamic> toPrintMap() => {
+    'reference': reference,
+    'departure': departure,
+    'destination': destination,
+    'date': date,
+    'time': time,
+    'passengerCount': passengerCount,
+    'passengerName': passengerName,
+    'phone': phone,
+    'price': price,
+    'baseAmount': baseAmount,
+    'taxAmount': taxAmount ?? 0,
+    'taxRate': taxRate ?? 0,
+    'taxGroupLabel': taxGroupLabel,
+    'taxGroupCode': taxGroupCode,
+    'mecefCode': mecefCode,
+    'mecefNim': mecefNim,
+    'mecefCounters': mecefCounters,
+    'mecefDate': mecefDate,
+    'mecefQrCode': mecefQrCode,
+    'issuerName': issuerName,
+  };
 }
 
 class PercepteurReservationStore {
@@ -714,6 +804,10 @@ class PercepteurReservationPageState extends State<PercepteurReservationPage> {
           travelDate: _travelDate!,
           taxGroupId: _selectedTax?.id,
           baseAmount: _baseAmount,
+          taxAmount: _currentAmount() - _baseAmount,
+          taxRate: _selectedTax?.rate ?? 0,
+          taxGroupLabel: _selectedTax?.label,
+          taxGroupCode: _selectedTax?.code,
         ),
       ),
     );
@@ -740,103 +834,101 @@ class PercepteurReservationPageState extends State<PercepteurReservationPage> {
 
   @override
   Widget build(BuildContext context) {
-    return PercepteurAccessGate(
-      child: Scaffold(
-        backgroundColor: const Color(0xFFF7F9FF),
-        body: SafeArea(
-          bottom: false,
-          child: Column(
-            children: [
-              Container(
-                width: double.infinity,
-                decoration: const BoxDecoration(
-                  image: DecorationImage(
-                    image: AssetImage('assets/images/coli1.jpg'),
-                    fit: BoxFit.cover,
-                    colorFilter: ColorFilter.mode(
-                      Color(0x99060E27),
-                      BlendMode.darken,
-                    ),
-                  ),
-                  borderRadius: BorderRadius.vertical(
-                    bottom: Radius.circular(30),
+    return Scaffold(
+      backgroundColor: const Color(0xFFF7F9FF),
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            Container(
+              width: double.infinity,
+              decoration: const BoxDecoration(
+                image: DecorationImage(
+                  image: AssetImage('assets/images/coli1.jpg'),
+                  fit: BoxFit.cover,
+                  colorFilter: ColorFilter.mode(
+                    Color(0x99060E27),
+                    BlendMode.darken,
                   ),
                 ),
-                padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: PercepteurHeaderIconButton(
-                            icon: Icons.arrow_back_rounded,
-                            onTap: () => Navigator.of(context).maybePop(),
-                          ),
+                borderRadius: BorderRadius.vertical(
+                  bottom: Radius.circular(30),
+                ),
+              ),
+              padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: PercepteurHeaderIconButton(
+                          icon: Icons.arrow_back_rounded,
+                          onTap: () => Navigator.of(context).maybePop(),
                         ),
-                        Image.asset(
-                          'assets/images/logo_fofana_no_background.png',
-                          height: 44,
-                          width: 142,
-                          fit: BoxFit.contain,
-                        ),
-                      ],
+                      ),
+                      Image.asset(
+                        'assets/images/logo_fofana_no_background.png',
+                        height: 44,
+                        width: 142,
+                        fit: BoxFit.contain,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 22),
+                  const Text(
+                    'Réserver un billet',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 26,
+                      fontWeight: FontWeight.w900,
                     ),
-                    const SizedBox(height: 22),
-                    const Text(
-                      'Réserver un billet',
+                  ),
+                  const SizedBox(height: 14),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.35),
+                      ),
+                    ),
+                    child: const Text(
+                      'Réservation percepteur',
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 26,
                         fontWeight: FontWeight.w900,
+                        fontSize: 14,
                       ),
                     ),
-                    const SizedBox(height: 14),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 18,
-                        vertical: 10,
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _buildReservationForm(),
+                    const SizedBox(height: 18),
+                    if (PercepteurReservationStore.reservations.isNotEmpty)
+                      ...PercepteurReservationStore.reservations.map(
+                        (item) => PercepteurReservationCard(item: item),
                       ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.18),
-                        borderRadius: BorderRadius.circular(999),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.35),
-                        ),
-                      ),
-                      child: const Text(
-                        'Réservation percepteur',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w900,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
                   ],
                 ),
               ),
-              Expanded(
-                child: SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _buildReservationForm(),
-                      const SizedBox(height: 18),
-                      if (PercepteurReservationStore.reservations.isNotEmpty)
-                        ...PercepteurReservationStore.reservations.map(
-                          (item) => PercepteurReservationCard(item: item),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -1527,6 +1619,10 @@ class PercepteurPaymentDetailsPage extends StatefulWidget {
   final DateTime travelDate;
   final int? taxGroupId;
   final double baseAmount;
+  final double taxAmount;
+  final double taxRate;
+  final String? taxGroupLabel;
+  final String? taxGroupCode;
 
   const PercepteurPaymentDetailsPage({
     super.key,
@@ -1541,6 +1637,10 @@ class PercepteurPaymentDetailsPage extends StatefulWidget {
     required this.busMatricule,
     required this.travelDate,
     required this.baseAmount,
+    required this.taxAmount,
+    required this.taxRate,
+    this.taxGroupLabel,
+    this.taxGroupCode,
     this.taxGroupId,
     required this.time,
   });
@@ -1627,6 +1727,10 @@ class PercepteurPaymentDetailsPageState
       travelDate: widget.travelDate,
       taxGroupId: widget.taxGroupId,
       baseAmount: widget.baseAmount,
+      taxAmount: widget.taxAmount,
+      taxRate: widget.taxRate,
+      taxGroupLabel: widget.taxGroupLabel,
+      taxGroupCode: widget.taxGroupCode,
       passengerFirstName:
           _selectedFirstName ??
           _passengerNameController.text.trim().split(RegExp(r'\s+')).first,
@@ -1883,6 +1987,7 @@ class PercepteurPaymentChoicePageState
   bool _checkingPayment = false;
   Timer? _pollTimer;
   String? _paymentMessage;
+  Map<String, dynamic>? _issuedTicketData;
 
   static const Color _deepBlue = Color(0xFF0B4F2A);
 
@@ -1945,6 +2050,7 @@ class PercepteurPaymentChoicePageState
   Future<void> _emitTicket(
     String modePaiement, {
     bool continueToPayment = false,
+    bool accessRetry = false,
   }) async {
     if (_processing || _ticketReference != null) return;
     final draft = widget.reservation;
@@ -2009,11 +2115,14 @@ class PercepteurPaymentChoicePageState
         taxGroupId: draft.taxGroupId,
         montantBase: draft.baseAmount,
         montantManuel: widget.priceAmount.toDouble(),
+        montantTaxe: draft.taxAmount,
+        taxeTaux: draft.taxRate,
         modePaiement: modePaiement,
       );
       final ticket = response['ticket'] is Map
           ? Map<String, dynamic>.from(response['ticket'] as Map)
           : response;
+      _issuedTicketData = ticket;
       final reference = ticket['reference']?.toString();
       if (reference == null || reference.isEmpty) {
         throw Exception('La référence du ticket est absente.');
@@ -2026,11 +2135,41 @@ class PercepteurPaymentChoicePageState
       if (continueToPayment) {
         await _initiatePayment(_selectedProvider!, _selectedMethod!);
       } else {
-        _completeReservation('Confirmée - Espèces', reference: reference);
+        _completeReservation(
+          'Confirmée - Espèces',
+          reference: reference,
+          ticketData: ticket,
+        );
       }
     } catch (error) {
       if (!mounted) return;
       setState(() => _processing = false);
+      if (!accessRetry &&
+          error.toString().contains('Votre section est fermée.')) {
+        final sessionActivated = await Navigator.of(context).push<bool>(
+          MaterialPageRoute(
+            builder: (_) =>
+                const PercepteurConnectionPage(closeOnActivation: true),
+          ),
+        );
+        if (!mounted) return;
+        if (sessionActivated == true) {
+          await _emitTicket(
+            modePaiement,
+            continueToPayment: continueToPayment,
+            accessRetry: true,
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'La réservation nécessite une session active. Activez votre code puis réessayez.',
+              ),
+            ),
+          );
+        }
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(error.toString().replaceFirst('Exception: ', '')),
@@ -2165,6 +2304,9 @@ class PercepteurPaymentChoicePageState
           _completeReservation(
             'Confirmée - Mobile Money',
             reference: _ticketReference,
+            ticketData: result['payable'] is Map
+                ? Map<String, dynamic>.from(result['payable'] as Map)
+                : _issuedTicketData,
           );
         }
       } catch (error) {
@@ -2181,10 +2323,27 @@ class PercepteurPaymentChoicePageState
     });
   }
 
-  void _completeReservation(String status, {String? reference}) {
+  void _completeReservation(
+    String status, {
+    String? reference,
+    Map<String, dynamic>? ticketData,
+  }) {
     final reservation = widget.reservation.copyWith(
       reference: reference ?? _ticketReference,
       status: status,
+      baseAmount: _number(ticketData?['montant_base']),
+      taxAmount: _number(ticketData?['montant_taxe']),
+      taxRate: _number(ticketData?['taxe_taux']),
+      taxGroupLabel: _map(ticketData?['taxe_groupe'])['label']?.toString(),
+      taxGroupCode: _map(ticketData?['taxe_groupe'])['code']?.toString(),
+      mecefCode: _confirmedMecef(ticketData)?['code_mecef']?.toString(),
+      mecefNim: _map(ticketData?['mecef_response'])['nim']?.toString(),
+      mecefCounters: _map(
+        ticketData?['mecef_response'],
+      )['counters']?.toString(),
+      mecefDate: _map(ticketData?['mecef_response'])['date_mecef']?.toString(),
+      mecefQrCode: _map(ticketData?['mecef_response'])['qr_code']?.toString(),
+      issuerName: _issuerName(ticketData?['emetteur']),
     );
     PercepteurReservationStore.add(reservation);
     PercepteurNotificationStore.add(
@@ -2195,9 +2354,25 @@ class PercepteurPaymentChoicePageState
 
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
-        builder: (_) => PercepteurGeneratedTicketPage(reservation: reservation),
+        builder: (_) =>
+            PercepteurTicketPrintPage(ticket: reservation.toPrintMap()),
       ),
     );
+  }
+
+  Map<String, dynamic> _map(Object? value) =>
+      value is Map ? Map<String, dynamic>.from(value) : {};
+
+  Map<String, dynamic>? _confirmedMecef(Map<String, dynamic>? ticket) {
+    final mecef = _map(ticket?['mecef_response']);
+    return mecef['status']?.toString() == 'confirmed' ? mecef : null;
+  }
+
+  double? _number(Object? value) => double.tryParse(value?.toString() ?? '');
+
+  String _issuerName(Object? value) {
+    final issuer = _map(value);
+    return '${issuer['prenom'] ?? ''} ${issuer['nom'] ?? ''}'.trim();
   }
 
   @override

@@ -1,101 +1,42 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:code_initial/models/expense_model.dart';
+import 'package:code_initial/services/expense_service.dart';
 
-/// Singleton en mémoire pour stocker et notifier les changements
-/// des dépenses du percepteur.
 class ExpenseStore {
   static final ExpenseStore _instance = ExpenseStore._internal();
 
-  factory ExpenseStore() {
-    return _instance;
-  }
+  factory ExpenseStore() => _instance;
 
   ExpenseStore._internal();
 
-  final List<ExpenseModel> _expenses = [];
-  final ValueNotifier<List<ExpenseModel>> expensesNotifier = ValueNotifier([]);
-  final ValueNotifier<int> expenseCountNotifier = ValueNotifier(0);
+  final ExpenseService _service = ExpenseService();
+  final ValueNotifier<List<ExpenseModel>> expensesNotifier =
+      ValueNotifier<List<ExpenseModel>>(<ExpenseModel>[]);
+  final ValueNotifier<int> expenseCountNotifier = ValueNotifier<int>(0);
 
-  /// Retourne l'ensemble des dépenses en mémoire.
-  List<ExpenseModel> get allExpenses => _expenses;
-
-  /// Liste des dépenses en cours de traitement.
+  List<ExpenseModel> get allExpenses => expensesNotifier.value;
   List<ExpenseModel> get ongoingExpenses =>
-      _expenses.where((e) => e.status == "En cours").toList();
-
-  /// Liste des dépenses déjà traitées (validées ou rejetées).
+      allExpenses.where((expense) => expense.isDraft).toList();
   List<ExpenseModel> get historicalExpenses =>
-      _expenses.where((e) => e.status != "En cours").toList();
+      allExpenses.where((expense) => !expense.isDraft).toList();
 
-  // Add expense
-  void addExpense(ExpenseModel expense) {
-    _expenses.add(expense);
-    _updateNotifiers();
+  Future<void> refresh() async {
+    final expenses = await _service.listAll();
+    expensesNotifier.value = expenses;
+    expenseCountNotifier.value = expenses.length;
   }
 
-  // Add multiple expenses
-  void addExpenses(List<ExpenseModel> expenses) {
-    _expenses.addAll(expenses);
-    _updateNotifiers();
+  void addOrUpdate(ExpenseModel expense) {
+    final updated = [...expensesNotifier.value]
+      ..removeWhere((item) => item.id == expense.id)
+      ..insert(0, expense);
+    expensesNotifier.value = updated;
+    expenseCountNotifier.value = updated.length;
   }
 
-  // Update expense
-  void updateExpense(String id, ExpenseModel updatedExpense) {
-    final index = _expenses.indexWhere((e) => e.id == id);
-    if (index != -1) {
-      _expenses[index] = updatedExpense;
-      _updateNotifiers();
-    }
-  }
+  double getTotalOngoingAmount() =>
+      ongoingExpenses.fold(0, (sum, expense) => sum + expense.totalAmount);
 
-  // Delete expense
-  void deleteExpense(String id) {
-    _expenses.removeWhere((e) => e.id == id);
-    _updateNotifiers();
-  }
-
-  /// Met à jour le statut d'une dépense existante.
-  ///
-  /// Exemple de statut : "En cours", "Validé", "Rejeté".
-  void updateExpenseStatus(String id, String newStatus) {
-    final index = _expenses.indexWhere((e) => e.id == id);
-    if (index != -1) {
-      _expenses[index] = _expenses[index].copyWith(status: newStatus);
-      _updateNotifiers();
-    }
-  }
-
-  // Clear all expenses
-  void clearExpenses() {
-    _expenses.clear();
-    _updateNotifiers();
-  }
-
-  // Clear ongoing expenses
-  void clearOngoingExpenses() {
-    _expenses.removeWhere((e) => e.status == "En cours");
-    _updateNotifiers();
-  }
-
-  // Private method to update all notifiers
-  void _updateNotifiers() {
-    expensesNotifier.value = [..._expenses];
-    expenseCountNotifier.value = _expenses.length;
-  }
-
-  // Get total amount of ongoing expenses
-  double getTotalOngoingAmount() {
-    return ongoingExpenses.fold(
-      0,
-      (sum, expense) => sum + (expense.cost * expense.quantity),
-    );
-  }
-
-  // Get total amount of all expenses
-  double getTotalAmount() {
-    return _expenses.fold(
-      0,
-      (sum, expense) => sum + (expense.cost * expense.quantity),
-    );
-  }
+  double getTotalAmount() =>
+      allExpenses.fold(0, (sum, expense) => sum + expense.totalAmount);
 }

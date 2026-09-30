@@ -51,6 +51,8 @@ class ColisModel {
   final String statutPaiement;
   final double montant;
   final double montantBase;
+  final double montantTaxe;
+  final double tauxTaxe;
   final String modePaiement;
   final double valeurEstime;
   final int nombreColis;
@@ -77,6 +79,8 @@ class ColisModel {
     required this.statutPaiement,
     required this.montant,
     this.montantBase = 0,
+    this.montantTaxe = 0,
+    this.tauxTaxe = 0,
     required this.modePaiement,
     this.valeurEstime = 0,
     this.nombreColis = 1,
@@ -95,14 +99,19 @@ class ColisModel {
     if (json['colis_details'] != null) {
       if (json['colis_details'] is List) {
         details = (json['colis_details'] as List)
-            .map((item) => ColisDetailItem.fromJson(item as Map<String, dynamic>))
+            .map(
+              (item) => ColisDetailItem.fromJson(item as Map<String, dynamic>),
+            )
             .toList();
       } else if (json['colis_details'] is String) {
         try {
           final decoded = jsonDecode(json['colis_details']);
           if (decoded is List) {
             details = decoded
-                .map((item) => ColisDetailItem.fromJson(item as Map<String, dynamic>))
+                .map(
+                  (item) =>
+                      ColisDetailItem.fromJson(item as Map<String, dynamic>),
+                )
                 .toList();
           }
         } catch (_) {}
@@ -129,24 +138,44 @@ class ColisModel {
     }
 
     return ColisModel(
-      id: json['id'] is int ? json['id'] : (int.tryParse(json['id']?.toString() ?? '0') ?? 0),
+      id: json['id'] is int
+          ? json['id']
+          : (int.tryParse(json['id']?.toString() ?? '0') ?? 0),
       reference: json['reference']?.toString() ?? '',
       qrCode: json['qr_code']?.toString(),
-      agenceDepotId: json['agence_depot_id'] != null ? int.tryParse(json['agence_depot_id'].toString()) : null,
-      agenceRetraitId: json['agence_retrait_id'] != null ? int.tryParse(json['agence_retrait_id'].toString()) : null,
-      expediteurId: json['expediteur_id'] != null ? int.tryParse(json['expediteur_id'].toString()) : null,
-      destinataireId: json['destinataire_id'] != null ? int.tryParse(json['destinataire_id'].toString()) : null,
-      enregistreurId: json['enregistreur_id'] != null ? int.tryParse(json['enregistreur_id'].toString()) : null,
+      agenceDepotId: json['agence_depot_id'] != null
+          ? int.tryParse(json['agence_depot_id'].toString())
+          : null,
+      agenceRetraitId: json['agence_retrait_id'] != null
+          ? int.tryParse(json['agence_retrait_id'].toString())
+          : null,
+      expediteurId: json['expediteur_id'] != null
+          ? int.tryParse(json['expediteur_id'].toString())
+          : null,
+      destinataireId: json['destinataire_id'] != null
+          ? int.tryParse(json['destinataire_id'].toString())
+          : null,
+      enregistreurId: json['enregistreur_id'] != null
+          ? int.tryParse(json['enregistreur_id'].toString())
+          : null,
       colisDetails: details,
       statut: json['statut']?.toString() ?? 'brouillon',
-      statutPaiement: json['statut_paiement']?.toString() ?? 'en_attente_paiement',
+      statutPaiement:
+          json['statut_paiement']?.toString() ?? 'en_attente_paiement',
       montant: double.tryParse(json['montant']?.toString() ?? '0') ?? 0,
-      montantBase: double.tryParse(json['montant_base']?.toString() ?? '0') ?? 0,
+      montantBase:
+          double.tryParse(json['montant_base']?.toString() ?? '0') ?? 0,
+      montantTaxe:
+          double.tryParse(json['montant_taxe']?.toString() ?? '0') ?? 0,
+      tauxTaxe: double.tryParse(json['taxe_taux']?.toString() ?? '0') ?? 0,
       modePaiement: json['mode_paiement']?.toString() ?? 'MOBILEMONEY',
-      valeurEstime: double.tryParse(json['valeur_estime']?.toString() ?? '0') ?? 0,
+      valeurEstime:
+          double.tryParse(json['valeur_estime']?.toString() ?? '0') ?? 0,
       nombreColis: int.tryParse(json['nombre_colis']?.toString() ?? '1') ?? 1,
       origine: json['origine']?.toString() ?? 'en_externe',
-      createdAt: json['created_at'] != null ? DateTime.tryParse(json['created_at'].toString()) : null,
+      createdAt: json['created_at'] != null
+          ? DateTime.tryParse(json['created_at'].toString())
+          : null,
       agenceDepotNom: agenceDepot?['nom_agence']?.toString(),
       agenceRetraitNom: agenceRetrait?['nom_agence']?.toString(),
       expediteurNom: expNom,
@@ -158,12 +187,16 @@ class ColisModel {
 
   ParcelRecord toParcelRecord() {
     final firstDetail = colisDetails.isNotEmpty ? colisDetails.first : null;
-    final natureSummary = colisDetails.map((d) => '${d.nature} x${d.nombre}').join(', ');
+    final natureSummary = colisDetails
+        .map((d) => '${d.nature} x${d.nombre}')
+        .join(', ');
 
     String displayStatus;
     switch (statut) {
       case 'brouillon':
-        displayStatus = statutPaiement == 'payé' ? 'Payé (Brouillon)' : 'En attente';
+        displayStatus = statutPaiement == 'payé'
+            ? 'Payé (Brouillon)'
+            : 'En attente';
         break;
       case 'a_expedier':
         displayStatus = 'Enregistré';
