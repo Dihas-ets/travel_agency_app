@@ -110,6 +110,50 @@ class TicketService {
     return tickets;
   }
 
+  /// Returns tickets booked by clients whose departure belongs to the
+  /// authenticated staff member's agency.
+  Future<List<Map<String, dynamic>>> getTicketsClientsAgence() async {
+    final tickets = <Map<String, dynamic>>[];
+    var page = 1;
+    var lastPage = 1;
+    do {
+      final uri = Uri.parse('$baseUrl/tickets').replace(
+        queryParameters: {
+          'origine': 'en_externe',
+          'per_page': '100',
+          'page': page.toString(),
+        },
+      );
+      final response = await http
+          .get(uri, headers: await _headers())
+          .timeout(const Duration(seconds: 12));
+      if (response.statusCode != 200) {
+        throw Exception(
+          _errorMessage(
+            response,
+            'Impossible de charger les réservations de l’agence.',
+          ),
+        );
+      }
+
+      final decoded = jsonDecode(response.body);
+      final rows = decoded is Map ? decoded['data'] : decoded;
+      if (rows is! List) {
+        throw const FormatException(
+          'Réponse invalide lors du chargement des réservations de l’agence.',
+        );
+      }
+      tickets.addAll(
+        rows.whereType<Map>().map((item) => Map<String, dynamic>.from(item)),
+      );
+      if (decoded is Map) {
+        lastPage = int.tryParse(decoded['last_page']?.toString() ?? '') ?? page;
+      }
+      page++;
+    } while (page <= lastPage);
+    return tickets;
+  }
+
   /// Annule une réservation/un ticket côté client.
   Future<Map<String, dynamic>> annulerClient(int ticketId) async {
     final response = await http
@@ -260,6 +304,7 @@ class TicketService {
     required String heureVoyage,
     required bool tiers,
     String modePaiement = 'MOBILEMONEY',
+    bool useMecef = true,
     String? nomPassager,
     String? prenomPassager,
     String? numeroPassager,
@@ -287,6 +332,7 @@ class TicketService {
       if (tiers) 'numero_passager': numeroPassager,
       'nbre_place': nbrePlace,
       'mode_paiement': modePaiement,
+      'use_mecef': useMecef,
       if (taxGroupId != null) 'taxe_group_id': taxGroupId,
       if (montantBase != null) 'montant_base': montantBase,
       if (montantManuel != null) 'montant_manuel': montantManuel,

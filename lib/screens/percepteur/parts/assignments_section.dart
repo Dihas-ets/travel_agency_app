@@ -144,7 +144,13 @@ class PercepteurAssignmentRecord {
     String fullName(Map<String, dynamic> user) =>
         '${user['prenom'] ?? ''} ${user['nom'] ?? ''}'.trim();
     String formatDate(Object? value) {
-      final parsed = DateTime.tryParse(value?.toString() ?? '');
+      final rawDate = value?.toString() ?? '';
+      final dateOnly =
+          rawDate.length >= 10 &&
+              RegExp(r'^\d{4}-\d{2}-\d{2}').hasMatch(rawDate)
+          ? rawDate.substring(0, 10)
+          : rawDate;
+      final parsed = DateTime.tryParse(dateOnly);
       if (parsed == null) return value?.toString() ?? '-';
       const months = [
         'janvier',
@@ -1423,12 +1429,13 @@ class PercepteurConnectionPageState extends State<PercepteurConnectionPage> {
       if (!mounted || !_isSessionActive) return;
       final endsAt = _sessionEndsAt;
       if (endsAt == null) return;
-      final remaining = endsAt.difference(DateTime.now()).inSeconds;
+      final deadlineRemaining = endsAt.difference(DateTime.now()).inSeconds;
+      final tickRemaining = _sessionRemaining - 1;
+      final remaining = deadlineRemaining < tickRemaining
+          ? deadlineRemaining
+          : tickRemaining;
       if (remaining <= 0) {
-        setState(() {
-          _sessionRemaining = 0;
-          _isSessionActive = false;
-        });
+        setState(() => _sessionRemaining = 0);
         _sessionTimer?.cancel();
         return;
       }
@@ -1559,7 +1566,7 @@ class PercepteurConnectionPageState extends State<PercepteurConnectionPage> {
           : null;
       if (session.isActive) _showAccessCodeForm = false;
     });
-    if (_isSessionActive && _sessionEndsAt != null) {
+    if (_isSessionActive && _sessionEndsAt != null && _sessionRemaining > 0) {
       _startSessionTimer();
     } else {
       _sessionTimer?.cancel();
@@ -1581,6 +1588,23 @@ class PercepteurConnectionPageState extends State<PercepteurConnectionPage> {
       _sessionError = null;
     });
     try {
+      final currentSession = await _service.getMySession();
+      if (!mounted) return;
+      if (currentSession['session_active'] == true) {
+        _applySession(currentSession);
+        _accessCodeController.clear();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Votre session est déjà activée.'),
+            backgroundColor: _deepBlue,
+          ),
+        );
+        if (widget.closeOnActivation) {
+          Navigator.of(context).pop(true);
+        }
+        return;
+      }
+
       final activation = await _service.activateAccessCode(code);
       if (!mounted) return;
       final access = activation['access'] is Map
@@ -1609,7 +1633,35 @@ class PercepteurConnectionPageState extends State<PercepteurConnectionPage> {
       }
     } catch (error) {
       if (!mounted) return;
-      final message = _activationErrorMessage(error);
+      var message = _activationErrorMessage(error);
+      if (message.toLowerCase().contains('déjà utilisé')) {
+        try {
+          final currentSession = await _service.getMySession();
+          if (!mounted) return;
+          if (currentSession['session_active'] == true) {
+            _applySession(currentSession);
+            _accessCodeController.clear();
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Votre session est déjà activée.'),
+                backgroundColor: _deepBlue,
+              ),
+            );
+            if (widget.closeOnActivation) {
+              Navigator.of(context).pop(true);
+            }
+            return;
+          }
+          message =
+              'Ce code a déjà été utilisé et aucune session active n’est associée à votre compte. '
+              'Demandez à l’administrateur de générer un nouveau code.';
+        } catch (sessionError) {
+          message =
+              'Le code a déjà été utilisé. Impossible de vérifier votre session : '
+              '${sessionError.toString().replaceFirst('Exception: ', '')}';
+        }
+      }
+      if (!mounted) return;
       setState(() {
         _isLoadingSession = false;
         _sessionError = message;

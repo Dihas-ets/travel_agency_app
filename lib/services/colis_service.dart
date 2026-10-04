@@ -11,15 +11,22 @@ class ColisService {
 
   /// Créer / Enregistrer un colis sur le backend Laravel (`POST /api/colis`)
   Future<Map<String, dynamic>> createColis({
-    required int agenceDepotId,
+    int? agenceDepotId,
     required int agenceRetraitId,
     required String expediteurNom,
     required String expediteurTel,
     required String destinataireNom,
     required String destinataireTel,
     required String modePaiement,
+    bool useMecef = true,
     required double valeurEstime,
     required List<Map<String, dynamic>> colisDetails,
+    double? montantManuel,
+    double? montantBase,
+    double? montantTaxe,
+    int? taxeGroupId,
+    double? taxeTaux,
+    String? destinataireTelSecondaire,
     List<XFile?>? images,
   }) async {
     final uri = Uri.parse('$baseUrl/colis');
@@ -31,14 +38,35 @@ class ColisService {
       request.headers['Authorization'] = 'Bearer $token';
     }
 
-    request.fields['agence_depot_id'] = agenceDepotId.toString();
+    if (agenceDepotId != null) {
+      request.fields['agence_depot_id'] = agenceDepotId.toString();
+    }
     request.fields['agence_retrait_id'] = agenceRetraitId.toString();
     request.fields['expediteur_nom'] = expediteurNom;
     request.fields['expediteur_tel'] = expediteurTel;
     request.fields['destinataire_nom'] = destinataireNom;
     request.fields['destinataire_tel1'] = destinataireTel;
     request.fields['mode_paiement'] = modePaiement;
+    request.fields['use_mecef'] = useMecef ? '1' : '0';
     request.fields['valeur_estime'] = valeurEstime.toString();
+    if (montantManuel != null) {
+      request.fields['montant_manuel'] = montantManuel.toString();
+    }
+    if (montantBase != null) {
+      request.fields['montant_base'] = montantBase.toString();
+    }
+    if (montantTaxe != null) {
+      request.fields['montant_taxe'] = montantTaxe.toString();
+    }
+    if (taxeGroupId != null) {
+      request.fields['taxe_group_id'] = taxeGroupId.toString();
+    }
+    if (taxeTaux != null) {
+      request.fields['taxe_taux'] = taxeTaux.toString();
+    }
+    if (destinataireTelSecondaire?.trim().isNotEmpty == true) {
+      request.fields['destinataire_tel2'] = destinataireTelSecondaire!.trim();
+    }
 
     for (int i = 0; i < colisDetails.length; i++) {
       final detail = colisDetails[i];
@@ -193,6 +221,8 @@ class ColisService {
   Future<List<ColisModel>> getColisStaff({
     String? statut,
     String? search,
+    int? agenceDepotId,
+    String? origine,
   }) async {
     final token = await AuthLocalStore.getToken();
     final parcels = <ColisModel>[];
@@ -205,6 +235,9 @@ class ColisService {
           'page': page.toString(),
           'per_page': '100',
           if (statut != null && statut.isNotEmpty) 'statut': statut,
+          if (agenceDepotId != null)
+            'agence_depot_id': agenceDepotId.toString(),
+          if (origine != null && origine.isNotEmpty) 'origine': origine,
           if (search != null && search.trim().isNotEmpty)
             'search': search.trim(),
         },
@@ -263,6 +296,10 @@ class ColisService {
   /// Passe un colis enregistré au statut en_transit.
   Future<void> chargerColisStaff(int id) async {
     await _sendStaffColisAction(id: id, action: 'charger');
+  }
+
+  Future<void> annulerColisStaff(int id) async {
+    await _sendStaffColisAction(id: id, action: 'annuler');
   }
 
   Future<void> _sendStaffColisAction({

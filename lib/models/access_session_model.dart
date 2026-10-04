@@ -4,7 +4,7 @@ class AccessSession {
 
   const AccessSession({required this.isActive, required this.endsAt});
 
-  factory AccessSession.fromJson(Map<String, dynamic> json, {DateTime? now}) {
+  factory AccessSession.fromJson(Map<String, dynamic> json) {
     final access = _mapOf(json['access']);
     final assignment = _mapOf(access['affectation']);
     final rawDate =
@@ -16,11 +16,8 @@ class AccessSession {
         access['heure_fin'] ??
         assignment['heure_fin'];
     final endsAt = _parseMoment(rawDate, rawTime);
-    final currentTime = now ?? DateTime.now();
     return AccessSession(
-      isActive:
-          json['session_active'] == true &&
-          (endsAt == null || endsAt.isAfter(currentTime)),
+      isActive: json['session_active'] == true,
       endsAt: endsAt,
     );
   }

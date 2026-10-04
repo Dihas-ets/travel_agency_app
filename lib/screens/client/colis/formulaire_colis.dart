@@ -12,6 +12,9 @@ class _StepOneForm extends StatelessWidget {
   final ValueChanged<int> onPickAttachment;
   final VoidCallback onNext;
   final VoidCallback onInitiations;
+  final bool showDepartureField;
+  final VoidCallback? onShowTariffs;
+  final bool showStaffFields;
 
   const _StepOneForm({
     required this.departureController,
@@ -25,6 +28,9 @@ class _StepOneForm extends StatelessWidget {
     required this.onPickAttachment,
     required this.onNext,
     required this.onInitiations,
+    this.showDepartureField = true,
+    this.onShowTariffs,
+    this.showStaffFields = false,
     super.key,
   });
 
@@ -33,16 +39,37 @@ class _StepOneForm extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _SectionLabel('Point de départ :'),
-        const SizedBox(height: 10),
-        _ChoiceField(
-          value: departureController.text,
-          hintText: 'Point de départ',
-          icon: Icons.radio_button_checked_rounded,
-          onTap: onDepartureTap,
+        if (showDepartureField) ...[
+          const _SectionLabel('Point de départ :'),
+          const SizedBox(height: 10),
+          _ChoiceField(
+            value: departureController.text,
+            hintText: 'Point de départ',
+            icon: Icons.radio_button_checked_rounded,
+            onTap: onDepartureTap,
+          ),
+          const SizedBox(height: 20),
+        ],
+        Row(
+          children: [
+            const Expanded(child: _SectionLabel('Informations du colis')),
+            if (onShowTariffs != null)
+              TextButton.icon(
+                onPressed: onShowTariffs,
+                icon: const Icon(Icons.price_check_rounded, size: 17),
+                label: const Text('Tarifs'),
+                style: TextButton.styleFrom(
+                  foregroundColor: _fofanaGreen,
+                  padding: const EdgeInsets.symmetric(horizontal: 9),
+                  visualDensity: VisualDensity.compact,
+                  textStyle: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+          ],
         ),
-        const SizedBox(height: 20),
-        const _SectionLabel('Informations du colis :'),
         const SizedBox(height: 10),
         for (var index = 0; index < parcels.length; index++) ...[
           _AnimatedParcelCard(
@@ -50,6 +77,7 @@ class _StepOneForm extends StatelessWidget {
             child: _ParcelInfoItem(
               index: index,
               parcel: parcels[index],
+              showStaffFields: showStaffFields,
               canRemove: parcels.length > 1,
               onNatureTap: () => onNatureTap(index),
               onPickAttachment: () => onPickAttachment(index),
@@ -75,58 +103,174 @@ class _StepOneForm extends StatelessWidget {
 
 class _StepTwoForm extends StatelessWidget {
   final TextEditingController destinationController;
+  final TextEditingController senderNameController;
+  final TextEditingController senderPhoneController;
   final TextEditingController lastNameController;
   final TextEditingController firstNameController;
   final TextEditingController phoneController;
+  final TextEditingController secondaryPhoneController;
+  final bool showStaffFields;
   final VoidCallback onDestinationTap;
   final VoidCallback onPreview;
   final bool isSubmitting;
+  final Widget? paymentOptions;
+  final Widget? taxOptions;
+  final Widget? mecefOption;
 
   const _StepTwoForm({
     required this.destinationController,
+    required this.senderNameController,
+    required this.senderPhoneController,
     required this.lastNameController,
     required this.firstNameController,
     required this.phoneController,
+    required this.secondaryPhoneController,
+    this.showStaffFields = false,
     required this.onDestinationTap,
     required this.onPreview,
     this.isSubmitting = false,
+    this.paymentOptions,
+    this.taxOptions,
+    this.mecefOption,
     super.key,
   });
 
   @override
   Widget build(BuildContext context) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _ChoiceField(
-          value: destinationController.text,
-          hintText: 'Ville / Agence de destination',
+        _ParcelFormSection(
+          title: 'Destination',
           icon: Icons.location_on_rounded,
-          onTap: onDestinationTap,
+          child: _ChoiceField(
+            value: destinationController.text,
+            hintText: 'Ville / Agence de destination',
+            icon: Icons.location_on_rounded,
+            onTap: onDestinationTap,
+          ),
         ),
+        if (showStaffFields) ...[
+          const SizedBox(height: 12),
+          _ParcelFormSection(
+            title: 'Expéditeur',
+            icon: Icons.person_outline_rounded,
+            child: Column(
+              children: [
+                _ParcelInputField(
+                  controller: senderNameController,
+                  hintText: 'Nom complet de l’expéditeur',
+                  textCapitalization: TextCapitalization.words,
+                ),
+                const SizedBox(height: 10),
+                _ParcelInputField(
+                  controller: senderPhoneController,
+                  hintText: 'Téléphone de l’expéditeur',
+                  keyboardType: TextInputType.phone,
+                ),
+              ],
+            ),
+          ),
+        ],
         const SizedBox(height: 12),
-        _ParcelInputField(
-          controller: lastNameController,
-          hintText: 'Nom du destinataire',
-          textCapitalization: TextCapitalization.words,
+        _ParcelFormSection(
+          title: 'Destinataire',
+          icon: Icons.person_pin_circle_outlined,
+          child: Column(
+            children: [
+              _ParcelInputField(
+                controller: lastNameController,
+                hintText: 'Nom du destinataire',
+                textCapitalization: TextCapitalization.words,
+              ),
+              const SizedBox(height: 10),
+              _ParcelInputField(
+                controller: firstNameController,
+                hintText: 'Prénom du destinataire',
+                textCapitalization: TextCapitalization.words,
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                height: 66,
+                child: AfricanPhoneField(controller: phoneController),
+              ),
+              if (showStaffFields) ...[
+                const SizedBox(height: 10),
+                _ParcelInputField(
+                  controller: secondaryPhoneController,
+                  hintText: 'Téléphone secondaire (optionnel)',
+                  keyboardType: TextInputType.phone,
+                ),
+              ],
+            ],
+          ),
         ),
-        const SizedBox(height: 12),
-        _ParcelInputField(
-          controller: firstNameController,
-          hintText: 'Prénom du destinataire',
-          textCapitalization: TextCapitalization.words,
-        ),
-        const SizedBox(height: 12),
-        SizedBox(
-          height: 66,
-          child: AfricanPhoneField(controller: phoneController),
-        ),
-        const SizedBox(height: 30),
+        if (paymentOptions != null) ...[
+          const SizedBox(height: 12),
+          paymentOptions!,
+        ],
+        if (taxOptions != null) ...[const SizedBox(height: 12), taxOptions!],
+        if (mecefOption != null) ...[const SizedBox(height: 12), mecefOption!],
+        const SizedBox(height: 24),
         _PrimaryParcelButton(
           label: 'Créer & Aperçu',
           isLoading: isSubmitting,
           onPressed: isSubmitting ? () {} : onPreview,
         ),
       ],
+    );
+  }
+}
+
+class _ParcelFormSection extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final Widget child;
+
+  const _ParcelFormSection({
+    required this.title,
+    required this.icon,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _fofanaGreen.withValues(alpha: 0.12)),
+        boxShadow: [
+          BoxShadow(
+            color: _deepBlue.withValues(alpha: 0.04),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 19, color: _fofanaGreen),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: const TextStyle(
+                  color: _deepBlue,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          child,
+        ],
+      ),
     );
   }
 }
@@ -467,11 +611,13 @@ class _AttachmentField extends StatelessWidget {
   final String? fileName;
   final String? filePath;
   final VoidCallback onTap;
+  final bool optional;
 
   const _AttachmentField({
     required this.fileName,
     required this.filePath,
     required this.onTap,
+    this.optional = false,
   });
 
   @override
@@ -532,6 +678,8 @@ class _AttachmentField extends StatelessWidget {
                     Text(
                       hasFile
                           ? fileName!
+                          : optional
+                          ? 'Photo facultative'
                           : "Champ obligatoire avant l'aperçu du billet",
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -768,6 +916,7 @@ class _ChoiceField extends StatelessWidget {
 class _ParcelInfoItem extends StatelessWidget {
   final int index;
   final _ParcelDraft parcel;
+  final bool showStaffFields;
   final bool canRemove;
   final VoidCallback onNatureTap;
   final VoidCallback onPickAttachment;
@@ -778,6 +927,7 @@ class _ParcelInfoItem extends StatelessWidget {
   const _ParcelInfoItem({
     required this.index,
     required this.parcel,
+    this.showStaffFields = false,
     required this.canRemove,
     required this.onNatureTap,
     required this.onPickAttachment,
@@ -853,9 +1003,27 @@ class _ParcelInfoItem extends StatelessWidget {
           const SizedBox(height: 10),
           _ParcelInputField(
             controller: parcel.valueController,
-            hintText: 'Valeur du colis ${index + 1}',
+            hintText: showStaffFields
+                ? 'Valeur estimée (FCFA)'
+                : 'Valeur du colis ${index + 1}',
             keyboardType: TextInputType.number,
           ),
+          if (showStaffFields) ...[
+            const SizedBox(height: 10),
+            _ParcelInputField(
+              controller: parcel.descriptionController,
+              hintText: 'Description précise',
+              textCapitalization: TextCapitalization.sentences,
+            ),
+            const SizedBox(height: 10),
+            _ParcelInputField(
+              controller: parcel.weightController,
+              hintText: 'Poids (kg)',
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+            ),
+          ],
           const SizedBox(height: 10),
           _ParcelQuantitySelector(
             quantity: parcel.quantity,
@@ -867,13 +1035,17 @@ class _ParcelInfoItem extends StatelessWidget {
             fileName: parcel.attachment?.name,
             filePath: parcel.attachment?.path,
             onTap: onPickAttachment,
+            optional: showStaffFields,
           ),
-          if (!hasNature) ...[
+          if (!hasNature ||
+              (!showStaffFields && parcel.attachment == null)) ...[
             const SizedBox(height: 8),
             Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                'Nature, valeur et image obligatoires pour ce colis',
+                showStaffFields
+                    ? 'Nature, description, poids et valeur requis. Photo facultative.'
+                    : 'Nature, valeur et image obligatoires pour ce colis',
                 style: TextStyle(
                   color: _logoRed.withValues(alpha: 0.76),
                   fontSize: 12,

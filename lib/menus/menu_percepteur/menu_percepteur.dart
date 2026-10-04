@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:code_initial/screens/percepteur/parts/assignments_section.dart';
 import 'package:code_initial/screens/percepteur/parts/history_news_section.dart';
-import 'package:code_initial/screens/percepteur/parts/ticket_validation_section.dart';
 import 'package:code_initial/screens/percepteur/parts/reservation_flow.dart';
+import 'package:code_initial/screens/percepteur/parts/ticket_validation_section.dart';
 
 // Menu Voyage percepteur et boutons d action d acces rapide.
 
@@ -53,6 +53,17 @@ class PercepteurVoyageMenu extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
+        MenuPercepteurButton(
+          icon: Icons.confirmation_number_rounded,
+          label: 'Réservation',
+          isWide: true,
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => const PercepteurReservationPage(),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
         Row(
           children: [
             Expanded(
@@ -70,7 +81,7 @@ class PercepteurVoyageMenu extends StatelessWidget {
             Expanded(
               child: MenuPercepteurButton(
                 icon: Icons.qr_code_scanner_rounded,
-                label: 'Validation',
+                label: 'Consulter ticket',
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => const TicketValidationPage(),
@@ -81,32 +92,13 @@ class PercepteurVoyageMenu extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: MenuPercepteurButton(
-                icon: Icons.confirmation_number_rounded,
-                label: 'Réservation',
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const PercepteurReservationPage(),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: MenuPercepteurButton(
-                icon: Icons.history_rounded,
-                label: 'Historique',
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const PercepteurHistoryPage(),
-                  ),
-                ),
-              ),
-            ),
-          ],
+        MenuPercepteurButton(
+          icon: Icons.history_rounded,
+          label: 'Historique',
+          isWide: true,
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const PercepteurHistoryPage()),
+          ),
         ),
       ],
     );

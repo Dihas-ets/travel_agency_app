@@ -32,6 +32,7 @@ class _ManualExpensePageState extends State<ManualExpensePage> {
   final List<TaxGroup> _taxGroups = [];
   final List<Map<String, dynamic>> _suppliers = [];
   String _selectedSupplierId = '';
+  Map<String, dynamic>? _verifiedSupplier;
   UserModel? _user;
   DateTime _expenseDate = DateTime.now();
   Map<String, dynamic>? _verifiedInvoice;
@@ -46,6 +47,10 @@ class _ManualExpensePageState extends State<ManualExpensePage> {
 
   static const _darkGreen = Color(0xFF0B4F2A);
   static const _green = Color(0xFF16A34A);
+
+  bool get _isReadOnlyScan =>
+      widget.initialMecefCode?.trim().isNotEmpty == true &&
+      widget.initialMecefNim?.trim().isNotEmpty == true;
 
   @override
   void initState() {
@@ -102,6 +107,11 @@ class _ManualExpensePageState extends State<ManualExpensePage> {
           _loadError =
               "Votre compte n'est associé à aucune agence. Contactez l'administrateur.";
         });
+      }
+      if (_isMecefSource &&
+          _mecefCodeController.text.trim().isNotEmpty &&
+          _nimController.text.trim().isNotEmpty) {
+        await _verifyMecefInvoice();
       }
     } catch (error) {
       if (!mounted) return;
@@ -297,8 +307,12 @@ class _ManualExpensePageState extends State<ManualExpensePage> {
         throw Exception('Facture non trouvée ou invalide.');
       }
       if (!mounted) return;
+      final verifiedInvoice = Map<String, dynamic>.from(invoice);
+      if (_isReadOnlyScan) {
+        _fillExpenseFormFromInvoice(verifiedInvoice);
+      }
       setState(() {
-        _verifiedInvoice = Map<String, dynamic>.from(invoice);
+        _verifiedInvoice = verifiedInvoice;
         _isVerifying = false;
       });
     } catch (error) {
@@ -308,6 +322,126 @@ class _ManualExpensePageState extends State<ManualExpensePage> {
         _requestError = _errorText(error);
       });
     }
+  }
+
+  void _fillExpenseFormFromInvoice(Map<String, dynamic> invoice) {
+    final rawDate = invoice['date_heure']?.toString() ?? '';
+    final dateMatch = RegExp(r'(\d{2})/(\d{2})/(\d{4})').firstMatch(rawDate);
+    if (dateMatch != null) {
+      final day = int.parse(dateMatch.group(1)!);
+      final month = int.parse(dateMatch.group(2)!);
+      final year = int.parse(dateMatch.group(3)!);
+      _expenseDate = DateTime(year, month, day);
+    }
+
+    final vendorIfu = invoice['vendeur_ifu']?.toString().trim().toUpperCase();
+    final vendorName = invoice['vendeur_nom']?.toString().trim() ?? '';
+    _verifiedSupplier = vendorName.isEmpty
+        ? null
+        : {
+            'nom': vendorName,
+            'ifu': invoice['vendeur_ifu'],
+            'contact': invoice['vendeur_contact'],
+            'adresse': invoice['vendeur_adresse'],
+          };
+    if (vendorIfu != null && vendorIfu.isNotEmpty) {
+      final supplier = _suppliers.cast<Map<String, dynamic>?>().firstWhere(
+        (item) => item?['ifu']?.toString().trim().toUpperCase() == vendorIfu,
+        orElse: () => null,
+      );
+      _selectedSupplierId =
+          supplier?['id']?.toString() ??
+          (_verifiedSupplier == null ? '' : '__verified_supplier__');
+    } else {
+      _selectedSupplierId = _verifiedSupplier == null
+          ? ''
+          : '__verified_supplier__';
+    }
+
+    final taxCodes = <String>{};
+    final rawTaxes = invoice['taxes'];
+    if (rawTaxes is Map) {
+      for (final label in rawTaxes.keys) {
+        final match = RegExp(r'\[([A-F])\]').firstMatch(label.toString());
+        if (match != null) taxCodes.add(match.group(1)!);
+      }
+    }
+
+    final rawItems = invoice['items'];
+    final invoiceItems = rawItems is List
+        ? rawItems.whereType<Map>().toList()
+        : <Map>[];
+    if (invoiceItems.isEmpty) {
+      invoiceItems.add({
+        'designation': 'Facture MECeF ${invoice['code_mecef'] ?? ''}'.trim(),
+        'quantite': 1,
+        'total_ligne': invoice['total'],
+        if (taxCodes.length == 1) 'groupe_taxe': taxCodes.first,
+      });
+    }
+    final filledLines = <_ExpenseLineDraft>[];
+    for (final rawItem in invoiceItems) {
+      final item = Map<String, dynamic>.from(rawItem);
+      final quantity = _invoiceNumber(item['quantite']);
+      final total = _invoiceNumber(item['total_ligne'] ?? item['montant']);
+      final unitPrice = _invoiceNumber(item['pu']);
+      final resolvedQuantity = quantity > 0 ? quantity : 1.0;
+      final totalTtc = total > 0 ? total : unitPrice * resolvedQuantity;
+      final line = _ExpenseLineDraft();
+      line.designationController.text =
+          item['designation']?.toString().trim().isNotEmpty == true
+          ? item['designation'].toString().trim()
+          : 'Article MECeF';
+      line.quantityController.text = _formatNumber(resolvedQuantity);
+      line.unitController.text = 'unité';
+      line.unitPriceTtcController.text = _formatNumber(
+        totalTtc / resolvedQuantity,
+      );
+
+      final code =
+          item['groupe_taxe']?.toString().trim().toUpperCase() ??
+          (taxCodes.length == 1 ? taxCodes.first : '');
+      final matchingGroup = _taxGroups.where(
+        (group) => group.code?.toUpperCase() == code,
+      );
+      if (matchingGroup.isNotEmpty) {
+        line.taxGroupId = matchingGroup.first.id.toString();
+      }
+      filledLines.add(line);
+    }
+
+    if (filledLines.isNotEmpty) {
+      for (final line in _lines) {
+        line.dispose();
+      }
+      _lines
+        ..clear()
+        ..addAll(filledLines);
+    }
+  }
+
+  double _invoiceNumber(Object? value) {
+    if (value is num) return value.toDouble();
+    final normalized = value
+        ?.toString()
+        .replaceAll(RegExp(r'[^0-9,.-]'), '')
+        .trim();
+    if (normalized == null || normalized.isEmpty) return 0;
+    if (normalized.contains(',') && normalized.contains('.')) {
+      return double.tryParse(
+            normalized.replaceAll('.', '').replaceAll(',', '.'),
+          ) ??
+          0;
+    }
+    if (normalized.contains('.')) {
+      return double.tryParse(normalized) ?? 0;
+    }
+    return double.tryParse(normalized.replaceAll(',', '.')) ?? 0;
+  }
+
+  String _formatNumber(double value) {
+    if (value == value.roundToDouble()) return value.toStringAsFixed(0);
+    return value.toStringAsFixed(2);
   }
 
   Future<void> _submitExpense() async {
@@ -334,7 +468,31 @@ class _ManualExpensePageState extends State<ManualExpensePage> {
               agencyId: _user!.agenceId!,
               code: _mecefCodeController.text.trim(),
               nim: _nimController.text.trim(),
+              expenseDate: _dateValue(_expenseDate),
               note: _noteController.text.trim(),
+              items: _lines
+                  .map(
+                    (line) => {
+                      'designation': line.designationController.text.trim(),
+                      'quantity': double.parse(
+                        line.quantityController.text.trim().replaceAll(
+                          ',',
+                          '.',
+                        ),
+                      ),
+                      'unit': line.unitController.text.trim().isEmpty
+                          ? 'unité'
+                          : line.unitController.text.trim(),
+                      'unit_price': _lineUnitPriceHt(line),
+                      'tax_group_id': line.taxGroupId.isEmpty
+                          ? null
+                          : int.parse(line.taxGroupId),
+                      'note': line.noteController.text.trim().isEmpty
+                          ? null
+                          : line.noteController.text.trim(),
+                    },
+                  )
+                  .toList(),
             )
           : await _service.createManual({
               'agency_id': _user!.agenceId,
@@ -400,9 +558,9 @@ class _ManualExpensePageState extends State<ManualExpensePage> {
         backgroundColor: _darkGreen,
         foregroundColor: Colors.white,
         elevation: 0,
-        title: const Text(
-          'Nouvelle dépense',
-          style: TextStyle(fontWeight: FontWeight.w900),
+        title: Text(
+          _isReadOnlyScan ? 'Facture MECeF' : 'Nouvelle dépense',
+          style: const TextStyle(fontWeight: FontWeight.w900),
         ),
       ),
       body: _isLoading
@@ -413,57 +571,100 @@ class _ManualExpensePageState extends State<ManualExpensePage> {
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(18, 18, 18, 28),
                   children: [
-                    _buildSourceSelector(),
+                    if (_isReadOnlyScan)
+                      _buildReadOnlyBanner()
+                    else
+                      _buildSourceSelector(),
                     const SizedBox(height: 16),
                     if (_loadError != null) _buildMessage(_loadError!, true),
                     if (_requestError != null) ...[
                       _buildMessage(_requestError!, true),
                       const SizedBox(height: 12),
                     ],
-                    if (_isMecefSource)
-                      _buildMecefForm()
-                    else
-                      _buildManualForm(),
-                    const SizedBox(height: 18),
-                    _buildNoteField(),
-                    const SizedBox(height: 18),
-                    ElevatedButton.icon(
-                      onPressed: _isSaving || _loadError != null
-                          ? null
-                          : _submitExpense,
-                      icon: _isSaving
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Icon(Icons.send_rounded),
-                      label: Text(
-                        _isSaving
-                            ? 'Enregistrement...'
-                            : 'Soumettre en brouillon',
+                    if (_isReadOnlyScan && _isVerifying) ...[
+                      const LinearProgressIndicator(color: _green),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Vérification de la facture scannée...',
+                        textAlign: TextAlign.center,
                       ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _green,
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        textStyle: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
+                      const SizedBox(height: 12),
+                    ],
+                    if (_isMecefSource) ...[
+                      _buildMecefForm(readOnly: _isReadOnlyScan),
+                      const SizedBox(height: 16),
+                    ],
+                    if (!_isReadOnlyScan || _verifiedInvoice != null)
+                      _buildManualForm(readOnly: _isReadOnlyScan),
+                    if (!_isReadOnlyScan) ...[
+                      const SizedBox(height: 18),
+                      _buildNoteField(),
+                      const SizedBox(height: 18),
+                      _buildSubmitButton(),
+                    ] else ...[
+                      const SizedBox(height: 18),
+                      _buildSubmitButton(readOnlyScan: true),
+                    ],
                   ],
                 ),
               ),
             ),
+    );
+  }
+
+  Widget _buildSubmitButton({bool readOnlyScan = false}) {
+    return ElevatedButton.icon(
+      onPressed:
+          _isSaving ||
+              _loadError != null ||
+              (readOnlyScan &&
+                  (_isVerifying ||
+                      _verifiedInvoice == null ||
+                      !_invoiceConfirmed))
+          ? null
+          : _submitExpense,
+      icon: _isSaving
+          ? const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.white,
+              ),
+            )
+          : const Icon(Icons.send_rounded),
+      label: Text(_isSaving ? 'Enregistrement...' : 'Soumettre en brouillon'),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: _green,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
+      ),
+    );
+  }
+
+  Widget _buildReadOnlyBanner() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEAF7EF),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _green.withValues(alpha: 0.3)),
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.visibility_rounded, color: _darkGreen),
+          SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Consultation uniquement : les informations scannées ne peuvent pas être modifiées.',
+              style: TextStyle(color: _darkGreen, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -521,11 +722,11 @@ class _ManualExpensePageState extends State<ManualExpensePage> {
     );
   }
 
-  Widget _buildManualForm() {
+  Widget _buildManualForm({bool readOnly = false}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _dateSelector(),
+        _dateSelector(readOnly: readOnly),
         const SizedBox(height: 16),
         Row(
           children: [
@@ -533,45 +734,61 @@ class _ManualExpensePageState extends State<ManualExpensePage> {
               child: DropdownButtonFormField<String>(
                 initialValue: _selectedSupplierId,
                 decoration: _decoration('Fournisseur (optionnel)'),
+                isExpanded: true,
                 items: [
                   const DropdownMenuItem(
                     value: '',
                     child: Text('Aucun fournisseur'),
                   ),
+                  if (_verifiedSupplier != null &&
+                      _selectedSupplierId == '__verified_supplier__')
+                    DropdownMenuItem(
+                      value: '__verified_supplier__',
+                      child: Text(
+                        '${_verifiedSupplier!['nom']} (facture MECeF)',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
                   ..._suppliers.map(
                     (supplier) => DropdownMenuItem(
                       value: supplier['id']?.toString() ?? '',
                       child: Text(
                         supplier['nom']?.toString() ?? 'Fournisseur',
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ),
                 ],
-                onChanged: (value) =>
-                    setState(() => _selectedSupplierId = value ?? ''),
+                onChanged: readOnly
+                    ? null
+                    : (value) =>
+                          setState(() => _selectedSupplierId = value ?? ''),
               ),
             ),
-            const SizedBox(width: 8),
-            IconButton(
-              tooltip: 'Créer un fournisseur',
-              onPressed: _isCreatingSupplier ? null : _createSupplier,
-              icon: _isCreatingSupplier
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.person_add_alt_1_rounded),
-              style: IconButton.styleFrom(
-                foregroundColor: _green,
-                backgroundColor: const Color(0xFFEAF7EF),
-                padding: const EdgeInsets.all(13),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(13),
+            if (!readOnly) ...[
+              const SizedBox(width: 8),
+              IconButton(
+                tooltip: 'Créer un fournisseur',
+                onPressed: _isCreatingSupplier ? null : _createSupplier,
+                icon: _isCreatingSupplier
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.person_add_alt_1_rounded),
+                style: IconButton.styleFrom(
+                  foregroundColor: _green,
+                  backgroundColor: const Color(0xFFEAF7EF),
+                  padding: const EdgeInsets.all(13),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(13),
+                  ),
                 ),
               ),
-            ),
+            ],
           ],
         ),
         const SizedBox(height: 16),
@@ -587,16 +804,17 @@ class _ManualExpensePageState extends State<ManualExpensePage> {
                 ),
               ),
             ),
-            TextButton.icon(
-              onPressed: _addLine,
-              icon: const Icon(Icons.add_rounded),
-              label: const Text('Ajouter'),
-            ),
+            if (!readOnly)
+              TextButton.icon(
+                onPressed: _addLine,
+                icon: const Icon(Icons.add_rounded),
+                label: const Text('Ajouter'),
+              ),
           ],
         ),
         for (var index = 0; index < _lines.length; index++) ...[
-          _lineCard(index),
-          const SizedBox(height: 12),
+          _lineCard(index, readOnly: readOnly),
+          const SizedBox(height: 16),
         ],
         Container(
           padding: const EdgeInsets.all(14),
@@ -635,13 +853,13 @@ class _ManualExpensePageState extends State<ManualExpensePage> {
     );
   }
 
-  Widget _dateSelector() {
+  Widget _dateSelector({bool readOnly = false}) {
     final date =
         '${_expenseDate.day.toString().padLeft(2, '0')}/'
         '${_expenseDate.month.toString().padLeft(2, '0')}/'
         '${_expenseDate.year}';
     return InkWell(
-      onTap: _chooseDate,
+      onTap: readOnly ? null : _chooseDate,
       borderRadius: BorderRadius.circular(14),
       child: InputDecorator(
         decoration: _decoration('Date de la dépense'),
@@ -656,7 +874,7 @@ class _ManualExpensePageState extends State<ManualExpensePage> {
     );
   }
 
-  Widget _lineCard(int index) {
+  Widget _lineCard(int index, {bool readOnly = false}) {
     final line = _lines[index];
     return Container(
       padding: const EdgeInsets.all(14),
@@ -678,7 +896,7 @@ class _ManualExpensePageState extends State<ManualExpensePage> {
                   ),
                 ),
               ),
-              if (_lines.length > 1)
+              if (!readOnly && _lines.length > 1)
                 IconButton(
                   tooltip: 'Supprimer la ligne',
                   onPressed: () => _removeLine(index),
@@ -690,6 +908,7 @@ class _ManualExpensePageState extends State<ManualExpensePage> {
             controller: line.designationController,
             decoration: _decoration('Désignation'),
             textCapitalization: TextCapitalization.sentences,
+            readOnly: readOnly,
             validator: (value) => value == null || value.trim().isEmpty
                 ? 'La désignation est requise'
                 : null,
@@ -701,6 +920,7 @@ class _ManualExpensePageState extends State<ManualExpensePage> {
                 child: TextFormField(
                   controller: line.quantityController,
                   decoration: _decoration('Quantité'),
+                  readOnly: readOnly,
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
@@ -722,6 +942,7 @@ class _ManualExpensePageState extends State<ManualExpensePage> {
                   controller: line.unitController,
                   decoration: _decoration('Unité'),
                   textCapitalization: TextCapitalization.sentences,
+                  readOnly: readOnly,
                 ),
               ),
             ],
@@ -730,6 +951,7 @@ class _ManualExpensePageState extends State<ManualExpensePage> {
           TextFormField(
             controller: line.unitPriceTtcController,
             decoration: _decoration('Prix unitaire TTC (FCFA)'),
+            readOnly: readOnly,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             inputFormatters: [
               FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
@@ -745,21 +967,29 @@ class _ManualExpensePageState extends State<ManualExpensePage> {
           DropdownButtonFormField<String>(
             initialValue: line.taxGroupId.isEmpty ? '' : line.taxGroupId,
             decoration: _decoration('Groupe de taxe'),
+            isExpanded: true,
             items: [
               const DropdownMenuItem(value: '', child: Text('Sans taxe')),
               ..._taxGroups.map(
                 (group) => DropdownMenuItem(
                   value: group.id.toString(),
-                  child: Text('${group.label} (${group.rate}%)'),
+                  child: Text(
+                    '${group.label} (${group.rate}%)',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ),
             ],
-            onChanged: (value) => setState(() => line.taxGroupId = value ?? ''),
+            onChanged: readOnly
+                ? null
+                : (value) => setState(() => line.taxGroupId = value ?? ''),
           ),
           const SizedBox(height: 12),
           TextFormField(
             controller: line.noteController,
             decoration: _decoration('Note de la ligne (optionnelle)'),
+            readOnly: readOnly,
             maxLines: 2,
           ),
           const SizedBox(height: 10),
@@ -779,38 +1009,43 @@ class _ManualExpensePageState extends State<ManualExpensePage> {
     );
   }
 
-  Widget _buildMecefForm() {
+  Widget _buildMecefForm({bool readOnly = false}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         TextField(
           controller: _mecefCodeController,
-          onChanged: (_) => _clearInvoiceVerification(),
+          readOnly: readOnly,
+          onChanged: readOnly ? null : (_) => _clearInvoiceVerification(),
           decoration: _decoration('Code MECeF / DGI'),
         ),
         const SizedBox(height: 12),
         TextField(
           controller: _nimController,
-          onChanged: (_) => _clearInvoiceVerification(),
+          readOnly: readOnly,
+          onChanged: readOnly ? null : (_) => _clearInvoiceVerification(),
           decoration: _decoration('NIM'),
         ),
         const SizedBox(height: 12),
-        OutlinedButton.icon(
-          onPressed: _isVerifying ? null : _verifyMecefInvoice,
-          icon: _isVerifying
-              ? const SizedBox(
-                  width: 17,
-                  height: 17,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.verified_outlined),
-          label: Text(_isVerifying ? 'Vérification...' : 'Vérifier la facture'),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: _darkGreen,
-            side: const BorderSide(color: _green),
-            padding: const EdgeInsets.symmetric(vertical: 13),
+        if (!readOnly)
+          OutlinedButton.icon(
+            onPressed: _isVerifying ? null : _verifyMecefInvoice,
+            icon: _isVerifying
+                ? const SizedBox(
+                    width: 17,
+                    height: 17,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.verified_outlined),
+            label: Text(
+              _isVerifying ? 'Vérification...' : 'Vérifier la facture',
+            ),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: _darkGreen,
+              side: const BorderSide(color: _green),
+              padding: const EdgeInsets.symmetric(vertical: 13),
+            ),
           ),
-        ),
         if (_verifiedInvoice != null) ...[
           const SizedBox(height: 14),
           _verifiedInvoiceCard(),
@@ -890,8 +1125,9 @@ class _ManualExpensePageState extends State<ManualExpensePage> {
     );
   }
 
-  Widget _buildNoteField() => TextField(
+  Widget _buildNoteField({bool readOnly = false}) => TextField(
     controller: _noteController,
+    readOnly: readOnly,
     maxLines: 3,
     decoration: _decoration('Note générale (optionnelle)'),
   );

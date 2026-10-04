@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:code_initial/data/local/session_store.dart';
 import 'package:code_initial/models/colis_model.dart';
+import 'package:code_initial/screens/client/colis/billet_page.dart';
 import 'package:code_initial/screens/client/colis/pages_colis.dart';
 import 'package:code_initial/services/colis_service.dart';
 
@@ -24,7 +26,7 @@ class _PercepteurDynamicColisSectionState
   String? _errorMessage;
   String _searchQuery = '';
   int _selectedTab = 0;
-  int? _processingParcelId;
+  bool _isProcessingParcel = false;
 
   @override
   void initState() {
@@ -59,13 +61,42 @@ class _PercepteurDynamicColisSectionState
     }
   }
 
+  Future<void> _openCreateParcel() async {
+    final created = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) =>
+            const SendParcelPage(showModeTabs: false, isPercepteur: true),
+      ),
+    );
+    if (created == true && mounted) await _loadParcels();
+  }
+
   List<ColisModel> get _visibleParcels {
-    const activeStatuses = {'brouillon', 'a_expedier', 'en_transit'};
+    final agencyId = SessionStore.currentUser?.agenceId;
     final query = _searchQuery.trim().toLowerCase();
 
     return _parcels.where((parcel) {
-      final isActive = activeStatuses.contains(parcel.statut);
-      if ((_selectedTab == 0) != isActive) return false;
+      final isPreRegisteredForAgency =
+          parcel.origine == 'en_externe' &&
+          parcel.statut == 'brouillon' &&
+          agencyId != null &&
+          parcel.agenceDepotId == agencyId;
+      final matchesTab = switch (_selectedTab) {
+        0 =>
+          (parcel.statut == 'a_expedier' ||
+              (parcel.statut == 'brouillon' && parcel.origine != 'en_externe')),
+        1 => isPreRegisteredForAgency,
+        2 => parcel.statut == 'en_transit',
+        3 => parcel.statut == 'annule' || parcel.statut == 'annulé',
+        _ => !{
+          'brouillon',
+          'a_expedier',
+          'en_transit',
+          'annule',
+          'annulé',
+        }.contains(parcel.statut),
+      };
+      if (!matchesTab) return false;
       if (query.isEmpty) return true;
 
       return parcel.reference.toLowerCase().contains(query) ||
@@ -76,133 +107,6 @@ class _PercepteurDynamicColisSectionState
           (parcel.agenceDepotNom ?? '').toLowerCase().contains(query) ||
           (parcel.agenceRetraitNom ?? '').toLowerCase().contains(query);
     }).toList();
-  }
-
-  Future<void> _validateParcel(ColisModel parcel) async {
-    final amountController = TextEditingController(
-      text: parcel.montant.toStringAsFixed(0),
-    );
-    final formKey = GlobalKey<FormState>();
-    var mode = parcel.modePaiement == 'MOBILEMONEY' ? 'MOBILEMONEY' : 'ESPECES';
-
-    final values = await showDialog<Map<String, dynamic>>(
-      context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Confirmer le colis'),
-          content: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('Colis ${parcel.reference}'),
-                const SizedBox(height: 14),
-                DropdownButtonFormField<String>(
-                  initialValue: mode,
-                  decoration: const InputDecoration(
-                    labelText: 'Mode de paiement',
-                  ),
-                  items: const [
-                    DropdownMenuItem(value: 'ESPECES', child: Text('Espèces')),
-                    DropdownMenuItem(
-                      value: 'MOBILEMONEY',
-                      child: Text('Mobile Money'),
-                    ),
-                  ],
-                  onChanged: (value) {
-                    if (value != null) setDialogState(() => mode = value);
-                  },
-                ),
-                TextFormField(
-                  controller: amountController,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  decoration: const InputDecoration(
-                    labelText: 'Montant encaissé',
-                    suffixText: 'FCFA',
-                  ),
-                  validator: (value) {
-                    final amount = double.tryParse(value?.trim() ?? '');
-                    if (amount == null || amount < 0) {
-                      return 'Saisissez un montant valide.';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'La validation confirme le paiement et lance la certification MECeF selon le backend.',
-                  style: TextStyle(color: _muted, fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Annuler'),
-            ),
-            FilledButton(
-              onPressed: () {
-                if (!formKey.currentState!.validate()) return;
-                Navigator.pop(dialogContext, {
-                  'mode_paiement': mode,
-                  'montant': double.parse(amountController.text.trim()),
-                });
-              },
-              child: const Text('Confirmer'),
-            ),
-          ],
-        ),
-      ),
-    );
-    amountController.dispose();
-    if (values == null || !mounted) return;
-
-    await _runParcelAction(
-      parcel,
-      () => _colisService.validerColisStaff(
-        id: parcel.id,
-        modePaiement: values['mode_paiement'] as String,
-        montant: values['montant'] as double,
-      ),
-      'Paiement confirmé et colis enregistré.',
-    );
-  }
-
-  Future<void> _loadParcel(ColisModel parcel) async {
-    await _runParcelAction(
-      parcel,
-      () => _colisService.chargerColisStaff(parcel.id),
-      'Colis chargé et passé en transit.',
-    );
-  }
-
-  Future<void> _runParcelAction(
-    ColisModel parcel,
-    Future<void> Function() action,
-    String successMessage,
-  ) async {
-    setState(() => _processingParcelId = parcel.id);
-    try {
-      await action();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(successMessage), backgroundColor: _green),
-      );
-      await _loadParcels();
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Échec de l’action : $error'),
-          backgroundColor: Colors.red.shade700,
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _processingParcelId = null);
-    }
   }
 
   void _showDetails(ColisModel parcel) {
@@ -280,6 +184,56 @@ class _PercepteurDynamicColisSectionState
                     ),
                   ),
                 ),
+              if (_selectedTab == 1 &&
+                  parcel.statut == 'brouillon' &&
+                  parcel.statutPaiement != 'payé') ...[
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _isProcessingParcel
+                        ? null
+                        : () => _processClientPreRegistration(parcel, context),
+                    icon: const Icon(Icons.point_of_sale_rounded),
+                    label: const Text('Encaisser et traiter le colis'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: _green,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+              if (parcel.statutPaiement == 'payé' &&
+                  !{'annule', 'annulé'}.contains(parcel.statut)) ...[
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      _printParcel(parcel);
+                    },
+                    icon: const Icon(Icons.print_rounded),
+                    label: const Text('Imprimer le bordereau'),
+                  ),
+                ),
+              ],
+              if (_canCancel(parcel)) ...[
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _isProcessingParcel
+                        ? null
+                        : () => _confirmCancel(parcel, context),
+                    icon: const Icon(Icons.cancel_outlined),
+                    label: const Text('Annuler le colis'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.red.shade700,
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -323,25 +277,13 @@ class _PercepteurDynamicColisSectionState
     _ => status,
   };
 
-  Future<void> _openCreateForm() async {
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => const SendParcelPage(showModeTabs: false),
-    );
-    if (mounted) await _loadParcels();
-  }
-
   @override
   Widget build(BuildContext context) {
     final activeCount = _parcels
         .where(
-          (parcel) => const {
-            'brouillon',
-            'a_expedier',
-            'en_transit',
-          }.contains(parcel.statut),
+          (parcel) =>
+              parcel.statut == 'a_expedier' ||
+              (parcel.statut == 'brouillon' && parcel.origine != 'en_externe'),
         )
         .length;
     final transitCount = _parcels
@@ -350,6 +292,43 @@ class _PercepteurDynamicColisSectionState
 
     return Column(
       children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(2, 2, 2, 12),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: _green.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(Icons.local_shipping_rounded, color: _green),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Espace colis',
+                      style: TextStyle(
+                        color: _deepGreen,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Suivi et traitement des envois de votre agence',
+                      style: TextStyle(color: _muted, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
         _buildTabs(),
         const SizedBox(height: 12),
         Row(
@@ -374,12 +353,20 @@ class _PercepteurDynamicColisSectionState
               onPressed: _isLoading ? null : _loadParcels,
               icon: const Icon(Icons.refresh_rounded),
             ),
-            IconButton(
-              tooltip: 'Enregistrer un colis',
-              onPressed: _openCreateForm,
-              icon: const Icon(Icons.add_circle_rounded, color: _green),
-            ),
           ],
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton.icon(
+            onPressed: _openCreateParcel,
+            icon: const Icon(Icons.add_box_rounded),
+            label: const Text('Enregistrer un colis'),
+            style: FilledButton.styleFrom(
+              backgroundColor: _green,
+              foregroundColor: Colors.white,
+            ),
+          ),
         ),
         const SizedBox(height: 10),
         TextField(
@@ -408,18 +395,28 @@ class _PercepteurDynamicColisSectionState
       color: Colors.white,
       borderRadius: BorderRadius.circular(16),
     ),
-    child: Row(
-      children: [_tabButton('À traiter', 0), _tabButton('Historique', 1)],
+    child: SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          _tabButton('À traiter', 0),
+          _tabButton('Préenregistrés', 1),
+          _tabButton('En transit', 2),
+          _tabButton('Annulés', 3),
+          _tabButton('Historique', 4),
+        ],
+      ),
     ),
   );
 
-  Widget _tabButton(String label, int index) => Expanded(
+  Widget _tabButton(String label, int index) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 3),
     child: InkWell(
       borderRadius: BorderRadius.circular(12),
       onTap: () => setState(() => _selectedTab = index),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 160),
-        padding: const EdgeInsets.symmetric(vertical: 11),
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
         decoration: BoxDecoration(
           color: _selectedTab == index ? _green : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
@@ -427,6 +424,7 @@ class _PercepteurDynamicColisSectionState
         child: Text(
           label,
           textAlign: TextAlign.center,
+          maxLines: 1,
           style: TextStyle(
             color: _selectedTab == index ? Colors.white : _deepGreen,
             fontWeight: FontWeight.w800,
@@ -493,12 +491,13 @@ class _PercepteurDynamicColisSectionState
     final parcels = _visibleParcels;
     if (parcels.isEmpty) {
       return Center(
-        child: Text(
-          _selectedTab == 0
-              ? 'Aucun colis à traiter.'
-              : 'Aucun colis dans l’historique.',
-          style: const TextStyle(color: _muted, fontWeight: FontWeight.w700),
-        ),
+        child: Text(switch (_selectedTab) {
+          0 => 'Aucun colis à traiter.',
+          1 => 'Aucun colis préenregistré pour cette agence.',
+          2 => 'Aucun colis en transit.',
+          3 => 'Aucun colis annulé.',
+          _ => 'Aucun colis dans l’historique.',
+        }, style: const TextStyle(color: _muted, fontWeight: FontWeight.w700)),
       );
     }
     return ListView.separated(
@@ -510,7 +509,6 @@ class _PercepteurDynamicColisSectionState
   }
 
   Widget _parcelCard(ColisModel parcel) {
-    final isProcessing = _processingParcelId == parcel.id;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -560,44 +558,214 @@ class _PercepteurDynamicColisSectionState
             '${_paymentLabel(parcel.statutPaiement)} · ${parcel.montant.toStringAsFixed(0)} FCFA · ${parcel.colisDetails.length} détail(s)',
             style: const TextStyle(color: _muted, fontSize: 12),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           Row(
             children: [
-              TextButton.icon(
-                onPressed: () => _showDetails(parcel),
-                icon: const Icon(Icons.visibility_outlined, size: 18),
-                label: const Text('Détails'),
-              ),
-              const Spacer(),
-              if (parcel.statut == 'brouillon')
-                FilledButton.icon(
-                  onPressed: isProcessing
-                      ? null
-                      : () => _validateParcel(parcel),
-                  icon: isProcessing
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.payments_outlined, size: 18),
-                  label: const Text('Confirmer paiement'),
-                )
-              else if (parcel.statut == 'a_expedier')
-                FilledButton.icon(
-                  onPressed: isProcessing ? null : () => _loadParcel(parcel),
-                  icon: isProcessing
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.local_shipping_outlined, size: 18),
-                  label: const Text('Charger'),
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: () => _showDetails(parcel),
+                  icon: const Icon(Icons.inventory_2_outlined, size: 18),
+                  label: const Text('Nature et montant'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: _green,
+                    foregroundColor: Colors.white,
+                    elevation: 1,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    textStyle: const TextStyle(fontWeight: FontWeight.w900),
+                  ),
                 ),
+              ),
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  bool _canCancel(ColisModel parcel) =>
+      !{'livre', 'perdu', 'annule', 'annulé'}.contains(parcel.statut) &&
+      parcel.montant > 0;
+
+  Future<void> _processClientPreRegistration(
+    ColisModel parcel,
+    BuildContext sheetContext,
+  ) async {
+    final amountController = TextEditingController(
+      text: parcel.montant > 0 ? parcel.montant.toStringAsFixed(0) : '',
+    );
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, _) => AlertDialog(
+          title: const Text('Traiter le colis préenregistré'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Confirmez l’encaissement en espèces avant de faire passer '
+                '${parcel.reference} au statut « À expédier ». ',
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: amountController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Montant encaissé',
+                  suffixText: 'FCFA',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Annuler'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final amount = double.tryParse(
+                  amountController.text.trim().replaceAll(',', '.'),
+                );
+                if (amount == null || amount <= 0) return;
+                Navigator.pop(dialogContext, true);
+              },
+              child: const Text('Confirmer l’encaissement'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (confirmed != true || !mounted) {
+      amountController.dispose();
+      return;
+    }
+    final amount = double.tryParse(
+      amountController.text.trim().replaceAll(',', '.'),
+    );
+    amountController.dispose();
+    if (amount == null || amount <= 0) return;
+
+    setState(() => _isProcessingParcel = true);
+    try {
+      await _colisService.validerColisStaff(
+        id: parcel.id,
+        modePaiement: 'ESPECES',
+        montant: amount,
+      );
+      if (!mounted || !sheetContext.mounted) return;
+      Navigator.of(sheetContext).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Paiement confirmé et colis traité.')),
+      );
+      await _loadParcels();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Impossible de traiter le colis : '
+            '${error.toString().replaceFirst('Exception: ', '')}',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isProcessingParcel = false);
+    }
+  }
+
+  Future<void> _confirmCancel(
+    ColisModel parcel,
+    BuildContext sheetContext,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Annuler ce colis ?'),
+        content: Text(
+          'Le colis ${parcel.reference} sera marqué comme annulé. '
+          'Le traitement du remboursement suivra les règles du système.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Retour'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Confirmer l’annulation'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isProcessingParcel = true);
+    try {
+      await _colisService.annulerColisStaff(parcel.id);
+      if (!mounted || !sheetContext.mounted) return;
+      Navigator.of(sheetContext).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Colis annulé avec succès.')),
+      );
+      await _loadParcels();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Impossible d’annuler le colis : '
+            '${error.toString().replaceFirst('Exception: ', '')}',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isProcessingParcel = false);
+    }
+  }
+
+  Future<void> _printParcel(ColisModel parcel) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => BilletPage(
+          code: parcel.reference,
+          departureCity: parcel.agenceDepotNom ?? 'Départ',
+          destinationCity: parcel.agenceRetraitNom ?? 'Retrait',
+          recipientLastName: parcel.destinataireNom ?? '',
+          recipientFirstName: '',
+          recipientPhone: parcel.destinataireTel ?? '',
+          parcelNature: parcel.colisDetails
+              .map((detail) => detail.nature)
+              .toSet()
+              .join(', '),
+          parcelCount: parcel.nombreColis,
+          attachmentPath: parcel.colisDetails
+              .where((detail) => detail.imagePath?.isNotEmpty == true)
+              .firstOrNull
+              ?.imagePath,
+          attachmentName: 'Image du colis',
+          deliveryFee: parcel.montant.toStringAsFixed(0),
+          showValidation: parcel.statutPaiement == 'payé',
+          senderName: parcel.expediteurNom ?? '',
+          senderPhone: parcel.expediteurTel ?? '',
+          montantBase: parcel.montantBase,
+          montantTaxe: parcel.montantTaxe,
+          taxeTaux: parcel.tauxTaxe,
+          mecefResponse: parcel.mecefResponse,
+          poidsTotal: parcel.colisDetails.fold<double>(
+            0,
+            (total, detail) => total + detail.poids * detail.nombre,
+          ),
+          description: parcel.colisDetails
+              .map((detail) => detail.description)
+              .where((value) => value.isNotEmpty)
+              .join(', '),
+          issuerName: parcel.enregistreurNom ?? '',
+          taxGroupLabel: parcel.taxGroupLabel ?? '',
+        ),
       ),
     );
   }

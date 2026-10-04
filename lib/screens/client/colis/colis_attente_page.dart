@@ -73,9 +73,7 @@ class _ColisAttentePageState extends State<ColisAttentePage> {
   void _openPendingDetails(ParcelRecord parcel) async {
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => _PendingParcelDetailsPage(
-          parcel: parcel,
-        ),
+        builder: (_) => _PendingParcelDetailsPage(parcel: parcel),
       ),
     );
     if (mounted) {
@@ -86,9 +84,7 @@ class _ColisAttentePageState extends State<ColisAttentePage> {
   void _openRegisteredTicket(ParcelRecord parcel) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => _RegisteredParcelDetailsPage(
-          parcel: parcel,
-        ),
+        builder: (_) => _RegisteredParcelDetailsPage(parcel: parcel),
       ),
     );
   }
@@ -116,7 +112,10 @@ class _ColisAttentePageState extends State<ColisAttentePage> {
   @override
   Widget build(BuildContext context) {
     final pending = _visibleParcels(ParcelStore.pendingParcels, _remotePending);
-    final registered = _visibleParcels(ParcelStore.registeredParcels, _remoteRegistered);
+    final registered = _visibleParcels(
+      ParcelStore.registeredParcels,
+      _remoteRegistered,
+    );
     final currentList = _selectedIndex == 0 ? registered : pending;
 
     return Scaffold(
@@ -321,7 +320,9 @@ class _ParcelListCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final statusText = isRegistered ? parcel.readableStatus : 'En attente en agence';
+    final statusText = isRegistered
+        ? parcel.readableStatus
+        : 'En attente en agence';
     final pillColor = _statusColor(parcel.status);
 
     return Material(
@@ -380,10 +381,7 @@ class _ParcelListCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  _StatusPill(
-                    text: statusText,
-                    color: pillColor,
-                  ),
+                  _StatusPill(text: statusText, color: pillColor),
                 ],
               ),
               const SizedBox(height: 14),
@@ -495,12 +493,42 @@ class _PendingParcelDetailsPage extends StatelessWidget {
                           recipientLastName: parcel.recipientLastName,
                           recipientFirstName: parcel.recipientFirstName,
                           recipientPhone: parcel.recipientPhone,
-                          parcelNature: parcel.parcelNature,
+                          parcelNature: parcel.parcelItems.isEmpty
+                              ? parcel.parcelNature
+                              : parcel.parcelItems
+                                    .map((line) => line.nature)
+                                    .toSet()
+                                    .join(', '),
                           parcelCount: parcel.parcelCount,
                           attachmentPath: parcel.attachmentPath,
                           attachmentName: parcel.attachmentName,
                           deliveryFee: parcel.deliveryFee ?? '',
                           showValidation: false,
+                          senderName: parcel.senderName ?? '',
+                          senderPhone: parcel.senderPhone,
+                          montantBase: parcel.amountBase ?? 0,
+                          montantTaxe: parcel.taxAmount ?? 0,
+                          taxeTaux: parcel.taxRate ?? 0,
+                          mecefResponse: parcel.mecefInfo == null
+                              ? null
+                              : {
+                                  'status': parcel.mecefInfo!.status,
+                                  'code_mecef': parcel.mecefInfo!.code,
+                                  'nim': parcel.mecefInfo!.nim,
+                                  'counters': parcel.mecefInfo!.counters,
+                                  'date_mecef': parcel.mecefInfo!.date,
+                                  'qr_code': parcel.mecefInfo!.qrCode,
+                                },
+                          poidsTotal: parcel.parcelItems.fold<double>(
+                            0,
+                            (total, line) =>
+                                total + line.weight * line.quantity,
+                          ),
+                          description: parcel.parcelItems
+                              .map((line) => line.description)
+                              .where((value) => value.isNotEmpty)
+                              .join(', '),
+                          taxGroupLabel: parcel.taxGroupLabel ?? '',
                         ),
                       ),
                     );
@@ -588,17 +616,50 @@ class _RegisteredParcelDetailsPage extends StatelessWidget {
                           recipientLastName: parcel.recipientLastName,
                           recipientFirstName: parcel.recipientFirstName,
                           recipientPhone: parcel.recipientPhone,
-                          parcelNature: parcel.parcelNature,
+                          parcelNature: parcel.parcelItems.isEmpty
+                              ? parcel.parcelNature
+                              : parcel.parcelItems
+                                    .map((line) => line.nature)
+                                    .toSet()
+                                    .join(', '),
                           parcelCount: parcel.parcelCount,
                           attachmentPath: parcel.attachmentPath,
                           attachmentName: parcel.attachmentName,
                           deliveryFee: parcel.deliveryFee ?? '',
                           showValidation: true,
+                          senderName: parcel.senderName ?? '',
+                          senderPhone: parcel.senderPhone,
+                          montantBase: parcel.amountBase ?? 0,
+                          montantTaxe: parcel.taxAmount ?? 0,
+                          taxeTaux: parcel.taxRate ?? 0,
+                          mecefResponse: parcel.mecefInfo == null
+                              ? null
+                              : {
+                                  'status': parcel.mecefInfo!.status,
+                                  'code_mecef': parcel.mecefInfo!.code,
+                                  'nim': parcel.mecefInfo!.nim,
+                                  'counters': parcel.mecefInfo!.counters,
+                                  'date_mecef': parcel.mecefInfo!.date,
+                                  'qr_code': parcel.mecefInfo!.qrCode,
+                                },
+                          poidsTotal: parcel.parcelItems.fold<double>(
+                            0,
+                            (total, line) =>
+                                total + line.weight * line.quantity,
+                          ),
+                          description: parcel.parcelItems
+                              .map((line) => line.description)
+                              .where((value) => value.isNotEmpty)
+                              .join(', '),
+                          taxGroupLabel: parcel.taxGroupLabel ?? '',
                         ),
                       ),
                     );
                   },
-                  icon: const Icon(Icons.confirmation_number_outlined, size: 22),
+                  icon: const Icon(
+                    Icons.confirmation_number_outlined,
+                    size: 22,
+                  ),
                   label: const Text('Consulter le billet officiel'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _deepBlue,
@@ -656,7 +717,11 @@ class _AgencyPaymentBanner extends StatelessWidget {
                   color: Colors.orange.shade100,
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: Icon(Icons.storefront_rounded, color: Colors.orange.shade900, size: 24),
+                child: Icon(
+                  Icons.storefront_rounded,
+                  color: Colors.orange.shade900,
+                  size: 24,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -764,7 +829,10 @@ class _StatusStepperCard extends StatelessWidget {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFF17A34A).withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(10),
@@ -792,19 +860,34 @@ class _StatusStepperCard extends StatelessWidget {
                       height: 22,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: i <= currentStep ? const Color(0xFF17A34A) : Colors.grey.shade300,
+                        color: i <= currentStep
+                            ? const Color(0xFF17A34A)
+                            : Colors.grey.shade300,
                       ),
                       child: Center(
                         child: i <= currentStep
-                            ? const Icon(Icons.check, size: 14, color: Colors.white)
-                            : Container(width: 8, height: 8, decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white)),
+                            ? const Icon(
+                                Icons.check,
+                                size: 14,
+                                color: Colors.white,
+                              )
+                            : Container(
+                                width: 8,
+                                height: 8,
+                                decoration: const BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Colors.white,
+                                ),
+                              ),
                       ),
                     ),
                     if (i < steps.length - 1)
                       Container(
                         width: 2,
                         height: 24,
-                        color: i < currentStep ? const Color(0xFF17A34A) : Colors.grey.shade300,
+                        color: i < currentStep
+                            ? const Color(0xFF17A34A)
+                            : Colors.grey.shade300,
                       ),
                   ],
                 ),
@@ -815,7 +898,9 @@ class _StatusStepperCard extends StatelessWidget {
                     steps[i],
                     style: TextStyle(
                       color: i <= currentStep ? _deepBlue : _mutedText,
-                      fontWeight: i == currentStep ? FontWeight.w900 : FontWeight.w700,
+                      fontWeight: i == currentStep
+                          ? FontWeight.w900
+                          : FontWeight.w700,
                       fontSize: 13.5,
                     ),
                   ),
@@ -898,7 +983,10 @@ class _ParcelDetailsCard extends StatelessWidget {
           _DetailRow(label: 'Destinataire', value: parcel.recipientFullName),
           _DetailRow(label: 'Téléphone dest.', value: parcel.recipientPhone),
           _DetailRow(label: 'Nature du colis', value: parcel.parcelNature),
-          _DetailRow(label: 'Nombre de pièces', value: 'x${parcel.parcelCount}'),
+          _DetailRow(
+            label: 'Nombre de pièces',
+            value: 'x${parcel.parcelCount}',
+          ),
           if (parcel.estimatedValue != null && parcel.estimatedValue! > 0)
             _DetailRow(
               label: 'Valeur déclarée',
@@ -906,7 +994,8 @@ class _ParcelDetailsCard extends StatelessWidget {
             ),
           _DetailRow(
             label: 'Frais de transport',
-            value: (parcel.deliveryFee != null && parcel.deliveryFee!.isNotEmpty)
+            value:
+                (parcel.deliveryFee != null && parcel.deliveryFee!.isNotEmpty)
                 ? '${parcel.deliveryFee} FCFA'
                 : 'Calculés en agence',
             isLast: true,
@@ -1061,7 +1150,11 @@ class _ImageFallback extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: _deepBlue.withValues(alpha: 0.16)),
       ),
-      child: Icon(Icons.inventory_2_rounded, color: _deepBlue, size: size * 0.5),
+      child: Icon(
+        Icons.inventory_2_rounded,
+        color: _deepBlue,
+        size: size * 0.5,
+      ),
     );
   }
 }

@@ -42,4 +42,11 @@ void main() {
     expect(present.status, 'Présent');
     expect(absent.status, 'Absent');
   });
+
+  test('formats ticket departure dates and times for history display', () {
+    expect(formatPercepteurTicketDate('2026-09-30'), '30 septembre 2026');
+    expect(formatPercepteurTicketDate('30/09/2026'), '30 septembre 2026');
+    expect(formatPercepteurTicketTime('08:30:00'), '08:30');
+    expect(formatPercepteurTicketTime('08:30'), '08:30');
+  });
 }

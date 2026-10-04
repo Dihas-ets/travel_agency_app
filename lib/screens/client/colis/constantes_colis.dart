@@ -45,11 +45,13 @@ const List<String> _beninCities = [
   'Tchaourou',
 ];
 
-
-
 class _ParcelDraft {
   String? nature;
   final TextEditingController valueController = TextEditingController();
+  final TextEditingController descriptionController = TextEditingController();
+  final TextEditingController weightController = TextEditingController(
+    text: '1',
+  );
   XFile? attachment;
   int quantity = 1;
 
@@ -60,6 +62,16 @@ class _ParcelDraft {
         attachment != null;
   }
 
+  bool get isCompleteForStaff {
+    return nature != null &&
+        nature!.trim().isNotEmpty &&
+        valueController.text.trim().isNotEmpty &&
+        descriptionController.text.trim().isNotEmpty &&
+        (double.tryParse(weightController.text.trim().replaceAll(',', '.')) ??
+                0) >
+            0;
+  }
+
   String get summary {
     final value = valueController.text.trim();
     return '${nature ?? ''} x$quantity - valeur ${value.isEmpty ? '--' : value} CFA';
@@ -67,5 +79,7 @@ class _ParcelDraft {
 
   void dispose() {
     valueController.dispose();
+    descriptionController.dispose();
+    weightController.dispose();
   }
 }

@@ -73,25 +73,14 @@ class _QRScannerPageState extends State<QRScannerPage> {
     setState(() => _hasScanned = true);
     await _controller.stop();
     if (!mounted) return;
-    final created = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
+    await Navigator.of(context).pushReplacement<void, void>(
+      MaterialPageRoute<void>(
         builder: (context) => ManualExpensePage(
           initialMecefCode: parsed.code,
           initialMecefNim: parsed.nim,
         ),
       ),
     );
-    if (!mounted) return;
-    if (created == true) {
-      Navigator.pop(context, true);
-      return;
-    }
-    await _controller.start();
-    if (!mounted) return;
-    setState(() {
-      _hasScanned = false;
-      _scanError = null;
-    });
   }
 
   void _resumeScanning() {

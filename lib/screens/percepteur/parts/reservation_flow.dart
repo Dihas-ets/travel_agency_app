@@ -12,6 +12,7 @@ import 'package:code_initial/models/voyage_programme_model.dart';
 import 'package:code_initial/services/ligne_service.dart';
 import 'package:code_initial/services/tax_service.dart';
 import 'package:code_initial/services/ticket_service.dart';
+import 'package:code_initial/services/staff_ticket_service.dart';
 import 'package:code_initial/services/payment_service.dart';
 import 'package:code_initial/models/payment_provider_model.dart';
 import 'package:code_initial/services/feexpay_service.dart';
@@ -22,10 +23,73 @@ import 'package:code_initial/screens/percepteur/parts/notifications_section.dart
 import 'package:code_initial/screens/percepteur/parts/ticket_validation_section.dart';
 import 'package:code_initial/screens/percepteur/parts/assignments_section.dart';
 import 'package:code_initial/screens/percepteur/parts/percepteur_ticket_print_page.dart';
+import 'package:code_initial/screens/percepteur/parts/history_news_section.dart';
 
 // Reservation percepteur: donnees, formulaire, paiement, billet et presence.
 
+String formatPercepteurTicketDate(String value) {
+  final normalized = value.trim();
+  final dateMatch = RegExp(r'^(\d{4})-(\d{2})-(\d{2})').firstMatch(normalized);
+  final dayFirstMatch = RegExp(
+    r'^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$',
+  ).firstMatch(normalized);
+  final year = int.tryParse(
+    dateMatch?.group(1) ?? dayFirstMatch?.group(3) ?? '',
+  );
+  final month = int.tryParse(
+    dateMatch?.group(2) ?? dayFirstMatch?.group(2) ?? '',
+  );
+  final day = int.tryParse(
+    dateMatch?.group(3) ?? dayFirstMatch?.group(1) ?? '',
+  );
+  if (year == null ||
+      month == null ||
+      day == null ||
+      month < 1 ||
+      month > 12 ||
+      day < 1 ||
+      day > DateTime(year, month + 1, 0).day) {
+    return value;
+  }
+
+  const months = [
+    'janvier',
+    'février',
+    'mars',
+    'avril',
+    'mai',
+    'juin',
+    'juillet',
+    'août',
+    'septembre',
+    'octobre',
+    'novembre',
+    'décembre',
+  ];
+  return '$day ${months[month - 1]} $year';
+}
+
+String formatPercepteurTicketTime(String value) {
+  final normalized = value.trim();
+  final match = RegExp(
+    r'^(\d{1,2}):(\d{2})(?::\d{2})?$',
+  ).firstMatch(normalized);
+  if (match == null) return value;
+  final hour = int.tryParse(match.group(1)!);
+  final minute = int.tryParse(match.group(2)!);
+  if (hour == null || hour > 23 || minute == null || minute > 59) return value;
+  return '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
+}
+
+void _returnToPercepteurHistory(BuildContext context) {
+  Navigator.of(context).pushAndRemoveUntil(
+    MaterialPageRoute(builder: (_) => const PercepteurHistoryPage()),
+    (route) => route.isFirst,
+  );
+}
+
 class PercepteurReservationRecord {
+  final int? ticketId;
   final String reference;
   final String departure;
   final String destination;
@@ -58,7 +122,10 @@ class PercepteurReservationRecord {
   final String passengerFirstName;
   final String passengerLastName;
 
+  bool get canCancel => ticketId != null && rawStatus == 'en_cours';
+
   const PercepteurReservationRecord({
+    this.ticketId,
     required this.reference,
     required this.departure,
     required this.destination,
@@ -93,7 +160,9 @@ class PercepteurReservationRecord {
   });
 
   PercepteurReservationRecord copyWith({
+    int? ticketId,
     String? status,
+    String? rawStatus,
     String? busMatricule,
     String? reference,
     double? baseAmount,
@@ -109,6 +178,7 @@ class PercepteurReservationRecord {
     String? issuerName,
   }) {
     return PercepteurReservationRecord(
+      ticketId: ticketId ?? this.ticketId,
       reference: reference ?? this.reference,
       departure: departure,
       destination: destination,
@@ -120,7 +190,7 @@ class PercepteurReservationRecord {
       price: price,
       busMatricule: busMatricule ?? this.busMatricule,
       status: status ?? this.status,
-      rawStatus: rawStatus,
+      rawStatus: rawStatus ?? this.rawStatus,
       ligneId: ligneId,
       voyageId: voyageId,
       busId: busId,
@@ -172,6 +242,7 @@ class PercepteurReservationRecord {
         : <String, dynamic>{};
     final mecefConfirmed = mecef['status']?.toString() == 'confirmed';
     return PercepteurReservationRecord(
+      ticketId: int.tryParse(json['id']?.toString() ?? ''),
       reference: json['reference']?.toString() ?? '',
       departure:
           ligne['trajet_depart']?.toString() ??
@@ -259,6 +330,11 @@ class PercepteurReservationStore {
     reservations.insert(0, reservation);
     version.value += 1;
   }
+
+  static void removeByTicketId(int ticketId) {
+    reservations.removeWhere((reservation) => reservation.ticketId == ticketId);
+    version.value += 1;
+  }
 }
 
 class PercepteurReservationPage extends StatefulWidget {
@@ -295,6 +371,7 @@ class PercepteurReservationPageState extends State<PercepteurReservationPage> {
   String? _placesError;
   int _programmesRequest = 0;
   int _placesRequest = 0;
+  int? _cancellingTicketId;
 
   @override
   void initState() {
@@ -309,6 +386,59 @@ class PercepteurReservationPageState extends State<PercepteurReservationPage> {
     _dateController.dispose();
     _amountController.dispose();
     super.dispose();
+  }
+
+  Future<void> _cancelReservation(
+    PercepteurReservationRecord reservation,
+  ) async {
+    final ticketId = reservation.ticketId;
+    if (ticketId == null || _cancellingTicketId != null) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Annuler la réservation ?'),
+        content: Text(
+          'Voulez-vous annuler le ticket ${reservation.reference} ? '
+          'Un avoir sera créé.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Retour'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Annuler le ticket'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _cancellingTicketId = ticketId);
+    try {
+      final result = await StaffTicketService().annulerTicket(ticketId);
+      PercepteurReservationStore.removeByTicketId(ticketId);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            result['message']?.toString() ?? 'Ticket annulé et avoir créé.',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _cancellingTicketId = null);
+    }
   }
 
   int get _fare {
@@ -327,9 +457,6 @@ class PercepteurReservationPageState extends State<PercepteurReservationPage> {
         ? (total / (1 + rate / 100)).roundToDouble()
         : total.toDouble();
   }
-
-  bool get _hasDefaultTicketTax =>
-      _taxGroups.any((group) => group.appliesAsDefaultTo('ticket'));
 
   bool get _canContinueToPassenger =>
       _selectedLigne != null &&
@@ -922,7 +1049,13 @@ class PercepteurReservationPageState extends State<PercepteurReservationPage> {
                     const SizedBox(height: 18),
                     if (PercepteurReservationStore.reservations.isNotEmpty)
                       ...PercepteurReservationStore.reservations.map(
-                        (item) => PercepteurReservationCard(item: item),
+                        (item) => PercepteurReservationCard(
+                          item: item,
+                          onCancel: item.canCancel
+                              ? () => _cancelReservation(item)
+                              : null,
+                          isCancelling: _cancellingTicketId == item.ticketId,
+                        ),
                       ),
                   ],
                 ),
@@ -1081,6 +1214,7 @@ class PercepteurReservationPageState extends State<PercepteurReservationPage> {
                 ),
               DropdownButtonFormField<VoyageProgramme>(
                 initialValue: _selectedVoyage,
+                isExpanded: true,
                 decoration: const InputDecoration(
                   labelText: 'Bus pour ce voyage',
                   border: OutlineInputBorder(),
@@ -1093,13 +1227,19 @@ class PercepteurReservationPageState extends State<PercepteurReservationPage> {
                   final route = isDirect
                       ? '${trip.ligneDepart} → ${trip.ligneArrivee}'
                       : '${trip.ligneDepart} → ${trip.ligneArrivee} (passage par ${_destinationController.text.trim()})';
-                  return DropdownMenuItem(
-                    value: trip,
-                    child: Text(
+                  final label =
                       '${trip.busName.isEmpty ? 'Bus' : trip.busName}'
                       '${trip.busMatricule.isEmpty ? '' : ' • ${trip.busMatricule}'}'
-                      '${route.trim().isEmpty ? '' : ' — $route'}',
-                      overflow: TextOverflow.ellipsis,
+                      '${route.trim().isEmpty ? '' : ' — $route'}';
+                  return DropdownMenuItem(
+                    value: trip,
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   );
                 }).toList(),
@@ -1119,6 +1259,7 @@ class PercepteurReservationPageState extends State<PercepteurReservationPage> {
               if (_selectedVoyage != null)
                 DropdownButtonFormField<String>(
                   initialValue: _selectedHeure,
+                  isExpanded: true,
                   decoration: const InputDecoration(
                     labelText: 'Heure disponible',
                     border: OutlineInputBorder(),
@@ -1207,10 +1348,10 @@ class PercepteurReservationPageState extends State<PercepteurReservationPage> {
             if (_selectedHeure != null &&
                 _placesAvailable != null &&
                 _placesAvailable! > 0 &&
-                _taxGroups.isNotEmpty &&
-                !_hasDefaultTicketTax)
+                _taxGroups.isNotEmpty)
               DropdownButtonFormField<TaxGroup>(
                 initialValue: _selectedTax,
+                isExpanded: true,
                 decoration: const InputDecoration(
                   labelText: 'Taxe applicable',
                   border: OutlineInputBorder(),
@@ -1219,7 +1360,14 @@ class PercepteurReservationPageState extends State<PercepteurReservationPage> {
                     .map(
                       (group) => DropdownMenuItem(
                         value: group,
-                        child: Text('${group.label} (${group.rate}%)'),
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: Text(
+                            '${group.label} (${group.rate}%)',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                       ),
                     )
                     .toList(),
@@ -1985,6 +2133,7 @@ class PercepteurPaymentChoicePageState
   bool _loadingProviders = true;
   bool _processing = false;
   bool _checkingPayment = false;
+  bool _useMecef = true;
   Timer? _pollTimer;
   String? _paymentMessage;
   Map<String, dynamic>? _issuedTicketData;
@@ -2118,6 +2267,7 @@ class PercepteurPaymentChoicePageState
         montantTaxe: draft.taxAmount,
         taxeTaux: draft.taxRate,
         modePaiement: modePaiement,
+        useMecef: _useMecef,
       );
       final ticket = response['ticket'] is Map
           ? Map<String, dynamic>.from(response['ticket'] as Map)
@@ -2329,8 +2479,10 @@ class PercepteurPaymentChoicePageState
     Map<String, dynamic>? ticketData,
   }) {
     final reservation = widget.reservation.copyWith(
+      ticketId: int.tryParse(ticketData?['id']?.toString() ?? ''),
       reference: reference ?? _ticketReference,
       status: status,
+      rawStatus: ticketData?['statut']?.toString() ?? 'en_cours',
       baseAmount: _number(ticketData?['montant_base']),
       taxAmount: _number(ticketData?['montant_taxe']),
       taxRate: _number(ticketData?['taxe_taux']),
@@ -2438,6 +2590,33 @@ class PercepteurPaymentChoicePageState
                       ),
                     ),
                     const SizedBox(height: 14),
+                    const Text(
+                      'Certification du ticket',
+                      style: TextStyle(
+                        color: _deepBlue,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    SwitchListTile.adaptive(
+                      contentPadding: EdgeInsets.zero,
+                      value: _useMecef,
+                      title: Text(
+                        _useMecef ? 'Avec MECeF' : 'Sans MECeF',
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                      subtitle: Text(
+                        _useMecef
+                            ? 'Le ticket sera envoyé à MECeF.'
+                            : 'Le ticket utilisera son QR code de référence.',
+                      ),
+                      onChanged: _ticketReference == null
+                          ? (value) => setState(() => _useMecef = value)
+                          : null,
+                      activeTrackColor: const Color(0xFF16A34A),
+                    ),
+                    const SizedBox(height: 8),
                     Row(
                       children: [
                         Expanded(
@@ -2483,6 +2662,7 @@ class PercepteurPaymentChoicePageState
                           ),
                         DropdownButtonFormField<PaymentProvider>(
                           initialValue: _selectedProvider,
+                          isExpanded: true,
                           decoration: const InputDecoration(
                             labelText: 'Prestataire',
                             border: OutlineInputBorder(),
@@ -2491,7 +2671,14 @@ class PercepteurPaymentChoicePageState
                               .map(
                                 (provider) => DropdownMenuItem(
                                   value: provider,
-                                  child: Text(provider.name),
+                                  child: SizedBox(
+                                    width: double.infinity,
+                                    child: Text(
+                                      provider.name,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
                                 ),
                               )
                               .toList(),
@@ -2505,6 +2692,7 @@ class PercepteurPaymentChoicePageState
                         if ((_selectedProvider?.methods.isNotEmpty ?? false))
                           DropdownButtonFormField<String>(
                             initialValue: _selectedMethod,
+                            isExpanded: true,
                             decoration: const InputDecoration(
                               labelText: 'Méthode de paiement',
                               border: OutlineInputBorder(),
@@ -2513,7 +2701,14 @@ class PercepteurPaymentChoicePageState
                                 .map(
                                   (entry) => DropdownMenuItem(
                                     value: entry.key,
-                                    child: Text(entry.value),
+                                    child: SizedBox(
+                                      width: double.infinity,
+                                      child: Text(
+                                        entry.value,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
                                   ),
                                 )
                                 .toList(),
@@ -2948,6 +3143,12 @@ class PercepteurGeneratedTicketPage extends StatelessWidget {
         backgroundColor: const Color(0xFF0B4F2A),
         foregroundColor: Colors.white,
         elevation: 0,
+        automaticallyImplyLeading: false,
+        leading: IconButton(
+          onPressed: () => _returnToPercepteurHistory(context),
+          icon: const Icon(Icons.history_rounded),
+          tooltip: 'Retour à l’historique',
+        ),
         title: const Text(
           'Billet généré',
           style: TextStyle(fontWeight: FontWeight.w900),
@@ -3020,9 +3221,9 @@ class PercepteurGeneratedTicketPage extends StatelessWidget {
               SizedBox(
                 height: 54,
                 child: OutlinedButton.icon(
-                  onPressed: () => Navigator.of(context).pop(),
+                  onPressed: () => _returnToPercepteurHistory(context),
                   icon: const Icon(Icons.history_rounded),
-                  label: const Text('Retour à la réservation'),
+                  label: const Text('Retour à l’historique'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: const Color(0xFF0B4F2A),
                     side: BorderSide(
@@ -3045,8 +3246,17 @@ class PercepteurGeneratedTicketPage extends StatelessWidget {
 
 class PercepteurReservationCard extends StatelessWidget {
   final PercepteurReservationRecord item;
+  final VoidCallback? onCancel;
+  final VoidCallback? onView;
+  final bool isCancelling;
 
-  const PercepteurReservationCard({super.key, required this.item});
+  const PercepteurReservationCard({
+    super.key,
+    required this.item,
+    this.onCancel,
+    this.onView,
+    this.isCancelling = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -3104,11 +3314,48 @@ class PercepteurReservationCard extends StatelessWidget {
           ),
           PercepteurTicketInfoRow(
             title: 'Départ',
-            value: '${item.date} à ${item.time}',
+            value:
+                '${formatPercepteurTicketDate(item.date)} à '
+                '${formatPercepteurTicketTime(item.time)}',
           ),
           PercepteurTicketInfoRow(title: 'Passager', value: item.passengerName),
           PercepteurTicketInfoRow(title: 'Téléphone', value: item.phone),
           PercepteurTicketInfoRow(title: 'Total', value: item.price),
+          if (onView != null || onCancel != null) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                if (onView != null)
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: onView,
+                      icon: const Icon(Icons.visibility_outlined),
+                      label: const Text('Voir'),
+                    ),
+                  ),
+                if (onView != null && onCancel != null)
+                  const SizedBox(width: 10),
+                if (onCancel != null)
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: isCancelling ? null : onCancel,
+                      icon: isCancelling
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.cancel_outlined),
+                      label: Text(isCancelling ? 'Annulation...' : 'Annuler'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.red.shade700,
+                        side: BorderSide(color: Colors.red.shade300),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ],
         ],
       ),
     );

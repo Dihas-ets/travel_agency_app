@@ -2,8 +2,13 @@ part of 'pages_colis.dart';
 
 class SendParcelPage extends StatefulWidget {
   final bool showModeTabs;
+  final bool isPercepteur;
 
-  const SendParcelPage({super.key, this.showModeTabs = true});
+  const SendParcelPage({
+    super.key,
+    this.showModeTabs = true,
+    this.isPercepteur = false,
+  });
 
   @override
   State<SendParcelPage> createState() => _SendParcelPageState();
@@ -17,14 +22,37 @@ class _SendParcelPageState extends State<SendParcelPage>
   final TextEditingController _lastNameController = TextEditingController();
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _senderNameController = TextEditingController();
+  final TextEditingController _senderPhoneController = TextEditingController();
+  final TextEditingController _secondaryPhoneController =
+      TextEditingController();
+  final TextEditingController _amountController = TextEditingController(
+    text: '0',
+  );
   final ImagePicker _imagePicker = ImagePicker();
+  final PaymentService _paymentService = PaymentService();
 
   final List<_ParcelDraft> _parcels = [_ParcelDraft()];
   int _currentStep = 1;
   bool _isSubmitting = false;
+  bool _isPaymentProcessing = false;
+  bool _isCheckingPayment = false;
+  bool _isLoadingProviders = false;
+  bool _useMecef = true;
+  String _paymentMode = 'ESPECES';
+  String? _paymentMessage;
+  String? _taxError;
+  List<PaymentProvider> _paymentProviders = [];
+  List<TaxGroup> _taxGroups = [];
+  TaxGroup? _selectedTaxGroup;
+  PaymentProvider? _selectedProvider;
+  String? _selectedMethod;
+  ColisModel? _pendingPaymentParcel;
+  Timer? _paymentPollTimer;
 
   List<Agence> _agences = [];
   List<String> _dynamicNatures = [];
+  List<Map<String, dynamic>> _parcelConfigurations = [];
   Agence? _selectedDepartureAgence;
   Agence? _selectedDestinationAgence;
 
@@ -32,8 +60,79 @@ class _SendParcelPageState extends State<SendParcelPage>
   void initState() {
     super.initState();
     _tabController = TabController(length: 1, vsync: this);
+    final user = SessionStore.currentUser;
+    _senderNameController.text = user?.fullName ?? '';
+    _senderPhoneController.text = user?.numero ?? '';
     _loadAgences();
     _loadNatures();
+    if (widget.isPercepteur) _loadTaxGroups();
+    if (widget.isPercepteur) _loadPaymentProviders();
+  }
+
+  Future<void> _loadTaxGroups() async {
+    try {
+      final groups = await TaxService().getGroupsForModule('colis');
+      if (!mounted) return;
+      final selected =
+          groups
+              .where((group) => group.appliesAsDefaultTo('colis'))
+              .firstOrNull ??
+          groups.firstOrNull;
+      setState(() {
+        _taxGroups = groups;
+        _selectedTaxGroup = selected;
+        _taxError = null;
+      });
+      _recalculateTaxAmounts();
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _taxError =
+            'Impossible de charger les groupes de taxe : '
+            '${error.toString().replaceFirst('Exception: ', '')}';
+      });
+    }
+  }
+
+  void _recalculateTaxAmounts() {
+    final ttc =
+        double.tryParse(_amountController.text.trim().replaceAll(',', '.')) ??
+        0;
+    final rate = _selectedTaxGroup?.rate ?? 0;
+    final base = rate > 0 ? (ttc / (1 + rate / 100)).roundToDouble() : ttc;
+    _montantBase = base;
+    _montantTaxe = ttc - base;
+  }
+
+  double _montantBase = 0;
+  double _montantTaxe = 0;
+
+  bool get _hasDefaultTaxGroup =>
+      _taxGroups.any((group) => group.appliesAsDefaultTo('colis'));
+
+  Future<void> _loadPaymentProviders() async {
+    setState(() => _isLoadingProviders = true);
+    try {
+      final providers = await _paymentService.getProvidersActifs();
+      if (!mounted) return;
+      final available = providers
+          .where((provider) => provider.configured)
+          .toList();
+      setState(() {
+        _paymentProviders = available;
+        _selectedProvider = available.firstOrNull;
+        _selectedMethod = _selectedProvider?.methods.keys.firstOrNull;
+        _isLoadingProviders = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _isLoadingProviders = false;
+        _paymentMessage =
+            'Impossible de charger les moyens Mobile Money : '
+            '${error.toString().replaceFirst('Exception: ', '')}';
+      });
+    }
   }
 
   Future<void> _loadNatures() async {
@@ -48,9 +147,97 @@ class _SendParcelPageState extends State<SendParcelPage>
       if (natures.isNotEmpty && mounted) {
         setState(() {
           _dynamicNatures = natures;
+          _parcelConfigurations = configs;
         });
+      } else if (mounted) {
+        setState(() => _parcelConfigurations = configs);
       }
     } catch (_) {}
+  }
+
+  void _showTariffs() {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: SizedBox(
+          height: MediaQuery.of(context).size.height * 0.72,
+          child: Column(
+            children: [
+              const Padding(
+                padding: EdgeInsets.fromLTRB(20, 8, 20, 14),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Tarifs par nature',
+                    style: TextStyle(
+                      color: _deepBlue,
+                      fontSize: 19,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: _parcelConfigurations.isEmpty
+                    ? const Center(
+                        child: Text('Aucun tarif de colis disponible.'),
+                      )
+                    : ListView.separated(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+                        itemCount: _parcelConfigurations.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 8),
+                        itemBuilder: (context, index) {
+                          final config = _parcelConfigurations[index];
+                          final line = config['ligne'] is Map
+                              ? Map<String, dynamic>.from(
+                                  config['ligne'] as Map,
+                                )
+                              : const <String, dynamic>{};
+                          final route =
+                              [
+                                    line['trajet_depart']?.toString(),
+                                    line['trajet_arrivee']?.toString(),
+                                  ]
+                                  .where((value) => value?.isNotEmpty == true)
+                                  .join(' → ');
+                          final description =
+                              config['description']?.toString().trim() ?? '';
+                          return ListTile(
+                            tileColor: const Color(0xFFF8F9FE),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            title: Text(
+                              config['nature']?.toString() ?? 'Colis',
+                              style: const TextStyle(
+                                color: _deepBlue,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            subtitle: Text(
+                              [
+                                if (description.isNotEmpty) description,
+                                route.isEmpty ? 'Toutes les lignes' : route,
+                              ].join('\n'),
+                            ),
+                            trailing: Text(
+                              '${config['frais'] ?? 0} FCFA',
+                              style: const TextStyle(
+                                color: _fofanaGreen,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _loadAgences() async {
@@ -60,7 +247,13 @@ class _SendParcelPageState extends State<SendParcelPage>
       setState(() {
         _agences = agences;
         if (_agences.isNotEmpty) {
-          _selectedDepartureAgence = _agences.first;
+          _selectedDepartureAgence =
+              _agences
+                  .where(
+                    (agence) => agence.id == SessionStore.currentUser?.agenceId,
+                  )
+                  .firstOrNull ??
+              _agences.first;
           _departureController.text = _selectedDepartureAgence!.nomAgence;
         }
       });
@@ -69,12 +262,17 @@ class _SendParcelPageState extends State<SendParcelPage>
 
   @override
   void dispose() {
+    _paymentPollTimer?.cancel();
     _tabController.dispose();
     _departureController.dispose();
     _destinationController.dispose();
     _lastNameController.dispose();
     _firstNameController.dispose();
     _phoneController.dispose();
+    _senderNameController.dispose();
+    _senderPhoneController.dispose();
+    _secondaryPhoneController.dispose();
+    _amountController.dispose();
     for (final parcel in _parcels) {
       parcel.dispose();
     }
@@ -90,7 +288,9 @@ class _SendParcelPageState extends State<SendParcelPage>
       _showAgenceChoiceSheet(
         title: title,
         agences: _agences,
-        selectedAgence: isDeparture ? _selectedDepartureAgence : _selectedDestinationAgence,
+        selectedAgence: isDeparture
+            ? _selectedDepartureAgence
+            : _selectedDestinationAgence,
         icon: Icons.location_city_rounded,
         onSelected: (agence) {
           setState(() {
@@ -221,7 +421,8 @@ class _SendParcelPageState extends State<SendParcelPage>
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         agence.nomAgence,
@@ -261,12 +462,6 @@ class _SendParcelPageState extends State<SendParcelPage>
 
   int get _parcelCount =>
       _parcels.fold<int>(0, (sum, parcel) => sum + parcel.quantity);
-
-  String get _parcelNatureSummary => _parcels
-      .where((parcel) => parcel.nature != null)
-      .map((parcel) => parcel.summary.trim())
-      .where((summary) => summary.isNotEmpty)
-      .join(', ');
 
   XFile? get _firstPickedAttachment {
     for (final parcel in _parcels) {
@@ -388,7 +583,8 @@ class _SendParcelPageState extends State<SendParcelPage>
                       : ListView.separated(
                           padding: const EdgeInsets.fromLTRB(16, 4, 16, 18),
                           itemCount: items.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 8),
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 8),
                           itemBuilder: (context, index) {
                             final item = items[index];
                             final isSelected = item == selectedValue;
@@ -487,10 +683,16 @@ class _SendParcelPageState extends State<SendParcelPage>
   }
 
   void _goToStepTwo() {
-    if (_departureController.text.trim().isEmpty ||
-        _parcels.any((parcel) => !parcel.isComplete)) {
+    final hasInvalidParcel = _parcels.any(
+      (parcel) =>
+          widget.isPercepteur ? !parcel.isCompleteForStaff : !parcel.isComplete,
+    );
+    if ((!widget.isPercepteur && _departureController.text.trim().isEmpty) ||
+        hasInvalidParcel) {
       _showRequiredMessage(
-        "Remplissez la nature, la valeur et l'image de chaque colis avant de continuer",
+        widget.isPercepteur
+            ? 'Renseignez pour chaque colis la nature, la description, le poids et la valeur.'
+            : 'Renseignez le point de départ, la nature, la valeur et la photo de chaque colis.',
       );
       return;
     }
@@ -537,25 +739,71 @@ class _SendParcelPageState extends State<SendParcelPage>
   }
 
   Future<void> _previewTicket() async {
+    if (widget.isPercepteur && _pendingPaymentParcel != null) {
+      await _startParcelPayment(_pendingPaymentParcel!);
+      return;
+    }
+
     if (_destinationController.text.trim().isEmpty ||
+        (widget.isPercepteur && _senderNameController.text.trim().isEmpty) ||
+        (widget.isPercepteur && _senderPhoneController.text.trim().isEmpty) ||
         _lastNameController.text.trim().isEmpty ||
         _firstNameController.text.trim().isEmpty ||
         _phoneController.text.trim().isEmpty ||
-        _departureController.text.trim().isEmpty ||
-        _parcels.any((parcel) => !parcel.isComplete)) {
+        (!widget.isPercepteur && _departureController.text.trim().isEmpty) ||
+        _parcels.any(
+          (parcel) => widget.isPercepteur
+              ? !parcel.isCompleteForStaff
+              : !parcel.isComplete,
+        )) {
       _showRequiredMessage(
         "Remplissez tous les champs de chaque colis avant la validation",
       );
       return;
     }
+    if (widget.isPercepteur) {
+      final amount =
+          double.tryParse(_amountController.text.trim().replaceAll(',', '.')) ??
+          0;
+      if (amount <= 0) {
+        _showRequiredMessage('Le montant TTC doit être supérieur à 0.');
+        return;
+      }
+      if (_taxGroups.isNotEmpty && _selectedTaxGroup == null) {
+        _showRequiredMessage('Sélectionnez le groupe de taxe du colis.');
+        return;
+      }
+      if (_taxError != null) {
+        _showRequiredMessage(_taxError!);
+        return;
+      }
+    }
+    if (widget.isPercepteur &&
+        _paymentMode == 'MOBILEMONEY' &&
+        (_isLoadingProviders ||
+            _selectedProvider == null ||
+            _selectedMethod == null)) {
+      _showRequiredMessage(
+        _isLoadingProviders
+            ? 'Chargement des moyens de paiement. Réessayez dans un instant.'
+            : 'Choisissez un moyen Mobile Money disponible.',
+      );
+      return;
+    }
 
     // Resolve departure and destination agency IDs
-    int depotId = _selectedDepartureAgence?.id ?? 1;
+    int? depotId = widget.isPercepteur
+        ? null
+        : _selectedDepartureAgence?.id ?? 1;
     int retraitId = _selectedDestinationAgence?.id ?? 2;
 
-    if (_selectedDepartureAgence == null && _agences.isNotEmpty) {
+    if (!widget.isPercepteur &&
+        _selectedDepartureAgence == null &&
+        _agences.isNotEmpty) {
       final found = _agences.firstWhere(
-        (a) => a.nomAgence.toLowerCase() == _departureController.text.trim().toLowerCase(),
+        (a) =>
+            a.nomAgence.toLowerCase() ==
+            _departureController.text.trim().toLowerCase(),
         orElse: () => _agences.first,
       );
       depotId = found.id;
@@ -563,7 +811,9 @@ class _SendParcelPageState extends State<SendParcelPage>
 
     if (_selectedDestinationAgence == null && _agences.isNotEmpty) {
       final found = _agences.firstWhere(
-        (a) => a.nomAgence.toLowerCase() == _destinationController.text.trim().toLowerCase(),
+        (a) =>
+            a.nomAgence.toLowerCase() ==
+            _destinationController.text.trim().toLowerCase(),
         orElse: () => _agences.length > 1 ? _agences[1] : _agences.first,
       );
       retraitId = found.id;
@@ -573,24 +823,40 @@ class _SendParcelPageState extends State<SendParcelPage>
 
     try {
       final user = SessionStore.currentUser;
-      final senderPhone = (user?.numero != null && user!.numero.isNotEmpty)
+      final senderPhone = widget.isPercepteur
+          ? _senderPhoneController.text.trim()
+          : (user?.numero != null && user!.numero.isNotEmpty)
           ? user.numero
           : (SessionStore.currentClientPhone ?? '+22900000000');
-      final senderName = (user != null && user.fullName.isNotEmpty)
+      final senderName = widget.isPercepteur
+          ? _senderNameController.text.trim()
+          : (user != null && user.fullName.isNotEmpty)
           ? user.fullName
           : (SessionStore.currentClientFullName ?? 'Client');
 
-      final List<Map<String, dynamic>> details = _parcels.map((p) => {
-        'nature': p.nature ?? 'Colis',
-        'poids': 0,
-        'nombre': p.quantity,
-        'description': 'Valeur: ${p.valueController.text.trim()} FCFA',
-      }).toList();
+      final List<Map<String, dynamic>> details = _parcels
+          .map(
+            (p) => {
+              'nature': p.nature ?? 'Colis',
+              'poids': widget.isPercepteur
+                  ? double.tryParse(
+                          p.weightController.text.trim().replaceAll(',', '.'),
+                        ) ??
+                        0
+                  : 0,
+              'nombre': p.quantity,
+              'description': widget.isPercepteur
+                  ? p.descriptionController.text.trim()
+                  : 'Valeur: ${p.valueController.text.trim()} FCFA',
+            },
+          )
+          .toList();
 
       final List<XFile?> images = _parcels.map((p) => p.attachment).toList();
 
       final double totalValeur = _parcels.fold<double>(
-        0, (sum, p) => sum + (double.tryParse(p.valueController.text.trim()) ?? 0),
+        0,
+        (sum, p) => sum + (double.tryParse(p.valueController.text.trim()) ?? 0),
       );
 
       final result = await ColisService().createColis(
@@ -598,11 +864,24 @@ class _SendParcelPageState extends State<SendParcelPage>
         agenceRetraitId: retraitId,
         expediteurNom: senderName,
         expediteurTel: senderPhone,
-        destinataireNom: '${_lastNameController.text.trim()} ${_firstNameController.text.trim()}'.trim(),
+        destinataireNom:
+            '${_lastNameController.text.trim()} ${_firstNameController.text.trim()}'
+                .trim(),
         destinataireTel: _phoneController.text.trim(),
-        modePaiement: 'ESPECES',
+        modePaiement: widget.isPercepteur ? _paymentMode : 'ESPECES',
+        useMecef: _useMecef,
         valeurEstime: totalValeur,
         colisDetails: details,
+        montantManuel: widget.isPercepteur
+            ? double.tryParse(
+                _amountController.text.trim().replaceAll(',', '.'),
+              )
+            : null,
+        montantBase: widget.isPercepteur ? _montantBase : null,
+        montantTaxe: widget.isPercepteur ? _montantTaxe : null,
+        taxeGroupId: widget.isPercepteur ? _selectedTaxGroup?.id : null,
+        taxeTaux: widget.isPercepteur ? _selectedTaxGroup?.rate : null,
+        destinataireTelSecondaire: _secondaryPhoneController.text,
         images: images,
       );
 
@@ -611,34 +890,295 @@ class _SendParcelPageState extends State<SendParcelPage>
 
       if (result['success'] == true) {
         final ColisModel colis = result['colis'];
+        if (widget.isPercepteur && _paymentMode == 'MOBILEMONEY') {
+          setState(() => _pendingPaymentParcel = colis);
+          await _startParcelPayment(colis);
+          return;
+        }
+        if (widget.isPercepteur && colis.statutPaiement != 'payé') {
+          _showRequiredMessage(
+            'Le paiement du colis n’a pas été confirmé. '
+            'Le colis reste en attente et ne peut pas être finalisé.',
+          );
+          return;
+        }
         final parcelRecord = colis.toParcelRecord();
         ParcelStore.upsertPending(parcelRecord);
 
-        Navigator.of(context).push(
+        await Navigator.of(context).push(
           MaterialPageRoute(
             builder: (_) => BilletPage(
               code: colis.reference,
-              departureCity: colis.agenceDepotNom ?? _departureController.text.trim(),
-              destinationCity: colis.agenceRetraitNom ?? _destinationController.text.trim(),
+              departureCity:
+                  colis.agenceDepotNom ?? _departureController.text.trim(),
+              destinationCity:
+                  colis.agenceRetraitNom ?? _destinationController.text.trim(),
               recipientLastName: _lastNameController.text.trim(),
               recipientFirstName: _firstNameController.text.trim(),
               recipientPhone: _phoneController.text.trim(),
-              parcelNature: _parcelNatureSummary,
+              parcelNature: _parcels
+                  .map((parcel) => parcel.nature)
+                  .whereType<String>()
+                  .toSet()
+                  .join(', '),
               parcelCount: _parcelCount,
               attachmentPath: _firstPickedAttachment?.path,
               attachmentName: _attachmentNameSummary,
-              deliveryFee: colis.montant > 0 ? colis.montant.toStringAsFixed(0) : '',
-              showValidation: false,
+              deliveryFee: colis.montant > 0
+                  ? colis.montant.toStringAsFixed(0)
+                  : '',
+              showValidation: widget.isPercepteur,
+              senderName: senderName,
+              senderPhone: senderPhone,
+              montantBase: colis.montantBase,
+              montantTaxe: colis.montantTaxe,
+              taxeTaux: colis.tauxTaxe,
+              mecefResponse: colis.mecefResponse,
+              poidsTotal: colis.colisDetails.fold<double>(
+                0,
+                (total, detail) => total + detail.poids * detail.nombre,
+              ),
+              description: colis.colisDetails
+                  .map((detail) => detail.description)
+                  .where((value) => value.isNotEmpty)
+                  .join(', '),
+              issuerName: colis.enregistreurNom ?? '',
+              taxGroupLabel: colis.taxGroupLabel ?? '',
             ),
           ),
         );
+        if (widget.isPercepteur && mounted) {
+          Navigator.of(context).pop(true);
+        }
       } else {
-        _showRequiredMessage(result['message'] ?? 'Échec de la création du colis.');
+        _showRequiredMessage(
+          result['message'] ?? 'Échec de la création du colis.',
+        );
       }
     } catch (e) {
       if (!mounted) return;
       setState(() => _isSubmitting = false);
-      _showRequiredMessage('Erreur : ${e.toString().replaceFirst('Exception: ', '')}');
+      _showRequiredMessage(
+        'Erreur : ${e.toString().replaceFirst('Exception: ', '')}',
+      );
+    }
+  }
+
+  Future<void> _startParcelPayment(ColisModel parcel) async {
+    final provider = _selectedProvider;
+    final method = _selectedMethod;
+    if (provider == null || method == null) {
+      _showRequiredMessage('Choisissez un moyen Mobile Money disponible.');
+      return;
+    }
+    if (_isPaymentProcessing) return;
+
+    setState(() {
+      _isPaymentProcessing = true;
+      _paymentMessage = null;
+    });
+    try {
+      final result = await _paymentService.initierPaiement(
+        payableRef: parcel.reference,
+        payableType: 'colis',
+        provider: provider.slug,
+        method: method,
+        clientEmail: SessionStore.currentUser?.email,
+      );
+      if (!mounted) return;
+      final transaction = result['transaction'] as Map<String, dynamic>?;
+      final reference = transaction?['reference']?.toString();
+      if (reference == null || reference.isEmpty) {
+        throw Exception('La référence de transaction est absente.');
+      }
+
+      final activeProvider = result['provider']?.toString() ?? provider.slug;
+      if (activeProvider == 'feexpay') {
+        await FeexPayService.openPayment(
+          context: context,
+          amount:
+              num.tryParse(result['amount']?.toString() ?? '') ??
+              parcel.montant,
+          token: result['token']?.toString() ?? '',
+          shopId:
+              result['shop_id']?.toString() ??
+              result['public_key']?.toString() ??
+              '',
+          reference: reference,
+          onResult: (paymentResult) async {
+            if (paymentResult.isSuccess) {
+              _pollParcelPayment(
+                reference,
+                parcel,
+                externalId: paymentResult.reference,
+              );
+            } else if (mounted) {
+              setState(() => _isPaymentProcessing = false);
+              _showRequiredMessage(
+                paymentResult.message ?? 'Le paiement n’a pas été confirmé.',
+              );
+            }
+          },
+        );
+        return;
+      }
+      if (activeProvider == 'kkiapay') {
+        final customer = result['customer'] as Map<String, dynamic>?;
+        final externalId = await KkiapayService.openPayment(
+          context: context,
+          amount:
+              int.tryParse(result['amount']?.toString() ?? '') ??
+              parcel.montant.round(),
+          publicKey: result['public_key']?.toString() ?? '',
+          sandbox: result['environment']?.toString() != 'live',
+          reference: reference,
+          phone: customer?['phone']?.toString() ?? _phoneController.text.trim(),
+          name:
+              '${_lastNameController.text.trim()} '
+                      '${_firstNameController.text.trim()}'
+                  .trim(),
+          email: customer?['email']?.toString(),
+        );
+        if (externalId == null || externalId.isEmpty) {
+          if (mounted) setState(() => _isPaymentProcessing = false);
+          return;
+        }
+        _pollParcelPayment(reference, parcel, externalId: externalId);
+        return;
+      }
+
+      final paymentUrl = result['payment_url']?.toString();
+      if (paymentUrl == null || paymentUrl.isEmpty) {
+        throw Exception('Le prestataire n’a pas fourni de page de paiement.');
+      }
+      final opened = await launchUrl(
+        Uri.parse(paymentUrl),
+        mode: LaunchMode.externalApplication,
+      );
+      if (!opened) throw Exception('Impossible d’ouvrir la page de paiement.');
+      _pollParcelPayment(reference, parcel);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _isPaymentProcessing = false;
+        _paymentMessage = error.toString().replaceFirst('Exception: ', '');
+      });
+    }
+  }
+
+  void _pollParcelPayment(
+    String reference,
+    ColisModel parcel, {
+    String? externalId,
+  }) {
+    _paymentPollTimer?.cancel();
+    var attempts = 0;
+    var currentExternalId = externalId;
+    _paymentPollTimer = Timer.periodic(const Duration(seconds: 4), (
+      timer,
+    ) async {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (_isCheckingPayment) return;
+      if (++attempts > 45) {
+        timer.cancel();
+        setState(() {
+          _isPaymentProcessing = false;
+          _paymentMessage =
+              'Délai dépassé. Le colis reste en attente de paiement. '
+              'Réessayez depuis cet écran.';
+        });
+        return;
+      }
+      _isCheckingPayment = true;
+      try {
+        final result = await _paymentService.verifierPaiement(
+          reference: reference,
+          payableType: 'colis',
+          externalId: currentExternalId,
+        );
+        currentExternalId = null;
+        if (result['verified'] == true) {
+          timer.cancel();
+          final updatedParcels = await ColisService().getColisStaff();
+          final updated = updatedParcels
+              .where((item) => item.id == parcel.id)
+              .firstOrNull;
+          if (updated == null || updated.statutPaiement != 'payé') {
+            throw Exception(
+              'Le paiement est confirmé, mais le colis payé est introuvable '
+              'dans la réponse du serveur.',
+            );
+          }
+          if (mounted) {
+            setState(() {
+              _isPaymentProcessing = false;
+              _pendingPaymentParcel = null;
+            });
+          }
+          await _showParcelTicket(updated);
+        }
+      } catch (error) {
+        timer.cancel();
+        if (mounted) {
+          setState(() {
+            _isPaymentProcessing = false;
+            _paymentMessage =
+                'La vérification du paiement a échoué : '
+                '${error.toString().replaceFirst('Exception: ', '')}';
+          });
+        }
+      } finally {
+        _isCheckingPayment = false;
+      }
+    });
+  }
+
+  Future<void> _showParcelTicket(ColisModel colis) async {
+    ParcelStore.upsertPending(colis.toParcelRecord());
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => BilletPage(
+          code: colis.reference,
+          departureCity:
+              colis.agenceDepotNom ?? _departureController.text.trim(),
+          destinationCity:
+              colis.agenceRetraitNom ?? _destinationController.text.trim(),
+          recipientLastName: _lastNameController.text.trim(),
+          recipientFirstName: _firstNameController.text.trim(),
+          recipientPhone: _phoneController.text.trim(),
+          parcelNature: colis.colisDetails
+              .map((detail) => detail.nature)
+              .toSet()
+              .join(', '),
+          parcelCount: _parcelCount,
+          attachmentPath: _firstPickedAttachment?.path,
+          attachmentName: _attachmentNameSummary,
+          deliveryFee: colis.montant.toStringAsFixed(0),
+          showValidation: true,
+          senderName: colis.expediteurNom ?? '',
+          senderPhone: colis.expediteurTel ?? '',
+          montantBase: colis.montantBase,
+          montantTaxe: colis.montantTaxe,
+          taxeTaux: colis.tauxTaxe,
+          mecefResponse: colis.mecefResponse,
+          poidsTotal: colis.colisDetails.fold<double>(
+            0,
+            (total, detail) => total + detail.poids * detail.nombre,
+          ),
+          description: colis.colisDetails
+              .map((detail) => detail.description)
+              .where((value) => value.isNotEmpty)
+              .join(', '),
+          issuerName: colis.enregistreurNom ?? '',
+          taxGroupLabel: colis.taxGroupLabel ?? '',
+        ),
+      ),
+    );
+    if (widget.isPercepteur && mounted) {
+      Navigator.of(context).pop(true);
     }
   }
 
@@ -717,14 +1257,30 @@ class _SendParcelPageState extends State<SendParcelPage>
                     onPickAttachment: _pickAttachment,
                     onNext: _goToStepTwo,
                     onInitiations: () => _showInitiationsMessage(context),
+                    showDepartureField: !widget.isPercepteur,
+                    showStaffFields: widget.isPercepteur,
+                    onShowTariffs: widget.isPercepteur ? _showTariffs : null,
                   )
                 : _StepTwoForm(
                     key: const ValueKey('parcel-step-two'),
                     destinationController: _destinationController,
+                    senderNameController: _senderNameController,
+                    senderPhoneController: _senderPhoneController,
                     lastNameController: _lastNameController,
                     firstNameController: _firstNameController,
                     phoneController: _phoneController,
-                    isSubmitting: _isSubmitting,
+                    secondaryPhoneController: _secondaryPhoneController,
+                    showStaffFields: widget.isPercepteur,
+                    isSubmitting: _isSubmitting || _isPaymentProcessing,
+                    paymentOptions: widget.isPercepteur
+                        ? _buildPaymentOptions()
+                        : null,
+                    taxOptions: widget.isPercepteur
+                        ? _buildTaxAndAmountOptions()
+                        : null,
+                    mecefOption: widget.isPercepteur
+                        ? _buildMecefOption()
+                        : null,
                     onDestinationTap: () => _showCityPicker(
                       title: 'Agence de destination',
                       controller: _destinationController,
@@ -734,6 +1290,285 @@ class _SendParcelPageState extends State<SendParcelPage>
                   ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildMecefOption() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _fofanaGreen.withValues(alpha: 0.12)),
+      ),
+      child: SwitchListTile.adaptive(
+        value: _useMecef,
+        title: Text(
+          _useMecef ? 'Enregistrer avec MECeF' : 'Enregistrer sans MECeF',
+          style: const TextStyle(fontWeight: FontWeight.w800),
+        ),
+        subtitle: Text(
+          _useMecef
+              ? 'Le colis sera certifié après son paiement.'
+              : 'Le QR code du colis utilisera sa référence.',
+        ),
+        onChanged: (value) => setState(() => _useMecef = value),
+        activeTrackColor: _fofanaGreen,
+      ),
+    );
+  }
+
+  Widget _buildTaxAndAmountOptions() {
+    final amount =
+        double.tryParse(_amountController.text.trim().replaceAll(',', '.')) ??
+        0;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Groupe de taxe et montant',
+            style: TextStyle(color: _deepBlue, fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 12),
+          if (_taxError != null)
+            Text(_taxError!, style: const TextStyle(color: Colors.red))
+          else if (_taxGroups.isNotEmpty && !_hasDefaultTaxGroup)
+            DropdownButtonFormField<TaxGroup>(
+              initialValue: _selectedTaxGroup,
+              decoration: const InputDecoration(
+                labelText: 'Groupe de taxe',
+                border: OutlineInputBorder(),
+              ),
+              items: _taxGroups
+                  .map(
+                    (group) => DropdownMenuItem<TaxGroup>(
+                      value: group,
+                      child: Text('${group.label} (${group.rate} %)'),
+                    ),
+                  )
+                  .toList(),
+              onChanged: _pendingPaymentParcel != null
+                  ? null
+                  : (group) => setState(() {
+                      _selectedTaxGroup = group;
+                      _recalculateTaxAmounts();
+                    }),
+            )
+          else if (_selectedTaxGroup != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Text(
+                'Groupe de taxe par défaut : '
+                '${_selectedTaxGroup!.label} (${_selectedTaxGroup!.rate} %)',
+                style: const TextStyle(
+                  color: _deepBlue,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            )
+          else
+            const Text('Aucun groupe de taxe configuré pour les colis.'),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _amountController,
+            enabled: _pendingPaymentParcel == null,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'[0-9,.]')),
+            ],
+            onChanged: (_) => setState(_recalculateTaxAmounts),
+            decoration: const InputDecoration(
+              labelText: 'Montant TTC à encaisser',
+              suffixText: 'FCFA',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 10),
+          _financialDetail(
+            'Montant HT',
+            '${_montantBase.toStringAsFixed(0)} FCFA',
+          ),
+          _financialDetail(
+            'Taxe (${_selectedTaxGroup?.rate.toStringAsFixed(2) ?? '0'} %)',
+            '${_montantTaxe.toStringAsFixed(0)} FCFA',
+          ),
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.only(top: 8),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEAF7EF),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Text(
+              'Total TTC : ${amount.toStringAsFixed(0)} FCFA',
+              style: const TextStyle(
+                color: _deepBlue,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _financialDetail(String label, String value) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 3),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: const TextStyle(color: Color(0xFF5F6B86))),
+        Text(value, style: const TextStyle(fontWeight: FontWeight.w800)),
+      ],
+    ),
+  );
+
+  Widget _buildPaymentOptions() {
+    final selectedProvider = _selectedProvider;
+    final selectedMethod = _selectedMethod;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Mode de paiement',
+            style: TextStyle(color: _deepBlue, fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _paymentModeCard(
+                  mode: 'ESPECES',
+                  label: 'Espèces',
+                  icon: Icons.payments_rounded,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _paymentModeCard(
+                  mode: 'MOBILEMONEY',
+                  label: 'Mobile Money',
+                  icon: Icons.phone_android_rounded,
+                ),
+              ),
+            ],
+          ),
+          if (_paymentMode == 'MOBILEMONEY') ...[
+            const SizedBox(height: 12),
+            if (_isLoadingProviders)
+              const Center(child: CircularProgressIndicator())
+            else if (_paymentProviders.isEmpty)
+              const Text(
+                'Aucun prestataire Mobile Money n’est configuré. '
+                'Choisissez Espèces ou contactez l’administrateur.',
+                style: TextStyle(color: Colors.red),
+              )
+            else ...[
+              DropdownButtonFormField<PaymentProvider>(
+                initialValue: selectedProvider,
+                decoration: const InputDecoration(labelText: 'Prestataire'),
+                items: _paymentProviders
+                    .map(
+                      (provider) => DropdownMenuItem(
+                        value: provider,
+                        child: Text(provider.name),
+                      ),
+                    )
+                    .toList(),
+                onChanged: _pendingPaymentParcel != null
+                    ? null
+                    : (provider) => setState(() {
+                        _selectedProvider = provider;
+                        _selectedMethod = provider?.methods.keys.firstOrNull;
+                      }),
+              ),
+              if (selectedProvider != null &&
+                  selectedProvider.methods.isNotEmpty)
+                DropdownButtonFormField<String>(
+                  initialValue: selectedMethod,
+                  decoration: const InputDecoration(labelText: 'Opérateur'),
+                  items: selectedProvider.methods.entries
+                      .map(
+                        (method) => DropdownMenuItem(
+                          value: method.key,
+                          child: Text(method.value),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: _pendingPaymentParcel != null
+                      ? null
+                      : (method) => setState(() => _selectedMethod = method),
+                ),
+            ],
+            if (_paymentMessage != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  _paymentMessage!,
+                  style: const TextStyle(color: Colors.red),
+                ),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _paymentModeCard({
+    required String mode,
+    required String label,
+    required IconData icon,
+  }) {
+    final selected = _paymentMode == mode;
+    final enabled = _pendingPaymentParcel == null && !_isPaymentProcessing;
+    return InkWell(
+      onTap: !enabled
+          ? null
+          : () => setState(() {
+              _paymentMode = mode;
+              _paymentMessage = null;
+            }),
+      borderRadius: BorderRadius.circular(16),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
+        decoration: BoxDecoration(
+          color: selected ? _fofanaGreen : const Color(0xFFF8FBFF),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: selected ? _fofanaGreen : _deepBlue.withValues(alpha: 0.10),
+          ),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: selected ? Colors.white : _deepBlue),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: selected ? Colors.white : _deepBlue,
+                fontSize: 13,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -127,7 +127,9 @@ class ExpenseService {
     required int agencyId,
     required String code,
     required String nim,
+    String? expenseDate,
     String? note,
+    List<Map<String, dynamic>>? items,
   }) async {
     final response = await http
         .post(
@@ -137,7 +139,9 @@ class ExpenseService {
             'agency_id': agencyId,
             'code_mecef': code,
             'nim': nim,
+            if (expenseDate != null) 'expense_date': expenseDate,
             if (note != null && note.trim().isNotEmpty) 'note': note.trim(),
+            if (items != null) 'items': items,
           }),
         )
         .timeout(const Duration(seconds: 30));
@@ -168,6 +172,17 @@ class ExpenseService {
     }
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
+      if (response.statusCode == 403 && data['code_required'] == true) {
+        throw Exception(
+          'Votre session est fermée. Activez votre code d’accès dans Connexion avant de gérer les dépenses.',
+        );
+      }
+      if (response.statusCode == 404 && data['found'] == false) {
+        throw Exception(
+          data['message']?.toString() ??
+              'La facture n’a pas été reconnue par le service MECeF. Vérifiez le code MECeF et le NIM lus sur le QR code.',
+        );
+      }
       throw Exception(
         data['message']?.toString() ??
             'Erreur ${response.statusCode} lors de la requête.',

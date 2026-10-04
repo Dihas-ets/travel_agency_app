@@ -8,7 +8,7 @@ import 'package:code_initial/screens/percepteur/expense/manual_expense_page.dart
 import 'package:code_initial/screens/percepteur/expense/qr_scanner_page.dart';
 import 'package:code_initial/services/cash_service.dart';
 
-// Ecran Depense percepteur et ses widgets de saisie, liste et synthese.
+// Ecran de consultation des depenses du percepteur et de leur synthese.
 
 class PercepteurDepenseContent extends StatefulWidget {
   const PercepteurDepenseContent({super.key});
@@ -134,12 +134,30 @@ class _PercepteurDepenseContentState extends State<PercepteurDepenseContent>
                     Positioned(
                       right: 16,
                       bottom: 8,
-                      child: FloatingActionButton(
-                        onPressed: _showAddExpenseSheet,
-                        backgroundColor: const Color(0xFF16A34A),
-                        foregroundColor: Colors.white,
-                        elevation: 4,
-                        child: const Icon(Icons.add_rounded, size: 30),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          FloatingActionButton(
+                            heroTag: 'scan-expense-invoice',
+                            tooltip: 'Scanner une facture',
+                            onPressed: _openScanner,
+                            backgroundColor: const Color(0xFF16A34A),
+                            foregroundColor: Colors.white,
+                            elevation: 4,
+                            child: const Icon(Icons.qr_code_scanner_rounded),
+                          ),
+                          const SizedBox(height: 12),
+                          FloatingActionButton.extended(
+                            heroTag: 'create-manual-expense',
+                            onPressed: _openManualExpense,
+                            backgroundColor: const Color(0xFF0B4F2A),
+                            foregroundColor: Colors.white,
+                            elevation: 4,
+                            icon: const Icon(Icons.edit_note_rounded),
+                            label: const Text('Saisie manuelle'),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -160,6 +178,13 @@ class _PercepteurDepenseContentState extends State<PercepteurDepenseContent>
     return expenses.where((expense) => !expense.isDraft).toList();
   }
 
+  Future<void> _openScanner() async {
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(builder: (context) => const QRScannerPage()),
+    );
+  }
+
   Future<void> _openManualExpense() async {
     final created = await Navigator.push<bool>(
       context,
@@ -167,33 +192,7 @@ class _PercepteurDepenseContentState extends State<PercepteurDepenseContent>
     );
     if (created == true) {
       await _loadExpenses();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Dépense soumise en brouillon.'),
-            backgroundColor: Color(0xFF16A34A),
-          ),
-        );
-      }
     }
-  }
-
-  Future<void> _openScanner() async {
-    final created = await Navigator.push<bool>(
-      context,
-      MaterialPageRoute(builder: (context) => const QRScannerPage()),
-    );
-    if (created == true) await _loadExpenses();
-  }
-
-  void _openManualExpenseForReservation(
-    PercepteurReservationRecord reservation,
-  ) {
-    _openManualExpense();
-  }
-
-  void _openScannerForReservation(PercepteurReservationRecord reservation) {
-    _openScanner();
   }
 
   void _openRechargePage() {
@@ -202,123 +201,6 @@ class _PercepteurDepenseContentState extends State<PercepteurDepenseContent>
       MaterialPageRoute(
         builder: (context) => const _PercepteurWalletRechargePage(),
       ),
-    );
-  }
-
-  void _showAddExpenseSheet() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF0B4F2A), Color(0xFF168A43)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.20),
-                    blurRadius: 24,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.14),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: const Icon(
-                          Icons.add_card_rounded,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      const Expanded(
-                        child: Text(
-                          'Ajouter une dépense',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () {
-                            Navigator.pop(context);
-                            _openScanner();
-                          },
-                          icon: const Icon(Icons.qr_code_scanner_rounded),
-                          label: const Text('Scanner'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            foregroundColor: const Color(0xFF0B4F2A),
-                            elevation: 0,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            textStyle: const TextStyle(
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () {
-                            Navigator.pop(context);
-                            _openManualExpense();
-                          },
-                          icon: const Icon(Icons.edit_note_rounded),
-                          label: const Text('Saisie'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.white,
-                            side: BorderSide(
-                              color: Colors.white.withValues(alpha: 0.72),
-                            ),
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            textStyle: const TextStyle(
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
     );
   }
 
@@ -424,57 +306,6 @@ class _PercepteurDepenseContentState extends State<PercepteurDepenseContent>
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () {
-                          Navigator.pop(context);
-                          _openScanner();
-                        },
-                        icon: const Icon(Icons.qr_code_scanner_rounded),
-                        label: const Text('Scanner'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: const Color(0xFF0B4F2A),
-                          elevation: 0,
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          textStyle: const TextStyle(
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () {
-                          Navigator.pop(context);
-                          _openManualExpense();
-                        },
-                        icon: const Icon(Icons.edit_note_rounded),
-                        label: const Text('Saisie'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.white,
-                          side: BorderSide(
-                            color: Colors.white.withValues(alpha: 0.72),
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          textStyle: const TextStyle(
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
                 ),
               ],
             ),
@@ -866,7 +697,7 @@ class _PercepteurDepenseContentState extends State<PercepteurDepenseContent>
         return ListView.separated(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 86),
           itemCount: ongoingExpenses.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 12),
+          separatorBuilder: (_, __) => const SizedBox(height: 18),
           itemBuilder: (context, index) {
             return _buildModernExpenseCard(ongoingExpenses[index]);
           },
@@ -1046,7 +877,7 @@ class _PercepteurDepenseContentState extends State<PercepteurDepenseContent>
         return ListView.separated(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 86),
           itemCount: historicalExpenses.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 12),
+          separatorBuilder: (_, __) => const SizedBox(height: 18),
           itemBuilder: (context, index) {
             return _buildModernExpenseCard(historicalExpenses[index]);
           },
@@ -1104,11 +935,7 @@ class _PercepteurDepenseContentState extends State<PercepteurDepenseContent>
       borderRadius: BorderRadius.circular(20),
       child: InkWell(
         borderRadius: BorderRadius.circular(20),
-        onTap: () => _showReservationExpenseSheet(
-          reservation,
-          expenses,
-          allowAdd: false,
-        ),
+        onTap: () => _showReservationExpenseSheet(reservation, expenses),
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -1375,9 +1202,8 @@ class _PercepteurDepenseContentState extends State<PercepteurDepenseContent>
 
   void _showReservationExpenseSheet(
     PercepteurReservationRecord reservation,
-    List<ExpenseModel> expenses, {
-    bool allowAdd = true,
-  }) {
+    List<ExpenseModel> expenses,
+  ) {
     final sortedExpenses = [...expenses]
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     final totalAmount = sortedExpenses.fold<double>(
@@ -1464,55 +1290,6 @@ class _PercepteurDepenseContentState extends State<PercepteurDepenseContent>
                     ],
                   ),
                   const SizedBox(height: 14),
-                  if (allowAdd) ...[
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: () {
-                              Navigator.pop(context);
-                              _openScannerForReservation(reservation);
-                            },
-                            icon: const Icon(Icons.qr_code_scanner_rounded),
-                            label: const Text('Scanner'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF16A34A),
-                              foregroundColor: Colors.white,
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              textStyle: const TextStyle(
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () {
-                              Navigator.pop(context);
-                              _openManualExpenseForReservation(reservation);
-                            },
-                            icon: const Icon(Icons.edit_note_rounded),
-                            label: const Text('Saisie'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: const Color(0xFF0B4F2A),
-                              side: const BorderSide(color: Color(0xFF16A34A)),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              textStyle: const TextStyle(
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                  ],
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(
@@ -1550,9 +1327,7 @@ class _PercepteurDepenseContentState extends State<PercepteurDepenseContent>
                     child: sortedExpenses.isEmpty
                         ? Center(
                             child: Text(
-                              allowAdd
-                                  ? 'Aucune dépense saisie pour ce trajet.'
-                                  : 'Aucune dépense enregistrée pour cet ancien trajet.',
+                              'Aucune dépense enregistrée pour ce trajet.',
                               textAlign: TextAlign.center,
                               style: const TextStyle(
                                 color: Color(0xFF64748B),
@@ -1564,7 +1339,7 @@ class _PercepteurDepenseContentState extends State<PercepteurDepenseContent>
                         : ListView.separated(
                             itemCount: sortedExpenses.length,
                             separatorBuilder: (_, __) =>
-                                const SizedBox(height: 8),
+                                const SizedBox(height: 12),
                             itemBuilder: (context, index) {
                               final expense = sortedExpenses[index];
                               return _buildExpenseListTile(expense);
@@ -1598,44 +1373,44 @@ class _PercepteurDepenseContentState extends State<PercepteurDepenseContent>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(
-                      expense.libelle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Color(0xFF0F172A),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
+              Text(
+                expense.libelle,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xFF0F172A),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Align(
+                alignment: Alignment.centerRight,
+                child: Container(
+                  constraints: const BoxConstraints(maxWidth: 220),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
+                  decoration: BoxDecoration(
+                    color: expense.status == "validé"
+                        ? const Color(0xFFEAF7EF)
+                        : const Color(0xFFFEF3C7),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    expense.statusLabel,
+                    textAlign: TextAlign.center,
+                    softWrap: true,
+                    style: TextStyle(
                       color: expense.status == "validé"
-                          ? const Color(0xFFEAF7EF)
-                          : const Color(0xFFFEF3C7),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      expense.statusLabel,
-                      style: TextStyle(
-                        color: expense.status == "validé"
-                            ? const Color(0xFF16A34A)
-                            : const Color(0xFFB45309),
-                        fontSize: 10,
-                        fontWeight: FontWeight.w900,
-                      ),
+                          ? const Color(0xFF16A34A)
+                          : const Color(0xFFB45309),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
                     ),
                   ),
-                ],
+                ),
               ),
               const SizedBox(height: 8),
               if (expense.description.isNotEmpty) ...[
@@ -1823,26 +1598,32 @@ class _PercepteurDepenseContentState extends State<PercepteurDepenseContent>
                       ],
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 7,
-                      horizontal: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      color: statusColor.withValues(alpha: 0.10),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Text(
-                      expense.statusLabel,
-                      style: TextStyle(
-                        color: statusColor,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w900,
-                      ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerRight,
+                child: Container(
+                  constraints: const BoxConstraints(maxWidth: 220),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 7,
+                    horizontal: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Text(
+                    expense.statusLabel,
+                    textAlign: TextAlign.center,
+                    softWrap: true,
+                    style: TextStyle(
+                      color: statusColor,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w900,
                     ),
                   ),
-                ],
+                ),
               ),
               if (expense.note.isNotEmpty) ...[
                 const SizedBox(height: 10),

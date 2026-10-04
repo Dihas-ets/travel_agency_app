@@ -377,6 +377,59 @@ class ParcelMenuContent extends StatelessWidget {
                           ),
                         ],
                       ),
+                      if (colis.statut == 'annule') ...[
+                        const Divider(height: 20),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Remboursement :',
+                              style: TextStyle(
+                                color: Color(0xFF5F6B86),
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            Text(
+                              colis.statutPaiement != 'payé'
+                                  ? 'Aucun remboursement requis'
+                                  : switch (colis.refundStatus?.toLowerCase()) {
+                                      'succeeded' || 'oui' => 'Effectué',
+                                      'processing' || 'pending' => 'En cours',
+                                      'manual' => 'À traiter manuellement',
+                                      'failed' => 'Échec - à vérifier',
+                                      'non' => 'Non effectué',
+                                      _ => 'À vérifier',
+                                    },
+                              style: const TextStyle(
+                                color: _deepBlue,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (colis.refundAmount > 0) ...[
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                'Montant à rembourser :',
+                                style: TextStyle(
+                                  color: Color(0xFF5F6B86),
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              Text(
+                                '${colis.refundAmount.toStringAsFixed(0)} FCFA',
+                                style: const TextStyle(
+                                  color: _deepBlue,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
                     ],
                   ),
                 ),

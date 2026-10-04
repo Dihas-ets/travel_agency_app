@@ -1,14 +1,18 @@
 import 'dart:io';
-import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import 'package:http/http.dart' as http;
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:code_initial/data/local/session_store.dart';
+import 'package:code_initial/models/colis_print_settings.dart';
 import 'package:code_initial/screens/client/colis/colis_attente_page.dart';
 import 'package:code_initial/models/store/colis_store.dart';
+import 'package:code_initial/services/colis_print_settings_service.dart';
 
 class BilletPage extends StatelessWidget {
   final String code;
@@ -23,6 +27,16 @@ class BilletPage extends StatelessWidget {
   final String? attachmentName;
   final String deliveryFee;
   final bool showValidation;
+  final String senderName;
+  final String senderPhone;
+  final double montantBase;
+  final double montantTaxe;
+  final double taxeTaux;
+  final Map<String, dynamic>? mecefResponse;
+  final double poidsTotal;
+  final String description;
+  final String issuerName;
+  final String taxGroupLabel;
 
   const BilletPage({
     super.key,
@@ -38,6 +52,16 @@ class BilletPage extends StatelessWidget {
     this.attachmentPath,
     this.attachmentName,
     this.showValidation = true,
+    this.senderName = '',
+    this.senderPhone = '',
+    this.montantBase = 0,
+    this.montantTaxe = 0,
+    this.taxeTaux = 0,
+    this.mecefResponse,
+    this.poidsTotal = 0,
+    this.description = '',
+    this.issuerName = '',
+    this.taxGroupLabel = '',
   });
 
   ParcelRecord _toParcelRecord() {
@@ -50,12 +74,31 @@ class BilletPage extends StatelessWidget {
       recipientPhone: recipientPhone,
       parcelNature: parcelNature,
       parcelCount: parcelCount,
-      senderPhone: SessionStore.currentClientPhone ?? 'Inconnu',
+      senderPhone: senderPhone.isNotEmpty
+          ? senderPhone
+          : SessionStore.currentClientPhone ?? 'Inconnu',
+      senderName: senderName.isEmpty ? null : senderName,
       attachmentPath: attachmentPath,
       attachmentName: attachmentName,
       deliveryFee: deliveryFee,
       createdAt: DateTime.now(),
       status: showValidation ? 'Enregistré' : 'En attente',
+      amountBase: montantBase,
+      taxAmount: montantTaxe,
+      taxRate: taxeTaux,
+      taxGroupLabel: taxGroupLabel,
+      parcelItems: [
+        ParcelLine(
+          nature: parcelNature,
+          quantity: parcelCount,
+          weight: parcelCount > 0 ? poidsTotal / parcelCount : 0,
+          description: description,
+          attachmentPath: attachmentPath,
+        ),
+      ],
+      mecefInfo: mecefResponse == null
+          ? null
+          : ParcelMecefInfo.fromJson(mecefResponse!),
     );
   }
 
@@ -118,20 +161,31 @@ class BilletPage extends StatelessWidget {
     required String time,
   }) async {
     try {
-      final bytes = await _buildTicketPdf(date: date, time: time);
+      final settings = await ColisPrintSettingsService().getSettings();
+      if (!settings.enabled) {
+        throw Exception('L’impression des bordereaux est désactivée.');
+      }
+      final bytes = await _buildTicketPdf(
+        date: date,
+        time: time,
+        settings: settings,
+      );
       final safeCode = code.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_');
 
-      await Printing.sharePdf(
-        bytes: bytes,
-        filename: 'billet_fofana_$safeCode.pdf',
+      await Printing.layoutPdf(
+        name: 'bordereau_colis_$safeCode.pdf',
+        onLayout: (_) async => bytes,
       );
-    } catch (_) {
+    } catch (error) {
       if (!context.mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Impossible de générer le PDF du billet."),
-          backgroundColor: Color(0xFF16A34A),
+        SnackBar(
+          content: Text(
+            'Impossible de générer le PDF du billet : '
+            '${error.toString().replaceFirst('Exception: ', '')}',
+          ),
+          backgroundColor: Color(0xFFB42318),
         ),
       );
     }
@@ -140,290 +194,356 @@ class BilletPage extends StatelessWidget {
   Future<Uint8List> _buildTicketPdf({
     required String date,
     required String time,
+    required ColisPrintSettings settings,
   }) async {
     final pdf = pw.Document();
-    final deepBlue = PdfColor.fromHex('#0B4F2A');
-    final logoRed = PdfColor.fromHex('#16A34A');
-    final lightRed = PdfColor.fromHex('#EAF7EF');
-    final border = PdfColor.fromHex('#E6EAF2');
-    final muted = PdfColor.fromHex('#687089');
-    pw.MemoryImage? attachmentImage;
-
-    if (attachmentPath != null && File(attachmentPath!).existsSync()) {
-      try {
-        attachmentImage = pw.MemoryImage(
-          await File(attachmentPath!).readAsBytes(),
-        );
-      } catch (_) {
-        attachmentImage = null;
-      }
+    final accent = PdfColor.fromHex(settings.accentColor);
+    final hasMecef = mecefResponse != null;
+    final confirmedMecef = mecefResponse?['status']?.toString() == 'confirmed';
+    final mecefQr = mecefResponse?['qr_code']?.toString();
+    final qrData = confirmedMecef && mecefQr?.isNotEmpty == true
+        ? mecefQr!
+        : code;
+    final qrBytes = await QrPainter(
+      data: qrData,
+      version: QrVersions.auto,
+      gapless: true,
+    ).toImageData(480, format: ui.ImageByteFormat.png);
+    if (qrBytes == null) {
+      throw Exception('Impossible de préparer le QR code du billet.');
     }
-
+    final qrImage = pw.MemoryImage(qrBytes.buffer.asUint8List());
+    final logoImage = await _loadLogo(settings);
+    final pageFormat = settings.width == '58mm'
+        ? PdfPageFormat.roll57
+        : PdfPageFormat.roll80;
+    final total = double.tryParse(deliveryFee.replaceAll(',', '.')) ?? 0;
+    final base = montantBase > 0 ? montantBase : total - montantTaxe;
+    final nature = parcelNature.trim().isEmpty ? 'Colis' : parcelNature;
+    final fullName = '$recipientLastName $recipientFirstName'.trim();
+    final printableDescription = description.length > 30
+        ? description.substring(0, 30)
+        : description;
+    final dateLabel = confirmedMecef
+        ? _formatMecefDate(mecefResponse?['date_mecef']?.toString())
+        : '$date $time';
     pdf.addPage(
       pw.Page(
-        pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.all(32),
-        build: (context) {
-          return pw.Container(
-            padding: const pw.EdgeInsets.all(22),
-            decoration: pw.BoxDecoration(
-              border: pw.Border.all(color: border, width: 1.2),
-              borderRadius: pw.BorderRadius.circular(18),
-            ),
-            child: pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Row(
-                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                  children: [
-                    pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.start,
-                      children: [
-                        pw.Text(
-                          'Fofana',
-                          style: pw.TextStyle(
-                            color: deepBlue,
-                            fontSize: 28,
-                            fontWeight: pw.FontWeight.bold,
-                          ),
+        pageFormat: pageFormat,
+        theme: pw.ThemeData.withFont(
+          base: pw.Font.courier(),
+          bold: pw.Font.courierBold(),
+        ),
+        margin: pw.EdgeInsets.zero,
+        build: (_) => pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+          children: [
+            _tornEdge(pageFormat.width),
+            pw.Padding(
+              padding: const pw.EdgeInsets.fromLTRB(12, 12, 12, 6),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                children: [
+                  if (logoImage != null)
+                    pw.Center(
+                      child: pw.Container(
+                        width: 30,
+                        height: 30,
+                        decoration: pw.BoxDecoration(
+                          shape: pw.BoxShape.circle,
+                          border: pw.Border.all(color: PdfColors.grey300),
                         ),
-                        pw.SizedBox(height: 4),
-                        pw.Text(
-                          'Billet colis',
-                          style: pw.TextStyle(
-                            color: muted,
-                            fontSize: 13,
-                            fontWeight: pw.FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                    pw.Container(
-                      padding: const pw.EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 8,
-                      ),
-                      decoration: pw.BoxDecoration(
-                        color: lightRed,
-                        borderRadius: pw.BorderRadius.circular(12),
-                      ),
-                      child: pw.Text(
-                        'A presenter en agence',
-                        style: pw.TextStyle(
-                          color: logoRed,
-                          fontSize: 12,
-                          fontWeight: pw.FontWeight.bold,
-                        ),
+                        child: pw.ClipOval(child: pw.Image(logoImage)),
                       ),
                     ),
-                  ],
-                ),
-                pw.SizedBox(height: 28),
-                if (showValidation) ...[
                   pw.Center(
-                    child: pw.Column(
-                      children: [
-                        pw.Text(
-                          'Code de validation',
-                          style: pw.TextStyle(
-                            color: muted,
-                            fontSize: 13,
-                            fontWeight: pw.FontWeight.bold,
-                          ),
-                        ),
-                        pw.SizedBox(height: 8),
-                        pw.Text(
-                          code,
-                          textAlign: pw.TextAlign.center,
-                          style: pw.TextStyle(
-                            color: deepBlue,
-                            fontSize: 25,
-                            fontWeight: pw.FontWeight.bold,
-                          ),
-                        ),
-                        pw.SizedBox(height: 18),
-                        pw.BarcodeWidget(
-                          barcode: pw.Barcode.qrCode(),
-                          data: code,
-                          width: 130,
-                          height: 130,
-                        ),
-                      ],
+                    child: pw.Text(
+                      settings.agencyName.toUpperCase(),
+                      style: pw.TextStyle(
+                        color: PdfColors.grey800,
+                        fontSize: 9,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
                     ),
                   ),
-                  pw.SizedBox(height: 26),
-                ],
-                pw.Container(height: 1, color: border),
-                pw.SizedBox(height: 18),
-                if (showValidation)
-                  pw.Row(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [
-                      pw.Expanded(
-                        child: _pdfInfoBlock(
-                          'Numero du package',
-                          code,
-                          deepBlue,
-                          muted,
-                        ),
+                  pw.SizedBox(height: 3),
+                  pw.Center(
+                    child: pw.Text(
+                      hasMecef
+                          ? 'BORDEREAU NORMALISÉ'
+                          : (settings.headerText.isEmpty
+                                ? settings.title
+                                : settings.headerText),
+                      textAlign: pw.TextAlign.center,
+                      style: pw.TextStyle(
+                        color: accent,
+                        fontSize: 10,
+                        fontWeight: pw.FontWeight.bold,
                       ),
-                      pw.SizedBox(width: 18),
-                      pw.Expanded(
-                        child: _pdfInfoBlock(
-                          'Date d envoi',
-                          '$date a $time',
-                          deepBlue,
-                          muted,
+                    ),
+                  ),
+                  if (settings.showEmetteur)
+                    _pdfRow('Émetteur', settings.agencyName),
+                  if (settings.showContact && settings.telephone.isNotEmpty)
+                    _pdfRow('Tél', settings.telephone),
+                  if (settings.showContact && settings.email.isNotEmpty)
+                    _pdfRow('Email', settings.email),
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Expanded(child: _pdfRow('N°', code)),
+                      pw.SizedBox(width: 6),
+                      pw.Text(
+                        date,
+                        style: const pw.TextStyle(
+                          color: PdfColors.grey600,
+                          fontSize: 8,
                         ),
                       ),
                     ],
-                  )
-                else
-                  _pdfInfoBlock(
-                    'Date d envoi',
-                    '$date a $time',
-                    deepBlue,
-                    muted,
                   ),
-                pw.SizedBox(height: 16),
-                pw.Row(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    pw.Expanded(
-                      child: _pdfInfoBlock(
-                        'Destinataire',
-                        '$recipientLastName $recipientFirstName'.trim(),
-                        deepBlue,
-                        muted,
-                      ),
+                  _dashedLine(accent),
+                  _pdfRow('Exp.', senderName.isEmpty ? '—' : senderName),
+                  _pdfRow('Tél exp.', senderPhone),
+                  _pdfRow('Dest.', fullName.isEmpty ? '—' : fullName),
+                  _pdfRow('Tél dest.', recipientPhone),
+                  _pdfRow('Trajet', '$departureCity → $destinationCity'),
+                  _pdfRow('Nature', nature),
+                  _pdfRow('Nombre', '$parcelCount colis'),
+                  if (poidsTotal > 0)
+                    _pdfRow('Poids', '${_formatRate(poidsTotal)} kg'),
+                  if (printableDescription.isNotEmpty)
+                    _pdfRow('Description', printableDescription),
+                  _dashedLine(accent),
+                  if (taxGroupLabel.isNotEmpty)
+                    _pdfRow('Groupe taxe', taxGroupLabel),
+                  _pdfRow('Montant HT', _formatAmount(base)),
+                  _pdfRow(
+                    'Taxe (${_formatRate(taxeTaux)}%)',
+                    _formatAmount(montantTaxe),
+                  ),
+                  pw.Padding(
+                    padding: const pw.EdgeInsets.symmetric(vertical: 4),
+                    child: pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                      children: [
+                        pw.Text(
+                          'TOTAL À PAYER',
+                          style: pw.TextStyle(
+                            color: accent,
+                            fontSize: 10,
+                            fontWeight: pw.FontWeight.bold,
+                          ),
+                        ),
+                        pw.Text(
+                          _formatAmount(total),
+                          style: pw.TextStyle(
+                            color: accent,
+                            fontSize: 10,
+                            fontWeight: pw.FontWeight.bold,
+                          ),
+                        ),
+                      ],
                     ),
-                    pw.SizedBox(width: 18),
-                    pw.Expanded(
-                      child: _pdfInfoBlock(
-                        'Telephone destinataire',
-                        recipientPhone,
-                        deepBlue,
-                        muted,
+                  ),
+                  if (settings.showDgi && hasMecef) ...[
+                    pw.SizedBox(height: 6),
+                    pw.Container(
+                      padding: const pw.EdgeInsets.all(6),
+                      decoration: pw.BoxDecoration(
+                        color: PdfColors.grey100,
+                        border: pw.Border.all(color: PdfColors.grey400),
+                        borderRadius: const pw.BorderRadius.all(
+                          pw.Radius.circular(4),
+                        ),
+                      ),
+                      child: pw.Column(
+                        children: [
+                          pw.Text(
+                            'ÉLÉMENTS DE SÉCURITÉ DGI',
+                            style: pw.TextStyle(
+                              color: PdfColors.grey600,
+                              fontSize: 7,
+                              fontWeight: pw.FontWeight.bold,
+                            ),
+                          ),
+                          _pdfRow(
+                            'CODE',
+                            mecefResponse?['code_mecef']?.toString() ?? '',
+                          ),
+                          _pdfRow(
+                            'NIM',
+                            mecefResponse?['nim']?.toString() ?? '',
+                          ),
+                          _pdfRow(
+                            'COMPT',
+                            mecefResponse?['counters']?.toString() ?? '',
+                          ),
+                          _pdfRow('DATE', dateLabel),
+                        ],
                       ),
                     ),
                   ],
-                ),
-                pw.SizedBox(height: 16),
-                if (attachmentImage != null) ...[
-                  _pdfInfoBlock(
-                    'Fichier importe',
-                    attachmentName ?? 'Image du colis',
-                    deepBlue,
-                    muted,
-                  ),
-                  pw.SizedBox(height: 8),
-                  pw.Container(
-                    height: 180,
-                    width: double.infinity,
-                    decoration: pw.BoxDecoration(
-                      border: pw.Border.all(color: border),
-                      borderRadius: pw.BorderRadius.circular(12),
+                  if (code.isNotEmpty &&
+                      (settings.showBarcode || !confirmedMecef)) ...[
+                    pw.SizedBox(height: 8),
+                    pw.Center(
+                      child: pw.Container(
+                        padding: const pw.EdgeInsets.all(6),
+                        decoration: pw.BoxDecoration(
+                          border: pw.Border.all(color: PdfColors.grey300),
+                          borderRadius: const pw.BorderRadius.all(
+                            pw.Radius.circular(6),
+                          ),
+                        ),
+                        child: pw.Image(qrImage, width: 58, height: 58),
+                      ),
                     ),
-                    child: pw.ClipRRect(
-                      horizontalRadius: 12,
-                      verticalRadius: 12,
-                      child: pw.Image(attachmentImage, fit: pw.BoxFit.cover),
+                    pw.Center(
+                      child: pw.Text(
+                        confirmedMecef
+                            ? 'VÉRIFIER SUR EFACTURE.IMPOTS.BJ'
+                            : code,
+                        textAlign: pw.TextAlign.center,
+                        style: const pw.TextStyle(
+                          color: PdfColors.grey500,
+                          fontSize: 7,
+                        ),
+                      ),
+                    ),
+                  ],
+                  if (settings.showEnregistrePar && issuerName.isNotEmpty)
+                    _pdfRow('Bordereau enregistré par', issuerName),
+                  pw.SizedBox(height: 4),
+                  pw.Center(
+                    child: pw.Text(
+                      settings.footerText,
+                      textAlign: pw.TextAlign.center,
+                      style: const pw.TextStyle(
+                        color: PdfColors.grey500,
+                        fontSize: 8,
+                      ),
                     ),
                   ),
-                  pw.SizedBox(height: 16),
                 ],
-                pw.Row(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    pw.Expanded(
-                      child: _pdfInfoBlock(
-                        'Nature du colis',
-                        parcelNature,
-                        deepBlue,
-                        muted,
-                      ),
-                    ),
-                    pw.SizedBox(width: 18),
-                    pw.Expanded(
-                      child: _pdfInfoBlock(
-                        'Quantite',
-                        'x$parcelCount',
-                        deepBlue,
-                        muted,
-                      ),
-                    ),
-                  ],
-                ),
-                pw.SizedBox(height: 16),
-                _pdfInfoBlock(
-                  'Frais de livraison',
-                  deliveryFee.isEmpty ? '--' : '$deliveryFee CFA',
-                  deepBlue,
-                  muted,
-                ),
-                pw.SizedBox(height: 16),
-                _pdfInfoBlock(
-                  'Trajet',
-                  '$departureCity -> $destinationCity',
-                  deepBlue,
-                  muted,
-                ),
-                pw.Spacer(),
-                pw.Container(
-                  width: double.infinity,
-                  padding: const pw.EdgeInsets.all(12),
-                  decoration: pw.BoxDecoration(
-                    color: lightRed,
-                    borderRadius: pw.BorderRadius.circular(12),
-                  ),
-                  child: pw.Text(
-                    "Les frais d'envoi seront determines par l'equipe Fofana en agence.",
-                    textAlign: pw.TextAlign.center,
-                    style: pw.TextStyle(
-                      color: deepBlue,
-                      fontSize: 12,
-                      fontWeight: pw.FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
-          );
-        },
+            _tornEdge(pageFormat.width),
+          ],
+        ),
       ),
     );
 
     return pdf.save();
   }
 
-  pw.Widget _pdfInfoBlock(
-    String title,
-    String value,
-    PdfColor deepBlue,
-    PdfColor muted,
-  ) {
-    return pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: [
-        pw.Text(
-          title,
-          style: pw.TextStyle(
-            color: muted,
-            fontSize: 12,
-            fontWeight: pw.FontWeight.bold,
+  Future<pw.MemoryImage?> _loadLogo(ColisPrintSettings settings) async {
+    final logoUrl = settings.agencyLogo;
+    if (logoUrl != null && logoUrl.startsWith('http')) {
+      try {
+        final response = await http
+            .get(Uri.parse(logoUrl))
+            .timeout(const Duration(seconds: 5));
+        if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
+          return pw.MemoryImage(response.bodyBytes);
+        }
+      } catch (_) {}
+    }
+    try {
+      final bytes = await rootBundle.load(
+        'assets/images/logo_fofana_no_background.png',
+      );
+      return pw.MemoryImage(bytes.buffer.asUint8List());
+    } catch (_) {
+      return null;
+    }
+  }
+
+  pw.Widget _tornEdge(double width) => pw.SizedBox(
+    height: 7.5,
+    width: width,
+    child: pw.CustomPaint(
+      size: PdfPoint(width, 7.5),
+      painter: (canvas, size) {
+        const teeth = 16;
+        final toothWidth = size.x / teeth;
+        canvas
+          ..setFillColor(PdfColors.white)
+          ..moveTo(0, 0);
+        for (var index = 0; index < teeth; index++) {
+          canvas
+            ..lineTo(index * toothWidth + toothWidth / 2, size.y)
+            ..lineTo((index + 1) * toothWidth, 0);
+        }
+        canvas
+          ..lineTo(size.x, size.y)
+          ..lineTo(0, size.y)
+          ..fillPath();
+      },
+    ),
+  );
+
+  pw.Widget _dashedLine(PdfColor accent) => pw.Padding(
+    padding: const pw.EdgeInsets.symmetric(vertical: 3.2),
+    child: pw.Container(
+      decoration: pw.BoxDecoration(
+        border: pw.Border(
+          top: pw.BorderSide(
+            color: accent,
+            width: 0.7,
+            style: pw.BorderStyle.dashed,
           ),
         ),
-        pw.SizedBox(height: 6),
-        pw.Text(
-          value.isEmpty ? '--' : value,
-          style: pw.TextStyle(
-            color: deepBlue,
-            fontSize: 15,
-            fontWeight: pw.FontWeight.bold,
+      ),
+    ),
+  );
+
+  pw.Widget _pdfRow(String label, String value) => pw.Padding(
+    padding: const pw.EdgeInsets.symmetric(vertical: 2),
+    child: pw.Row(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.Expanded(
+          flex: 5,
+          child: pw.Text(
+            label,
+            style: const pw.TextStyle(color: PdfColors.grey600, fontSize: 8),
+          ),
+        ),
+        pw.SizedBox(width: 6),
+        pw.Expanded(
+          flex: 8,
+          child: pw.Text(
+            value.isEmpty ? '—' : value,
+            textAlign: pw.TextAlign.right,
+            style: const pw.TextStyle(color: PdfColors.grey800, fontSize: 8),
           ),
         ),
       ],
+    ),
+  );
+
+  String _formatAmount(double amount) {
+    final digits = amount.round().toString();
+    final grouped = digits.replaceAllMapped(
+      RegExp(r'\B(?=(\d{3})+(?!\d))'),
+      (_) => ' ',
     );
+    return '$grouped FCFA';
+  }
+
+  String _formatRate(double rate) => rate == rate.roundToDouble()
+      ? rate.toStringAsFixed(0)
+      : rate.toStringAsFixed(2);
+
+  String _formatMecefDate(String? raw) {
+    final parsed = raw == null ? null : DateTime.tryParse(raw);
+    if (parsed == null) return raw ?? '';
+    return '${parsed.day.toString().padLeft(2, '0')}/'
+        '${parsed.month.toString().padLeft(2, '0')}/'
+        '${parsed.year} '
+        '${parsed.hour.toString().padLeft(2, '0')}:'
+        '${parsed.minute.toString().padLeft(2, '0')}';
   }
 
   @override
@@ -722,31 +842,29 @@ class BilletPage extends StatelessWidget {
                   child: const Text('Suivant'),
                 ),
               ),
-              if (showValidation) ...[
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  height: 58,
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: logoRed,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      textStyle: const TextStyle(
-                        fontWeight: FontWeight.w900,
-                        fontSize: 15.5,
-                      ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                height: 58,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: logoRed,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
                     ),
-                    onPressed: () =>
-                        _downloadTicketPdf(context, date: date, time: time),
-                    icon: const Icon(Icons.picture_as_pdf_rounded, size: 22),
-                    label: const Text('Télécharger en PDF'),
+                    textStyle: const TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 15.5,
+                    ),
                   ),
+                  onPressed: () =>
+                      _downloadTicketPdf(context, date: date, time: time),
+                  icon: const Icon(Icons.print_rounded, size: 22),
+                  label: const Text('Imprimer le bordereau'),
                 ),
-              ],
+              ),
             ],
           ),
         ),

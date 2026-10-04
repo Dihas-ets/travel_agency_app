@@ -54,6 +54,28 @@ String? ticketReferenceFromQr(String payload) {
   return null;
 }
 
+class MecefTicketQrData {
+  final String nim;
+  final String code;
+
+  const MecefTicketQrData({required this.nim, required this.code});
+}
+
+String normalizeMecefCode(String value) =>
+    value.replaceAll(RegExp(r'[\s-]'), '').toUpperCase();
+
+MecefTicketQrData? mecefTicketDataFromQr(String payload) {
+  final parts = payload.trim().split(';');
+  if (parts.length < 3 || parts.first.trim().toUpperCase() != 'F') {
+    return null;
+  }
+
+  final nim = parts[1].trim();
+  final code = parts[2].trim();
+  if (nim.isEmpty || code.isEmpty) return null;
+  return MecefTicketQrData(nim: nim, code: code);
+}
+
 // Service pour les operations ticket des espaces Staff (Controleur & Percepteur).
 // Utilise uniquement les endpoints API existants, sans modification backend.
 
@@ -82,6 +104,10 @@ class StaffTicketModel {
   final double? montantTaxe;
   final String? modePaiement;
   final String? emetteurNom;
+  final String? mecefStatus;
+  final String? mecefCode;
+  final String? mecefNim;
+  final String? mecefQrCode;
 
   const StaffTicketModel({
     required this.id,
@@ -108,6 +134,10 @@ class StaffTicketModel {
     this.montantTaxe,
     this.modePaiement,
     this.emetteurNom,
+    this.mecefStatus,
+    this.mecefCode,
+    this.mecefNim,
+    this.mecefQrCode,
   });
 
   String get fullPassengerName {
@@ -172,6 +202,11 @@ class StaffTicketModel {
   bool get isBoarded =>
       statut == 'utilisé' || statut == 'utilise' || statut == 'valide';
 
+  bool get isMecefCertified =>
+      mecefStatus?.toLowerCase() == 'confirmed' &&
+      (mecefCode?.isNotEmpty ?? false) &&
+      (mecefNim?.isNotEmpty ?? false);
+
   StaffTicketModel copyWith({String? statut, String? statutPaiement}) {
     return StaffTicketModel(
       id: id,
@@ -198,6 +233,10 @@ class StaffTicketModel {
       montantTaxe: montantTaxe,
       modePaiement: modePaiement,
       emetteurNom: emetteurNom,
+      mecefStatus: mecefStatus,
+      mecefCode: mecefCode,
+      mecefNim: mecefNim,
+      mecefQrCode: mecefQrCode,
     );
   }
 
@@ -214,6 +253,7 @@ class StaffTicketModel {
     final bus = mapValue(json['bus']);
     final user = mapValue(json['user']);
     final emetteur = mapValue(json['emetteur']);
+    final mecef = mapValue(json['mecef_response'] ?? json['mecefResponse']);
 
     String? nomPassager = json['nom_passager']?.toString();
     String? prenomPassager = json['prenom_passager']?.toString();
@@ -265,6 +305,10 @@ class StaffTicketModel {
       montantTaxe: doubleValue(json['montant_taxe']),
       modePaiement: json['mode_paiement']?.toString(),
       emetteurNom: '$issuerFirstName $issuerLastName'.trim(),
+      mecefStatus: mecef['status']?.toString(),
+      mecefCode: mecef['code_mecef']?.toString(),
+      mecefNim: mecef['nim']?.toString(),
+      mecefQrCode: mecef['qr_code']?.toString(),
     );
   }
 }
@@ -324,6 +368,63 @@ class StaffTicketService {
     }
   }
 
+  /// Recherche un ticket certifié en comparant le code MECeF et le NIM.
+  /// L’API ne propose pas de filtre MECeF, les pages sont donc parcourues
+  /// jusqu’à trouver une correspondance exacte ou atteindre la dernière page.
+  Future<StaffTicketModel?> getTicketByMecef({
+    required String code,
+    required String nim,
+  }) async {
+    final normalizedCode = normalizeMecefCode(code);
+    final normalizedNim = nim.trim();
+    if (normalizedCode.isEmpty || normalizedNim.isEmpty) return null;
+
+    var page = 1;
+    var lastPage = 1;
+    do {
+      final uri = Uri.parse(
+        '$_base/tickets',
+      ).replace(queryParameters: {'page': '$page', 'per_page': '100'});
+      final response = await http
+          .get(uri, headers: await _headers())
+          .timeout(const Duration(seconds: 20));
+
+      final decoded = response.body.isEmpty
+          ? <String, dynamic>{}
+          : jsonDecode(response.body);
+      if (response.statusCode != 200) {
+        final message = decoded is Map ? decoded['message']?.toString() : null;
+        throw Exception(
+          message ??
+              'Erreur ${response.statusCode} lors de la recherche MECeF.',
+        );
+      }
+      if (decoded is! Map || decoded['data'] is! List) {
+        throw const FormatException(
+          'Réponse invalide lors de la recherche du ticket MECeF.',
+        );
+      }
+
+      final items = decoded['data'] as List;
+      for (final item in items) {
+        if (item is! Map) continue;
+        final ticketJson = Map<String, dynamic>.from(item);
+        final ticket = StaffTicketModel.fromJson(ticketJson);
+        if (ticket.isMecefCertified &&
+            normalizeMecefCode(ticket.mecefCode ?? '') == normalizedCode &&
+            (ticket.mecefNim ?? '').trim() == normalizedNim) {
+          return ticket;
+        }
+      }
+
+      page = int.tryParse(decoded['current_page']?.toString() ?? '') ?? page;
+      lastPage = int.tryParse(decoded['last_page']?.toString() ?? '') ?? page;
+      page++;
+    } while (page <= lastPage);
+
+    return null;
+  }
+
   /// Valide l'embarquement d'un ticket.
   /// PATCH /api/tickets/{id}/valider
   Future<Map<String, dynamic>> validerEmbarquement(int ticketId) async {
@@ -359,6 +460,27 @@ class StaffTicketService {
         'message': 'Erreur de connexion : ${e.toString()}',
       };
     }
+  }
+
+  Future<Map<String, dynamic>> annulerTicket(int ticketId) async {
+    final response = await http
+        .put(
+          Uri.parse('$_base/tickets/$ticketId/annuler'),
+          headers: await _headers(),
+        )
+        .timeout(const Duration(seconds: 15));
+    final decoded = response.body.isNotEmpty
+        ? jsonDecode(response.body)
+        : <String, dynamic>{};
+    final data = decoded is Map
+        ? Map<String, dynamic>.from(decoded)
+        : <String, dynamic>{};
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(
+        data['message']?.toString() ?? 'Impossible d’annuler ce ticket.',
+      );
+    }
+    return data;
   }
 
   /// Liste les tickets du jour.

@@ -85,6 +85,9 @@ class _HistoryPageState extends State<_HistoryPage>
     final mecef = json['mecef_response'] is Map
         ? Map<String, dynamic>.from(json['mecef_response'] as Map)
         : const <String, dynamic>{};
+    final refundDetails = json['refund_details'] is Map
+        ? Map<String, dynamic>.from(json['refund_details'] as Map)
+        : const <String, dynamic>{};
     return _ReservationItem(
       ticketId: int.tryParse(json['id']?.toString() ?? ''),
       voyageId: int.tryParse(json['voyage_id']?.toString() ?? ''),
@@ -104,7 +107,8 @@ class _HistoryPageState extends State<_HistoryPage>
           taxGroup?.label ??
           (taxGroupId == null ? null : 'Groupe #$taxGroupId'),
       taxGroupCode: savedTaxGroup?['code']?.toString() ?? taxGroup?.code,
-      refundStatus: json['refund']?.toString(),
+      refundStatus:
+          refundDetails['status']?.toString() ?? json['refund']?.toString(),
       passengerCount: int.tryParse(json['nbre_place']?.toString() ?? '') ?? 1,
       beneficiaryName:
           '${json['prenom_passager'] ?? ''} ${json['nom_passager'] ?? ''}'
@@ -113,7 +117,9 @@ class _HistoryPageState extends State<_HistoryPage>
       beneficiaryPhone: json['numero_passager']?.toString() ?? '',
       issuerName: _issuerName(json['emetteur']),
       qrData: _isPaidPaymentStatus(paymentStatus)
-          ? _mecefQrData(json['mecef_response'])
+          ? _mecefQrData(json['mecef_response']) ??
+                json['qr_code']?.toString() ??
+                json['reference']?.toString()
           : null,
       mecefCode: mecef['code_mecef']?.toString(),
       mecefNim: mecef['nim']?.toString(),
@@ -2243,9 +2249,14 @@ class _TicketVisual extends StatelessWidget {
                     const Divider(height: 18),
                     _TicketPriceRow(
                       label: 'Remboursement',
-                      value: refundStatus!.toLowerCase() == 'oui'
-                          ? 'Effectué'
-                          : 'Non effectué',
+                      value: switch (refundStatus!.toLowerCase()) {
+                        'oui' || 'succeeded' => 'Effectué',
+                        'processing' || 'pending' => 'En cours de traitement',
+                        'manual' => 'À traiter manuellement',
+                        'failed' => 'Échec - à traiter',
+                        'not_required' => 'Aucun remboursement dû',
+                        _ => 'Non effectué',
+                      },
                     ),
                   ],
                 ],
@@ -2256,6 +2267,17 @@ class _TicketVisual extends StatelessWidget {
             const SizedBox(height: 26),
             _TicketQrCode(data: qrData!),
             const SizedBox(height: 12),
+            if (mecefCode?.isNotEmpty != true)
+              const Text(
+                'Ticket non certifié MECeF : le QR code correspond à la référence du ticket.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Color(0xFF5F6B86),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            if (mecefCode?.isNotEmpty != true) const SizedBox(height: 8),
             Text(
               'Référence : $reference',
               textAlign: TextAlign.center,

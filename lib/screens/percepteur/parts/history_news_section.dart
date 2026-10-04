@@ -2,10 +2,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:code_initial/screens/percepteur/parts/reservation_flow.dart';
 import 'package:code_initial/services/ticket_service.dart';
+import 'package:code_initial/services/staff_ticket_service.dart';
 
 // Historique percepteur et actualites affichees dans l espace percepteur.
 
-enum PercepteurHistoryScope { reservations, absent, present }
+enum PercepteurHistoryScope { reservationsAgence, annules, absent, present }
 
 class PercepteurHistoryPage extends StatefulWidget {
   const PercepteurHistoryPage({super.key});
@@ -15,21 +16,52 @@ class PercepteurHistoryPage extends StatefulWidget {
 }
 
 class PercepteurHistoryPageState extends State<PercepteurHistoryPage> {
-  PercepteurHistoryScope _scope = PercepteurHistoryScope.reservations;
+  PercepteurHistoryScope _scope = PercepteurHistoryScope.reservationsAgence;
+  List<PercepteurReservationRecord> _agencyTickets = [];
   List<PercepteurReservationRecord> _emittedTickets = [];
-  bool _loadingTickets = true;
-  String? _historyError;
+  bool _loadingAgencyTickets = true;
+  bool _loadingEmittedTickets = true;
+  String? _agencyHistoryError;
+  String? _emittedHistoryError;
+  int? _cancellingTicketId;
 
   @override
   void initState() {
     super.initState();
-    _loadEmittedTickets();
+    _loadTickets();
+  }
+
+  Future<void> _loadTickets() async {
+    await Future.wait([_loadAgencyTickets(), _loadEmittedTickets()]);
+  }
+
+  Future<void> _loadAgencyTickets() async {
+    setState(() {
+      _loadingAgencyTickets = true;
+      _agencyHistoryError = null;
+    });
+    try {
+      final tickets = await TicketService().getTicketsClientsAgence();
+      if (!mounted) return;
+      setState(() {
+        _agencyTickets = tickets
+            .map(PercepteurReservationRecord.fromTicket)
+            .toList();
+        _loadingAgencyTickets = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _agencyHistoryError = error.toString().replaceFirst('Exception: ', '');
+        _loadingAgencyTickets = false;
+      });
+    }
   }
 
   Future<void> _loadEmittedTickets() async {
     setState(() {
-      _loadingTickets = true;
-      _historyError = null;
+      _loadingEmittedTickets = true;
+      _emittedHistoryError = null;
     });
     try {
       final tickets = await TicketService().getTicketsEmis();
@@ -38,20 +70,176 @@ class PercepteurHistoryPageState extends State<PercepteurHistoryPage> {
         _emittedTickets = tickets
             .map(PercepteurReservationRecord.fromTicket)
             .toList();
-        _loadingTickets = false;
+        _loadingEmittedTickets = false;
       });
     } catch (error) {
       if (!mounted) return;
       setState(() {
-        _historyError = error.toString().replaceFirst('Exception: ', '');
-        _loadingTickets = false;
+        _emittedHistoryError = error.toString().replaceFirst('Exception: ', '');
+        _loadingEmittedTickets = false;
       });
     }
+  }
+
+  Future<void> _cancelTicket(PercepteurReservationRecord ticket) async {
+    final ticketId = ticket.ticketId;
+    if (ticketId == null || _cancellingTicketId != null) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Annuler la réservation ?'),
+        content: Text(
+          'Voulez-vous annuler le ticket ${ticket.reference} ? Un avoir sera créé.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Retour'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Annuler le ticket'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _cancellingTicketId = ticketId);
+    try {
+      final result = await StaffTicketService().annulerTicket(ticketId);
+      await _loadTickets();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            result['message']?.toString() ?? 'Ticket annulé et avoir créé.',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _cancellingTicketId = null);
+    }
+  }
+
+  void _showTicketDetails(PercepteurReservationRecord ticket) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Détails du ticket',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: const Color(0xFF0B4F2A),
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 14),
+              _ticketDetail('Référence', ticket.reference),
+              _ticketDetail('Statut', ticket.status),
+              _ticketDetail('Passager', ticket.passengerName),
+              _ticketDetail('Téléphone', ticket.phone),
+              _ticketDetail(
+                'Trajet',
+                '${ticket.departure} → ${ticket.destination}',
+              ),
+              _ticketDetail(
+                'Départ',
+                '${formatPercepteurTicketDate(ticket.date)} à '
+                    '${formatPercepteurTicketTime(ticket.time)}',
+              ),
+              _ticketDetail('Nombre de places', '${ticket.passengerCount}'),
+              _ticketDetail('Bus', ticket.busMatricule),
+              _ticketDetail('Montant total', ticket.price),
+              if (ticket.baseAmount != null)
+                _ticketDetail(
+                  'Montant HT',
+                  '${ticket.baseAmount!.toStringAsFixed(0)} FCFA',
+                ),
+              if (ticket.taxAmount != null)
+                _ticketDetail(
+                  'Taxe',
+                  '${ticket.taxAmount!.toStringAsFixed(0)} FCFA'
+                      '${ticket.taxRate == null ? '' : ' (${ticket.taxRate!.toStringAsFixed(2)} %)'}',
+                ),
+              if (ticket.issuerName.isNotEmpty)
+                _ticketDetail('Émis par', ticket.issuerName),
+              if (ticket.mecefCode?.isNotEmpty == true)
+                _ticketDetail('Code MECeF', ticket.mecefCode!),
+              if (ticket.mecefNim?.isNotEmpty == true)
+                _ticketDetail('NIM', ticket.mecefNim!),
+              if (ticket.mecefCounters?.isNotEmpty == true)
+                _ticketDetail('Compteurs MECeF', ticket.mecefCounters!),
+              if (ticket.mecefDate?.isNotEmpty == true)
+                _ticketDetail('Date MECeF', ticket.mecefDate!),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _ticketDetail(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 132,
+            child: Text(
+              label,
+              style: const TextStyle(color: Color(0xFF5F6B86)),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value.isEmpty ? '—' : value,
+              style: const TextStyle(
+                color: Color(0xFF0B4F2A),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     const deepBlue = Color(0xFF0B4F2A);
+    final agencyReservations = _agencyTickets
+        .where((ticket) => !_isCancelled(ticket))
+        .toList();
+    final cancelledByIdentity = <String, PercepteurReservationRecord>{};
+    for (final ticket in [..._agencyTickets, ..._emittedTickets]) {
+      if (!_isCancelled(ticket)) continue;
+      final identity = ticket.ticketId != null
+          ? 'id:${ticket.ticketId}'
+          : 'reference:${ticket.reference}';
+      cancelledByIdentity.putIfAbsent(identity, () => ticket);
+    }
+    final cancelledTickets = cancelledByIdentity.values.toList();
+    final cancellationErrors = [
+      _agencyHistoryError,
+      _emittedHistoryError,
+    ].whereType<String>().where((error) => error.isNotEmpty).toList();
     final attendanceTickets = _emittedTickets.where((ticket) {
       final status = ticket.rawStatus.toLowerCase();
       if (_scope == PercepteurHistoryScope.absent) {
@@ -89,13 +277,26 @@ class PercepteurHistoryPageState extends State<PercepteurHistoryPage> {
                 children: [
                   _HistoryActionButton(
                     icon: Icons.confirmation_number_rounded,
-                    label: 'Réservation',
-                    selected: _scope == PercepteurHistoryScope.reservations,
+                    label: 'Réservations agence',
+                    selected:
+                        _scope == PercepteurHistoryScope.reservationsAgence,
                     onTap: () => setState(
-                      () => _scope = PercepteurHistoryScope.reservations,
+                      () => _scope = PercepteurHistoryScope.reservationsAgence,
                     ),
                   ),
                   const SizedBox(width: 8),
+                  _HistoryActionButton(
+                    icon: Icons.cancel_rounded,
+                    label: 'Tickets annulés',
+                    selected: _scope == PercepteurHistoryScope.annules,
+                    onTap: () =>
+                        setState(() => _scope = PercepteurHistoryScope.annules),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
                   _HistoryActionButton(
                     icon: Icons.person_off_rounded,
                     label: 'Absent',
@@ -113,22 +314,38 @@ class PercepteurHistoryPageState extends State<PercepteurHistoryPage> {
                   ),
                 ],
               ),
-              const SizedBox(height: 18),
-              if (_scope == PercepteurHistoryScope.reservations)
+              const SizedBox(height: 12),
+              if (_scope == PercepteurHistoryScope.reservationsAgence)
                 Expanded(
                   child: PercepteurReservationList(
-                    reservations: _emittedTickets,
-                    isLoading: _loadingTickets,
-                    error: _historyError,
-                    onRetry: _loadEmittedTickets,
-                    onNewReservation: () async {
-                      await Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const PercepteurReservationPage(),
-                        ),
-                      );
-                      if (mounted) await _loadEmittedTickets();
-                    },
+                    reservations: agencyReservations,
+                    isLoading: _loadingAgencyTickets,
+                    error: _agencyHistoryError,
+                    emptyTitle: 'Aucune réservation pour cette agence',
+                    emptyMessage:
+                        'Les réservations des clients au départ de '
+                        'l’agence d’affectation apparaîtront ici.',
+                    onRetry: _loadAgencyTickets,
+                    onCancel: _cancelTicket,
+                    onView: _showTicketDetails,
+                    cancellingTicketId: _cancellingTicketId,
+                  ),
+                )
+              else if (_scope == PercepteurHistoryScope.annules)
+                Expanded(
+                  child: PercepteurReservationList(
+                    reservations: cancelledTickets,
+                    isLoading: _loadingAgencyTickets || _loadingEmittedTickets,
+                    error: cancellationErrors.isEmpty
+                        ? null
+                        : cancellationErrors.join('\n'),
+                    emptyTitle: 'Aucun ticket annulé',
+                    emptyMessage:
+                        'Les tickets annulés de votre agence apparaîtront ici.',
+                    onRetry: _loadTickets,
+                    onCancel: _cancelTicket,
+                    onView: _showTicketDetails,
+                    cancellingTicketId: _cancellingTicketId,
                   ),
                 )
               else
@@ -141,8 +358,8 @@ class PercepteurHistoryPageState extends State<PercepteurHistoryPage> {
                         ? 'Aucun passager absent enregistré.'
                         : 'Aucun passager présent enregistré.',
                     reservations: attendanceTickets,
-                    isLoading: _loadingTickets,
-                    error: _historyError,
+                    isLoading: _loadingEmittedTickets,
+                    error: _emittedHistoryError,
                     onRetry: _loadEmittedTickets,
                   ),
                 ),
@@ -152,22 +369,40 @@ class PercepteurHistoryPageState extends State<PercepteurHistoryPage> {
       ),
     );
   }
+
+  bool _isCancelled(PercepteurReservationRecord ticket) {
+    return const {
+      'annule',
+      'annulé',
+      'annulee',
+      'annulée',
+    }.contains(ticket.rawStatus.trim().toLowerCase());
+  }
 }
 
 class PercepteurReservationList extends StatelessWidget {
-  final VoidCallback onNewReservation;
   final List<PercepteurReservationRecord> reservations;
   final bool isLoading;
   final String? error;
   final Future<void> Function() onRetry;
+  final Future<void> Function(PercepteurReservationRecord ticket) onCancel;
+  final void Function(PercepteurReservationRecord ticket) onView;
+  final int? cancellingTicketId;
+  final String emptyTitle;
+  final String emptyMessage;
 
   const PercepteurReservationList({
     super.key,
-    required this.onNewReservation,
     required this.reservations,
     required this.isLoading,
     required this.error,
     required this.onRetry,
+    required this.onCancel,
+    required this.onView,
+    required this.cancellingTicketId,
+    this.emptyTitle = 'Aucune réservation',
+    this.emptyMessage =
+        'Les réservations faites par le percepteur apparaîtront ici.',
   });
 
   @override
@@ -177,24 +412,6 @@ class PercepteurReservationList extends StatelessWidget {
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         children: [
-          SizedBox(
-            height: 54,
-            child: ElevatedButton.icon(
-              onPressed: onNewReservation,
-              icon: const Icon(Icons.add_rounded),
-              label: const Text('Nouvelle réservation'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF16A34A),
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                textStyle: const TextStyle(fontWeight: FontWeight.w900),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
           if (isLoading)
             const Padding(
               padding: EdgeInsets.all(24),
@@ -215,14 +432,15 @@ class PercepteurReservationList extends StatelessWidget {
               ],
             )
           else if (reservations.isEmpty)
-            const PercepteurEmptyCard(
-              title: 'Aucune réservation',
-              message:
-                  'Les réservations faites par le percepteur apparaîtront ici.',
-            )
+            PercepteurEmptyCard(title: emptyTitle, message: emptyMessage)
           else
             ...reservations.map(
-              (item) => PercepteurReservationCard(item: item),
+              (item) => PercepteurReservationCard(
+                item: item,
+                onCancel: item.canCancel ? () => onCancel(item) : null,
+                onView: () => onView(item),
+                isCancelling: cancellingTicketId == item.ticketId,
+              ),
             ),
         ],
       ),

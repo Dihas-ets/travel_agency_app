@@ -49,6 +49,9 @@ class ColisModel {
   final List<ColisDetailItem> colisDetails;
   final String statut;
   final String statutPaiement;
+  final String? refundStatus;
+  final double refundAmount;
+  final double refundPenalty;
   final double montant;
   final double montantBase;
   final double montantTaxe;
@@ -58,6 +61,11 @@ class ColisModel {
   final int nombreColis;
   final String origine;
   final DateTime? createdAt;
+  final Map<String, dynamic>? mecefResponse;
+  final String? enregistreurNom;
+  final int? taxeGroupId;
+  final String? taxGroupLabel;
+  final String? taxGroupCode;
   final String? agenceDepotNom;
   final String? agenceRetraitNom;
   final String? expediteurNom;
@@ -77,6 +85,9 @@ class ColisModel {
     required this.colisDetails,
     required this.statut,
     required this.statutPaiement,
+    this.refundStatus,
+    this.refundAmount = 0,
+    this.refundPenalty = 0,
     required this.montant,
     this.montantBase = 0,
     this.montantTaxe = 0,
@@ -86,6 +97,11 @@ class ColisModel {
     this.nombreColis = 1,
     this.origine = 'en_externe',
     this.createdAt,
+    this.mecefResponse,
+    this.enregistreurNom,
+    this.taxeGroupId,
+    this.taxGroupLabel,
+    this.taxGroupCode,
     this.agenceDepotNom,
     this.agenceRetraitNom,
     this.expediteurNom,
@@ -122,6 +138,20 @@ class ColisModel {
     final destinataire = json['destinataire'] as Map<String, dynamic>?;
     final agenceDepot = json['agence_depot'] as Map<String, dynamic>?;
     final agenceRetrait = json['agence_retrait'] as Map<String, dynamic>?;
+    final refundDetails = json['refund_details'] is Map
+        ? Map<String, dynamic>.from(json['refund_details'] as Map)
+        : const <String, dynamic>{};
+    final rawMecef = json['mecef_response'] ?? json['mecefResponse'];
+    final mecefResponse = rawMecef is Map
+        ? Map<String, dynamic>.from(rawMecef)
+        : null;
+    final rawTaxGroup = json['taxe_groupe'] ?? json['taxeGroupe'];
+    final taxGroup = rawTaxGroup is Map
+        ? Map<String, dynamic>.from(rawTaxGroup)
+        : null;
+    final enregistreur = json['enregistreur'] is Map
+        ? Map<String, dynamic>.from(json['enregistreur'] as Map)
+        : null;
 
     String? expNom;
     if (expediteur != null) {
@@ -162,6 +192,13 @@ class ColisModel {
       statut: json['statut']?.toString() ?? 'brouillon',
       statutPaiement:
           json['statut_paiement']?.toString() ?? 'en_attente_paiement',
+      refundStatus:
+          refundDetails['status']?.toString() ?? json['refund']?.toString(),
+      refundAmount:
+          double.tryParse(refundDetails['amount']?.toString() ?? '0') ?? 0,
+      refundPenalty:
+          double.tryParse(refundDetails['penalty_amount']?.toString() ?? '0') ??
+          0,
       montant: double.tryParse(json['montant']?.toString() ?? '0') ?? 0,
       montantBase:
           double.tryParse(json['montant_base']?.toString() ?? '0') ?? 0,
@@ -176,6 +213,16 @@ class ColisModel {
       createdAt: json['created_at'] != null
           ? DateTime.tryParse(json['created_at'].toString())
           : null,
+      mecefResponse: mecefResponse,
+      enregistreurNom: enregistreur == null
+          ? null
+          : '${enregistreur['prenom'] ?? ''} ${enregistreur['nom'] ?? ''}'
+                .trim(),
+      taxeGroupId: int.tryParse(
+        (json['taxe_group_id'] ?? taxGroup?['id'])?.toString() ?? '',
+      ),
+      taxGroupLabel: taxGroup?['label']?.toString(),
+      taxGroupCode: taxGroup?['code']?.toString(),
       agenceDepotNom: agenceDepot?['nom_agence']?.toString(),
       agenceRetraitNom: agenceRetrait?['nom_agence']?.toString(),
       expediteurNom: expNom,
@@ -235,6 +282,26 @@ class ColisModel {
       rawStatus: statut,
       paymentStatus: statutPaiement,
       modePaiement: modePaiement,
+      amountBase: montantBase,
+      taxAmount: montantTaxe,
+      taxRate: tauxTaxe,
+      taxGroupId: taxeGroupId,
+      taxGroupLabel: taxGroupLabel,
+      taxGroupCode: taxGroupCode,
+      mecefInfo: mecefResponse == null
+          ? null
+          : ParcelMecefInfo.fromJson(mecefResponse!),
+      parcelItems: colisDetails
+          .map(
+            (detail) => ParcelLine(
+              nature: detail.nature,
+              quantity: detail.nombre,
+              weight: detail.poids,
+              description: detail.description,
+              attachmentPath: detail.imagePath,
+            ),
+          )
+          .toList(),
     );
   }
 }
