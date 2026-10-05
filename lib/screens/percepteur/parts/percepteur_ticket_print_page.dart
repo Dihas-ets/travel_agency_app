@@ -1,5 +1,5 @@
-import 'dart:typed_data';
 import 'dart:ui' as ui;
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
@@ -20,8 +20,13 @@ String _formatTravelDate(String value) {
 
 class PercepteurTicketPrintPage extends StatefulWidget {
   final Map<String, dynamic> ticket;
+  final VoidCallback? onReturnToHome;
 
-  const PercepteurTicketPrintPage({super.key, required this.ticket});
+  const PercepteurTicketPrintPage({
+    super.key,
+    required this.ticket,
+    this.onReturnToHome,
+  });
 
   @override
   State<PercepteurTicketPrintPage> createState() =>
@@ -58,7 +63,10 @@ class _PercepteurTicketPrintPageState extends State<PercepteurTicketPrintPage> {
   bool get _hasMecef =>
       (widget.ticket['mecefCode']?.toString().trim().isNotEmpty ?? false);
 
-  String get _qrData => _reference;
+  String get _qrData {
+    final mecefQr = widget.ticket['mecefQrCode']?.toString().trim();
+    return _hasMecef && mecefQr?.isNotEmpty == true ? mecefQr! : _reference;
+  }
 
   Future<void> _shareTicketPdf(TicketPrintSettings settings) async {
     if (!settings.enabled) {
@@ -345,7 +353,9 @@ class _PercepteurTicketPrintPageState extends State<PercepteurTicketPrintPage> {
                     pw.SizedBox(height: 6),
                     pw.Center(
                       child: pw.Text(
-                        'SCANNER POUR VALIDER',
+                        _hasMecef
+                            ? 'VÉRIFIER SUR EFACTURE.IMPOTS.BJ'
+                            : _reference,
                         style: pw.TextStyle(
                           color: PdfColor.fromHex('#94A3B8'),
                           fontSize: 6,
@@ -678,6 +688,32 @@ class _PercepteurTicketPrintPageState extends State<PercepteurTicketPrintPage> {
                       ),
                     ),
                   ),
+                  if (widget.onReturnToHome != null) ...[
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: 54,
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: widget.onReturnToHome,
+                        icon: const Icon(Icons.home_rounded),
+                        label: const Text("Retour à l'accueil"),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF0B4F2A),
+                          side: BorderSide(
+                            color: const Color(
+                              0xFF0B4F2A,
+                            ).withValues(alpha: 0.24),
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          textStyle: const TextStyle(
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             );
@@ -767,7 +803,10 @@ class _TicketPreview extends StatelessWidget {
     final accent = _colorFromHex(settings.accentColor);
     final reference = ticket['reference']?.toString() ?? '';
     final mecefCode = ticket['mecefCode']?.toString() ?? '';
-    final qrValue = reference;
+    final mecefQr = ticket['mecefQrCode']?.toString().trim();
+    final qrValue = mecefCode.isNotEmpty && mecefQr?.isNotEmpty == true
+        ? mecefQr!
+        : reference;
     final rawTotal = ticket['price']?.toString() ?? '';
     final total =
         double.tryParse(
@@ -1042,7 +1081,9 @@ class _TicketPreview extends StatelessWidget {
                   ),
                   const SizedBox(height: 5),
                   Text(
-                    'SCANNER POUR VALIDER',
+                    mecefCode.isNotEmpty
+                        ? 'VÉRIFIER SUR EFACTURE.IMPOTS.BJ'
+                        : reference,
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: const Color(0xFF94A3B8),

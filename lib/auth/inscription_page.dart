@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:code_initial/auth/stockage_auth_local.dart';
+import 'package:code_initial/data/local/session_store.dart';
+import 'package:code_initial/models/user_model.dart';
 import 'package:code_initial/navigation.dart';
 // Import de tous les widgets de ce dossier
 import 'package:code_initial/auth/widgets/inscription_widgets.dart';
@@ -9,8 +11,7 @@ import 'package:code_initial/services/auth_service.dart';
 
 /// Page de création de compte.
 ///
-/// Elle récupère le nom, le prénom et le téléphone de l'utilisateur avant
-/// d'envoyer vers la page de vérification du code.
+/// Elle crée directement un compte client protégé par mot de passe.
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
 
@@ -23,6 +24,9 @@ class _RegisterPageState extends State<RegisterPage> {
   final TextEditingController _nomController = TextEditingController();
   final TextEditingController _prenomController = TextEditingController();
   final TextEditingController _telephoneController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _passwordConfirmationController =
+      TextEditingController();
   String _numeroComplet = "";
 
   /// Libère les contrôleurs pour éviter de garder des ressources inutiles.
@@ -31,82 +35,87 @@ class _RegisterPageState extends State<RegisterPage> {
     _nomController.dispose();
     _prenomController.dispose();
     _telephoneController.dispose();
+    _passwordController.dispose();
+    _passwordConfirmationController.dispose();
     super.dispose();
   }
 
-  /// Valide les champs obligatoires avant d'envoyer l'utilisateur au code.
- /// Valide les champs et communique avec le backend pour envoyer l'OTP
-  Future<void> _envoyerCode() async {
+  Future<void> _inscrireClient() async {
     final nom = _nomController.text.trim();
     final prenom = _prenomController.text.trim();
-    
+    final password = _passwordController.text;
 
-        if (nom.isEmpty || prenom.isEmpty || _numeroComplet.isEmpty) {
+    if (nom.isEmpty ||
+        prenom.isEmpty ||
+        _numeroComplet.isEmpty ||
+        password.isEmpty ||
+        _passwordConfirmationController.text.isEmpty) {
       Get.snackbar(
         "Champs requis",
-        "Veuillez remplir tous les champs.",
+        "Veuillez remplir tous les champs, y compris les mots de passe.",
         backgroundColor: Colors.redAccent,
         colorText: Colors.white,
       );
       return;
     }
+    if (password.length < 8) {
+      Get.snackbar(
+        'Mot de passe trop court',
+        'Le mot de passe doit contenir au moins 8 caractères.',
+        backgroundColor: Colors.orange,
+        colorText: Colors.white,
+      );
+      return;
+    }
+    if (password != _passwordConfirmationController.text) {
+      Get.snackbar(
+        'Confirmation incorrecte',
+        'Les deux mots de passe ne correspondent pas.',
+        backgroundColor: Colors.orange,
+        colorText: Colors.white,
+      );
+      return;
+    }
 
-    // 2. LOADER : On affiche un cercle de chargement
     Get.dialog(
       const Center(child: CircularProgressIndicator(color: Color(0xFF16A34A))),
       barrierDismissible: false,
     );
 
     try {
-      final availability =
-          await AuthService().verifierNumeroInscription(_numeroComplet);
-      if (!availability['success']) {
-        Get.back();
-        Get.snackbar(
-          "Numéro déjà utilisé",
-          availability['message'],
-          backgroundColor: Colors.orange,
-          colorText: Colors.white,
-          duration: const Duration(seconds: 6),
-        );
-        return;
-      }
-
-      // 3. APPEL BACKEND : On demande au serveur d'envoyer l'OTP
-      final result = await AuthService().envoyerOtp(_numeroComplet);
-
-      // On ferme le loader dès qu'on a la réponse
+      final result = await AuthService().inscrireClient(
+        nom: nom,
+        prenom: prenom,
+        telephone: _numeroComplet,
+        password: password,
+        passwordConfirmation: _passwordConfirmationController.text,
+      );
       Get.back();
 
       if (result['success']) {
-        // 4. SUCCÈS : Le backend a validé et créé l'OTP
-        await AuthLocalStore.saveClientPhone(_numeroComplet);
-        await AuthLocalStore.saveClientProfile(
-          phone: _numeroComplet,
-          nom: nom,
-          prenom: prenom,
-        );
-
-        Get.toNamed(
-          Routes.VERIFY_CODE,
-          arguments: {
-            'flow': 'register',
-            'phone': _numeroComplet,
-            'nom': nom,
-            'prenom': prenom,
-          },
-        );
+        final token = result['token']?.toString();
+        final userData = result['user'];
+        if (token == null ||
+            token.isEmpty ||
+            userData is! Map<String, dynamic>) {
+          Get.snackbar('Erreur', 'Réponse d’inscription incomplète.');
+          return;
+        }
+        await AuthLocalStore.saveToken(token);
+        final user = UserModel.fromJson(userData);
+        SessionStore.setCurrentUser(user);
+        await AuthLocalStore.saveCurrentUser(user);
+        Get.offAllNamed(Routes.HOME);
       } else {
-        // 5. ERREUR BACKEND : (ex: numéro déjà utilisé par un compte staff)
         Get.snackbar(
-          "Attention",
-          result['message'], // Le message vient directement de Laravel
+          'Inscription impossible',
+          result['message']?.toString() ?? 'Veuillez réessayer.',
           backgroundColor: Colors.orange,
           colorText: Colors.white,
         );
       }
     } catch (e) {
-      Get.back(); // Fermer le loader
+      Get.back();
       Get.snackbar(
         "Erreur",
         "Connexion au serveur impossible.",
@@ -115,8 +124,8 @@ class _RegisterPageState extends State<RegisterPage> {
       );
     }
   }
-  
-   @override
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
@@ -155,7 +164,7 @@ class _RegisterPageState extends State<RegisterPage> {
                       ),
                       SizedBox(height: 8),
                       Text(
-                        "Renseignez vos informations pour recevoir votre code.",
+                        "Renseignez vos informations et créez votre mot de passe.",
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 14,
@@ -230,7 +239,14 @@ class _RegisterPageState extends State<RegisterPage> {
 
                       const SizedBox(height: 18),
 
-                      // Message d'info WhatsApp
+                      RegisterPasswordField(controller: _passwordController),
+                      const SizedBox(height: 16),
+                      RegisterPasswordField(
+                        controller: _passwordConfirmationController,
+                        label: 'Confirmer le mot de passe',
+                        hint: 'Saisissez-le à nouveau',
+                      ),
+                      const SizedBox(height: 18),
                       const WhatsAppInfoBox(),
                     ],
                   ),
@@ -238,14 +254,18 @@ class _RegisterPageState extends State<RegisterPage> {
 
                 const SizedBox(height: 24),
 
-                // Lance la validation puis la navigation vers VerifyCodePage.
-                SubmitButton(onPressed: _envoyerCode),
+                SubmitButton(
+                  onPressed: _inscrireClient,
+                  label: 'Créer mon compte',
+                ),
 
                 const SizedBox(height: 24),
                 Center(
                   child: TextButton(
                     onPressed: () => Get.offNamed(Routes.LOGIN),
-                    child: const Text('Vous avez déjà un compte ? Se connecter'),
+                    child: const Text(
+                      'Vous avez déjà un compte ? Se connecter',
+                    ),
                   ),
                 ),
               ],

@@ -1,7 +1,7 @@
-import 'package:code_initial/auth/widgets/connexion_widgets.dart';
 import 'package:flutter/material.dart';
+import 'package:code_initial/auth/widgets/connexion_widgets.dart';
 
-/// Page de réinitialisation du mot de passe.
+/// Information de récupération, sans envoi de code OTP.
 class ForgotPasswordPage extends StatefulWidget {
   const ForgotPasswordPage({super.key});
 
@@ -10,35 +10,6 @@ class ForgotPasswordPage extends StatefulWidget {
 }
 
 class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
-  final TextEditingController _telephoneController = TextEditingController();
-
-  @override
-  void dispose() {
-    _telephoneController.dispose();
-    super.dispose();
-  }
-
-  void _sendCode() {
-    final telephone = _telephoneController.text.trim();
-
-    if (telephone.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Veuillez entrer votre numéro de téléphone.'),
-          backgroundColor: Color(0xFF16A34A),
-        ),
-      );
-      return;
-    }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Code de réinitialisation envoyé au $telephone'),
-        backgroundColor: const Color(0xFF0B4F2A),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -81,7 +52,8 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                       ),
                       SizedBox(height: 8),
                       Text(
-                        'Entrez votre numéro pour recevoir un code de réinitialisation.',
+                        'La réinitialisation par code n’est pas disponible. '
+                        'Contactez un administrateur pour rétablir votre accès.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: Color(0xFF5F6B86),
@@ -115,43 +87,10 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Numéro de téléphone',
-                        style: TextStyle(
-                          color: Color(0xFF0B4F2A),
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      PhoneLoginField(controller: _telephoneController),
-                      const SizedBox(height: 22),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 58,
-                        child: ElevatedButton.icon(
-                          onPressed: _sendCode,
-                          icon: const Icon(
-                            Icons.sms_rounded,
-                            color: Colors.white,
-                            size: 21,
-                          ),
-                          label: const Text(
-                            'Envoyer code',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 17,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF16A34A),
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                          ),
-                        ),
+                      const Icon(
+                        Icons.support_agent_rounded,
+                        color: Color(0xFF16A34A),
+                        size: 44,
                       ),
                     ],
                   ),

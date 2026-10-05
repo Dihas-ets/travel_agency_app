@@ -4,6 +4,7 @@ import 'package:code_initial/models/store/colis_store.dart';
 class ColisDetailItem {
   final String nature;
   final double poids;
+  final double valeur;
   final int nombre;
   final String description;
   final String? imagePath;
@@ -11,6 +12,7 @@ class ColisDetailItem {
   ColisDetailItem({
     required this.nature,
     this.poids = 0,
+    this.valeur = 0,
     required this.nombre,
     this.description = '',
     this.imagePath,
@@ -20,6 +22,7 @@ class ColisDetailItem {
     return ColisDetailItem(
       nature: json['nature']?.toString() ?? '',
       poids: double.tryParse(json['poids']?.toString() ?? '0') ?? 0,
+      valeur: double.tryParse(json['valeur']?.toString() ?? '0') ?? 0,
       nombre: int.tryParse(json['nombre']?.toString() ?? '1') ?? 1,
       description: json['description']?.toString() ?? '',
       imagePath: json['image_path']?.toString(),
@@ -30,6 +33,7 @@ class ColisDetailItem {
     return {
       'nature': nature,
       'poids': poids,
+      'valeur': valeur,
       'nombre': nombre,
       'description': description,
       if (imagePath != null) 'image_path': imagePath,
@@ -71,7 +75,10 @@ class ColisModel {
   final String? expediteurNom;
   final String? expediteurTel;
   final String? destinataireNom;
+  final String? destinataireNomFamille;
+  final String? destinatairePrenom;
   final String? destinataireTel;
+  final String? destinataireTelSecondaire;
 
   ColisModel({
     required this.id,
@@ -107,7 +114,10 @@ class ColisModel {
     this.expediteurNom,
     this.expediteurTel,
     this.destinataireNom,
+    this.destinataireNomFamille,
+    this.destinatairePrenom,
     this.destinataireTel,
+    this.destinataireTelSecondaire,
   });
 
   factory ColisModel.fromJson(Map<String, dynamic> json) {
@@ -228,7 +238,10 @@ class ColisModel {
       expediteurNom: expNom,
       expediteurTel: expediteur?['numero']?.toString(),
       destinataireNom: destNom,
+      destinataireNomFamille: destinataire?['nom']?.toString(),
+      destinatairePrenom: destinataire?['prenom']?.toString(),
       destinataireTel: destinataire?['numero']?.toString(),
+      destinataireTelSecondaire: json['destinataire_tel2']?.toString(),
     );
   }
 
@@ -297,6 +310,7 @@ class ColisModel {
               nature: detail.nature,
               quantity: detail.nombre,
               weight: detail.poids,
+              value: detail.valeur,
               description: detail.description,
               attachmentPath: detail.imagePath,
             ),

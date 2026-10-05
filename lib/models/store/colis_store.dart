@@ -5,6 +5,7 @@ class ParcelLine {
   final String nature;
   final int quantity;
   final double weight;
+  final double value;
   final String description;
   final String? attachmentPath;
 
@@ -12,6 +13,7 @@ class ParcelLine {
     required this.nature,
     required this.quantity,
     this.weight = 0,
+    this.value = 0,
     this.description = '',
     this.attachmentPath,
   });

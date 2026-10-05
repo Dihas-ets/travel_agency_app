@@ -8,7 +8,6 @@ import 'package:code_initial/screens/global/onboarding/onboarding_page.dart';
 import 'package:code_initial/auth/inscription_page.dart';
 import 'package:code_initial/auth/connexion_page.dart';
 import 'package:code_initial/screens/percepteur/percepteur_password_page.dart';
-import 'package:code_initial/auth/verification_code_page.dart';
 import 'package:code_initial/screens/client/home/home_page.dart';
 import 'package:code_initial/screens/percepteur/percepteur_home_page.dart';
 import 'package:code_initial/screens/controleur/controleur_home_page.dart';
@@ -48,14 +47,9 @@ class Nav {
       page: () => const ForgotPasswordPage(),
     ),
 
-    GetPage(
-      name: Routes.CHAUFFEUR_HOME,
-      page: () => const ChauffeurHomePage(),
-    ),
+    GetPage(name: Routes.CHAUFFEUR_HOME, page: () => const ChauffeurHomePage()),
 
     GetPage(name: Routes.WELCOME, page: () => const WelcomePage()),
-
-    GetPage(name: Routes.VERIFY_CODE, page: () => const VerifyCodePage()),
 
     GetPage(name: Routes.HOME, page: () => const HomePage()),
 
@@ -72,15 +66,9 @@ class Nav {
       name: Routes.ENVOIS_EFFECTUES,
       page: () => const EnvoisEffectuesPage(),
     ),
-    GetPage(
-      name: '/payment-success',
-      page: () => const PaymentSuccessPage(),
-    ),
+    GetPage(name: '/payment-success', page: () => const PaymentSuccessPage()),
 
-    GetPage(
-      name: '/payment-error',
-      page: () => const PaymentErrorPage(),
-    ),
+    GetPage(name: '/payment-error', page: () => const PaymentErrorPage()),
   ];
 }
 
@@ -107,9 +95,15 @@ class Routes {
         final freshUser = await AuthService().getProfile();
         if (freshUser != null) {
           final role = freshUser.role.trim().toLowerCase();
-          if (role == 'percepteur') return PERCEPTEUR_HOME;
-          if (role == 'controlleur' || role == 'controleur') return CONTROLEUR_HOME;
-          if (role == 'chauffeur') return CHAUFFEUR_HOME;
+          if (role == 'percepteur') {
+            return PERCEPTEUR_HOME;
+          }
+          if (role == 'controlleur' || role == 'controleur') {
+            return CONTROLEUR_HOME;
+          }
+          if (role == 'chauffeur') {
+            return CHAUFFEUR_HOME;
+          }
           return HOME;
         }
 
@@ -142,9 +136,6 @@ class Routes {
   /// Page d'accueil après l'onboarding.
   static const WELCOME = '/welcomepage';
 
-  /// Page de saisie du code de vérification.
-  static const VERIFY_CODE = '/verify-code';
-
   /// Interface principale après connexion.
   static const HOME = '/home';
 
@@ -156,7 +147,7 @@ class Routes {
 
   /// Liste des envois effectués.
   static const ENVOIS_EFFECTUES = '/envois-effectues';
-  
+
   /// Interface principale du chauffeur.
   static const CHAUFFEUR_HOME = '/chauffeur-home';
 }

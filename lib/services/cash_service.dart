@@ -49,6 +49,77 @@ class CashService {
     };
   }
 
+  Future<Map<String, dynamic>?> getOpenRegister() async {
+    final response = await http
+        .get(
+          Uri.parse('$_base/caisses').replace(
+            queryParameters: const {'status': 'ouverte', 'per_page': '50'},
+          ),
+          headers: await _headers(),
+        )
+        .timeout(const Duration(seconds: 15));
+    if (response.statusCode != 200) {
+      throw Exception(
+        'Erreur ${response.statusCode} lors de la vérification de la caisse.',
+      );
+    }
+    final decoded = jsonDecode(response.body);
+    final items = decoded is Map<String, dynamic> && decoded['data'] is List
+        ? decoded['data'] as List
+        : decoded is List
+        ? decoded
+        : const [];
+    for (final item in items) {
+      if (item is Map<String, dynamic> && item['status'] == 'ouverte') {
+        return item;
+      }
+    }
+    return null;
+  }
+
+  Future<Map<String, dynamic>> openRegister({
+    required int agencyId,
+    required double openingAmount,
+    String? openingNote,
+  }) async {
+    final headers = await _headers();
+    headers['Content-Type'] = 'application/json';
+    final response = await http
+        .post(
+          Uri.parse('$_base/caisses/ouvrir'),
+          headers: headers,
+          body: jsonEncode({
+            'agency_id': agencyId,
+            'opening_amount': openingAmount,
+            if (openingNote?.trim().isNotEmpty == true)
+              'opening_note': openingNote!.trim(),
+          }),
+        )
+        .timeout(const Duration(seconds: 20));
+    final decoded = jsonDecode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      if (response.statusCode == 403 &&
+          decoded is Map &&
+          decoded['code_required'] == true) {
+        throw Exception(
+          'Code d’accès non actif ou expiré. Activez un code valide avant '
+          'd’ouvrir la caisse.',
+        );
+      }
+      final message = decoded is Map ? decoded['message']?.toString() : null;
+      throw Exception(
+        message ??
+            'Erreur ${response.statusCode} lors de l’ouverture de la caisse.',
+      );
+    }
+    if (decoded is! Map || decoded['cash_register'] is! Map) {
+      throw const FormatException(
+        'Réponse invalide lors de l’ouverture de la caisse.',
+      );
+    }
+    return Map<String, dynamic>.from(decoded['cash_register'] as Map);
+  }
+
   Future<CashSummary> getSummary({int? agencyId, int? userId}) async {
     final query = <String, String>{
       if (agencyId != null) 'agency_id': '$agencyId',

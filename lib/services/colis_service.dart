@@ -281,6 +281,97 @@ class ColisService {
   }
 
   /// Confirme le paiement et l'enregistrement d'un colis brouillon.
+  Future<ColisModel> updateColisStaff({
+    required String reference,
+    required int agenceRetraitId,
+    required String expediteurNom,
+    required String expediteurTel,
+    required String destinataireNom,
+    required String destinataireTel,
+    required String destinataireTelSecondaire,
+    required String modePaiement,
+    required double valeurEstime,
+    required double montant,
+    required double montantBase,
+    required double montantTaxe,
+    required bool useMecef,
+    required int? taxeGroupId,
+    required double? taxeTaux,
+    required List<Map<String, dynamic>> colisDetails,
+    required List<XFile?> images,
+  }) async {
+    final token = await AuthLocalStore.getToken();
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$baseUrl/colis/$reference'),
+    );
+    request.headers['Accept'] = 'application/json';
+    if (token != null && token.isNotEmpty) {
+      request.headers['Authorization'] = 'Bearer $token';
+    }
+    request.fields['_method'] = 'PUT';
+    request.fields['agence_retrait_id'] = agenceRetraitId.toString();
+    request.fields['expediteur_nom'] = expediteurNom;
+    request.fields['expediteur_tel'] = expediteurTel;
+    request.fields['destinataire_nom'] = destinataireNom;
+    request.fields['destinataire_tel1'] = destinataireTel;
+    request.fields['destinataire_tel2'] = destinataireTelSecondaire;
+    request.fields['mode_paiement'] = modePaiement;
+    request.fields['valeur_estime'] = valeurEstime.toString();
+    request.fields['montant_manuel'] = montant.toString();
+    request.fields['montant_base'] = montantBase.toString();
+    request.fields['montant_taxe'] = montantTaxe.toString();
+    request.fields['use_mecef'] = useMecef ? '1' : '0';
+    request.fields['taxe_group_id'] = taxeGroupId?.toString() ?? '';
+    request.fields['taxe_taux'] = taxeTaux?.toString() ?? '0';
+
+    for (var index = 0; index < colisDetails.length; index++) {
+      final detail = colisDetails[index];
+      final prefix = 'colis_details[$index]';
+      request.fields['$prefix[nature]'] =
+          detail['nature']?.toString() ?? 'Colis';
+      request.fields['$prefix[poids]'] = (detail['poids'] ?? 0).toString();
+      request.fields['$prefix[nombre]'] = (detail['nombre'] ?? 1).toString();
+      request.fields['$prefix[description]'] =
+          detail['description']?.toString() ?? '';
+      final imagePath = detail['image_path']?.toString();
+      if (imagePath?.isNotEmpty == true) {
+        request.fields['$prefix[image_path]'] = imagePath!;
+      }
+      if (index < images.length && images[index] != null) {
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            '$prefix[image]',
+            images[index]!.path,
+          ),
+        );
+      }
+    }
+
+    final streamedResponse = await request.send().timeout(
+      const Duration(seconds: 25),
+    );
+    final response = await http.Response.fromStream(streamedResponse);
+    final decoded = jsonDecode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(
+        _responseErrorMessage(
+          decoded,
+          response.statusCode,
+          'Erreur lors de la mise à jour du colis.',
+        ),
+      );
+    }
+    if (decoded is! Map || decoded['colis'] is! Map) {
+      throw const FormatException(
+        'Réponse invalide lors de la mise à jour du colis.',
+      );
+    }
+    return ColisModel.fromJson(
+      Map<String, dynamic>.from(decoded['colis'] as Map),
+    );
+  }
+
   Future<void> validerColisStaff({
     required int id,
     required String modePaiement,
@@ -319,14 +410,62 @@ class ColisService {
           body: body == null ? null : jsonEncode(body),
         )
         .timeout(const Duration(seconds: 20));
-    final decoded = jsonDecode(response.body);
-
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      final message = decoded is Map ? decoded['message']?.toString() : null;
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(response.body);
+    } on FormatException {
       throw Exception(
-        message ??
-            'Erreur ${response.statusCode} lors de l’action sur le colis.',
+        'Réponse invalide du serveur (${response.statusCode}) lors de '
+        'l’action « $action » sur le colis. Vérifiez l’état du colis et '
+        'votre code d’accès actif.',
       );
     }
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      if (response.statusCode == 403 &&
+          decoded is Map &&
+          decoded['code_required'] == true) {
+        throw Exception(
+          'Votre code d’accès n’est pas actif ou a expiré. Réactivez-le '
+          'avant d’annuler le colis.',
+        );
+      }
+      throw Exception(
+        _responseErrorMessage(
+          decoded,
+          response.statusCode,
+          'Erreur lors de l’action « $action » sur le colis.',
+        ),
+      );
+    }
+  }
+
+  String _responseErrorMessage(
+    Object? decoded,
+    int statusCode,
+    String fallback,
+  ) {
+    if (decoded is Map) {
+      final message = decoded['message']?.toString();
+      final errors = decoded['errors'];
+      final details = <String>[];
+      if (errors is Map) {
+        for (final value in errors.values) {
+          if (value is List) {
+            details.addAll(value.map((item) => item.toString()));
+          } else if (value != null) {
+            details.add(value.toString());
+          }
+        }
+      }
+      if (details.isNotEmpty) {
+        return [
+          if (message != null && message.isNotEmpty) message,
+          ...details,
+        ].join('\n');
+      }
+      if (message != null && message.isNotEmpty) return message;
+    }
+    return '$fallback (HTTP $statusCode).';
   }
 }

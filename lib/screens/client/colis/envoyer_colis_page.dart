@@ -3,11 +3,13 @@ part of 'pages_colis.dart';
 class SendParcelPage extends StatefulWidget {
   final bool showModeTabs;
   final bool isPercepteur;
+  final ColisModel? initialParcel;
 
   const SendParcelPage({
     super.key,
     this.showModeTabs = true,
     this.isPercepteur = false,
+    this.initialParcel,
   });
 
   @override
@@ -31,6 +33,7 @@ class _SendParcelPageState extends State<SendParcelPage>
   );
   final ImagePicker _imagePicker = ImagePicker();
   final PaymentService _paymentService = PaymentService();
+  final ColisService _colisService = ColisService();
 
   final List<_ParcelDraft> _parcels = [_ParcelDraft()];
   int _currentStep = 1;
@@ -63,10 +66,56 @@ class _SendParcelPageState extends State<SendParcelPage>
     final user = SessionStore.currentUser;
     _senderNameController.text = user?.fullName ?? '';
     _senderPhoneController.text = user?.numero ?? '';
+    _prefillDraft();
     _loadAgences();
     _loadNatures();
     if (widget.isPercepteur) _loadTaxGroups();
     if (widget.isPercepteur) _loadPaymentProviders();
+  }
+
+  void _prefillDraft() {
+    final parcel = widget.initialParcel;
+    if (parcel == null) return;
+
+    _departureController.text = parcel.agenceDepotNom ?? '';
+    _destinationController.text = parcel.agenceRetraitNom ?? '';
+    _senderNameController.text = parcel.expediteurNom ?? '';
+    _senderPhoneController.text = parcel.expediteurTel ?? '';
+    _lastNameController.text =
+        parcel.destinataireNomFamille ?? parcel.destinataireNom ?? '';
+    _firstNameController.text = parcel.destinatairePrenom ?? '';
+    _phoneController.text = parcel.destinataireTel ?? '';
+    _secondaryPhoneController.text = parcel.destinataireTelSecondaire ?? '';
+    _amountController.text = parcel.montant.toStringAsFixed(0);
+    _paymentMode = 'ESPECES';
+    _montantBase = parcel.montantBase;
+    _montantTaxe = parcel.montantTaxe;
+
+    final details = parcel.colisDetails;
+    if (details.isNotEmpty) {
+      final hasItemValues = details.any((detail) => detail.valeur > 0);
+      _parcels.first.dispose();
+      _parcels
+        ..clear()
+        ..addAll(
+          details.map((detail) {
+            final draft = _ParcelDraft()
+              ..nature = detail.nature
+              ..quantity = detail.nombre > 0 ? detail.nombre : 1
+              ..existingImagePath = detail.imagePath
+              ..weightController.text = detail.poids.toString()
+              ..descriptionController.text = detail.description
+              ..valueController.text =
+                  (hasItemValues
+                          ? detail.valeur
+                          : details.first == detail
+                          ? parcel.valeurEstime
+                          : 0)
+                      .toString();
+            return draft;
+          }),
+        );
+    }
   }
 
   Future<void> _loadTaxGroups() async {
@@ -74,6 +123,9 @@ class _SendParcelPageState extends State<SendParcelPage>
       final groups = await TaxService().getGroupsForModule('colis');
       if (!mounted) return;
       final selected =
+          groups
+              .where((group) => group.id == widget.initialParcel?.taxeGroupId)
+              .firstOrNull ??
           groups
               .where((group) => group.appliesAsDefaultTo('colis'))
               .firstOrNull ??
@@ -247,14 +299,27 @@ class _SendParcelPageState extends State<SendParcelPage>
       setState(() {
         _agences = agences;
         if (_agences.isNotEmpty) {
+          final initialParcel = widget.initialParcel;
           _selectedDepartureAgence =
+              _agences
+                  .where((agence) => agence.id == initialParcel?.agenceDepotId)
+                  .firstOrNull ??
               _agences
                   .where(
                     (agence) => agence.id == SessionStore.currentUser?.agenceId,
                   )
                   .firstOrNull ??
               _agences.first;
-          _departureController.text = _selectedDepartureAgence!.nomAgence;
+          _selectedDestinationAgence = _agences
+              .where((agence) => agence.id == initialParcel?.agenceRetraitId)
+              .firstOrNull;
+          if (_departureController.text.isEmpty) {
+            _departureController.text = _selectedDepartureAgence!.nomAgence;
+          }
+          if (_destinationController.text.isEmpty &&
+              _selectedDestinationAgence != null) {
+            _destinationController.text = _selectedDestinationAgence!.nomAgence;
+          }
         }
       });
     } catch (_) {}
@@ -748,7 +813,8 @@ class _SendParcelPageState extends State<SendParcelPage>
         (widget.isPercepteur && _senderNameController.text.trim().isEmpty) ||
         (widget.isPercepteur && _senderPhoneController.text.trim().isEmpty) ||
         _lastNameController.text.trim().isEmpty ||
-        _firstNameController.text.trim().isEmpty ||
+        (widget.initialParcel == null &&
+            _firstNameController.text.trim().isEmpty) ||
         _phoneController.text.trim().isEmpty ||
         (!widget.isPercepteur && _departureController.text.trim().isEmpty) ||
         _parcels.any(
@@ -807,6 +873,132 @@ class _SendParcelPageState extends State<SendParcelPage>
         orElse: () => _agences.first,
       );
       depotId = found.id;
+    }
+
+    Future<void> updateAndFinalizeDraft() async {
+      final parcel = widget.initialParcel!;
+      final amount =
+          double.tryParse(_amountController.text.trim().replaceAll(',', '.')) ??
+          0;
+      if (amount <= 0) {
+        _showRequiredMessage('Le montant TTC doit être supérieur à 0.');
+        return;
+      }
+      if (_paymentMode == 'ESPECES') {
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('Confirmer le paiement'),
+            content: Text(
+              'Confirmez l’encaissement de ${amount.toStringAsFixed(0)} FCFA '
+              'pour le colis ${parcel.reference}.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('Retour'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: const Text('Confirmer'),
+              ),
+            ],
+          ),
+        );
+        if (confirmed != true || !mounted) return;
+      }
+
+      setState(() => _isSubmitting = true);
+      try {
+        final details = _parcels
+            .map(
+              (draft) => {
+                'nature': draft.nature ?? 'Colis',
+                'poids':
+                    double.tryParse(
+                      draft.weightController.text.trim().replaceAll(',', '.'),
+                    ) ??
+                    0,
+                'nombre': draft.quantity,
+                'description': draft.descriptionController.text.trim(),
+                if (draft.existingImagePath != null)
+                  'image_path': draft.existingImagePath,
+              },
+            )
+            .toList();
+        final estimatedValue = _parcels.fold<double>(
+          0,
+          (total, draft) =>
+              total +
+              (double.tryParse(
+                    draft.valueController.text.trim().replaceAll(',', '.'),
+                  ) ??
+                  0),
+        );
+        final updated = await _colisService.updateColisStaff(
+          reference: parcel.reference,
+          agenceRetraitId:
+              _selectedDestinationAgence?.id ?? parcel.agenceRetraitId ?? 0,
+          expediteurNom: _senderNameController.text.trim(),
+          expediteurTel: _senderPhoneController.text.trim(),
+          destinataireNom:
+              '${_lastNameController.text.trim()} '
+                      '${_firstNameController.text.trim()}'
+                  .trim(),
+          destinataireTel: _phoneController.text.trim(),
+          destinataireTelSecondaire: _secondaryPhoneController.text.trim(),
+          modePaiement: _paymentMode,
+          valeurEstime: estimatedValue,
+          montant: amount,
+          montantBase: _montantBase,
+          montantTaxe: _montantTaxe,
+          useMecef: _useMecef,
+          taxeGroupId: _selectedTaxGroup?.id ?? parcel.taxeGroupId,
+          taxeTaux: _selectedTaxGroup?.rate ?? parcel.tauxTaxe,
+          colisDetails: details,
+          images: _parcels.map((draft) => draft.attachment).toList(),
+        );
+
+        if (!mounted) return;
+        if (_paymentMode == 'MOBILEMONEY') {
+          setState(() {
+            _isSubmitting = false;
+            _pendingPaymentParcel = updated;
+          });
+          await _startParcelPayment(updated);
+          return;
+        }
+
+        await _colisService.validerColisStaff(
+          id: parcel.id,
+          modePaiement: 'ESPECES',
+          montant: amount,
+        );
+        final finalizedParcels = await _colisService.getColisStaff();
+        final finalized = finalizedParcels
+            .where((item) => item.id == parcel.id)
+            .firstOrNull;
+        if (finalized == null) {
+          throw Exception(
+            'Le colis finalisé est introuvable après sa mise à jour.',
+          );
+        }
+        if (!mounted) return;
+        setState(() => _isSubmitting = false);
+        await _showParcelTicket(finalized);
+      } catch (error) {
+        if (!mounted) return;
+        setState(() => _isSubmitting = false);
+        _showRequiredMessage(
+          'Impossible de finaliser le colis : '
+          '${error.toString().replaceFirst('Exception: ', '')}',
+        );
+      }
+    }
+
+    if (widget.initialParcel != null) {
+      await updateAndFinalizeDraft();
+      return;
     }
 
     if (_selectedDestinationAgence == null && _agences.isNotEmpty) {
@@ -908,6 +1100,12 @@ class _SendParcelPageState extends State<SendParcelPage>
         await Navigator.of(context).push(
           MaterialPageRoute(
             builder: (_) => BilletPage(
+              onReturnToHome: widget.isPercepteur
+                  ? () => Navigator.of(
+                      context,
+                      rootNavigator: true,
+                    ).popUntil((route) => route.isFirst)
+                  : null,
               code: colis.reference,
               departureCity:
                   colis.agenceDepotNom ?? _departureController.text.trim(),
@@ -922,6 +1120,7 @@ class _SendParcelPageState extends State<SendParcelPage>
                   .toSet()
                   .join(', '),
               parcelCount: _parcelCount,
+              parcelItems: parcelRecord.parcelItems,
               attachmentPath: _firstPickedAttachment?.path,
               attachmentName: _attachmentNameSummary,
               deliveryFee: colis.montant > 0
@@ -1141,6 +1340,12 @@ class _SendParcelPageState extends State<SendParcelPage>
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => BilletPage(
+          onReturnToHome: widget.isPercepteur
+              ? () => Navigator.of(
+                  context,
+                  rootNavigator: true,
+                ).popUntil((route) => route.isFirst)
+              : null,
           code: colis.reference,
           departureCity:
               colis.agenceDepotNom ?? _departureController.text.trim(),
@@ -1154,6 +1359,7 @@ class _SendParcelPageState extends State<SendParcelPage>
               .toSet()
               .join(', '),
           parcelCount: _parcelCount,
+          parcelItems: colis.toParcelRecord().parcelItems,
           attachmentPath: _firstPickedAttachment?.path,
           attachmentName: _attachmentNameSummary,
           deliveryFee: colis.montant.toStringAsFixed(0),
@@ -1281,6 +1487,9 @@ class _SendParcelPageState extends State<SendParcelPage>
                     mecefOption: widget.isPercepteur
                         ? _buildMecefOption()
                         : null,
+                    previewLabel: widget.initialParcel == null
+                        ? 'Créer & Aperçu'
+                        : 'Mettre à jour et finaliser',
                     onDestinationTap: () => _showCityPicker(
                       title: 'Agence de destination',
                       controller: _destinationController,
@@ -1342,6 +1551,7 @@ class _SendParcelPageState extends State<SendParcelPage>
           else if (_taxGroups.isNotEmpty && !_hasDefaultTaxGroup)
             DropdownButtonFormField<TaxGroup>(
               initialValue: _selectedTaxGroup,
+              isExpanded: true,
               decoration: const InputDecoration(
                 labelText: 'Groupe de taxe',
                 border: OutlineInputBorder(),
@@ -1350,7 +1560,11 @@ class _SendParcelPageState extends State<SendParcelPage>
                   .map(
                     (group) => DropdownMenuItem<TaxGroup>(
                       value: group,
-                      child: Text('${group.label} (${group.rate} %)'),
+                      child: Text(
+                        '${group.label} (${group.rate} %)',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   )
                   .toList(),

@@ -9,6 +9,7 @@ import 'package:code_initial/models/models_and_stores.dart';
 import 'package:code_initial/models/ligne_model.dart';
 import 'package:code_initial/models/tax_group_model.dart';
 import 'package:code_initial/models/voyage_programme_model.dart';
+import 'package:code_initial/navigation.dart';
 import 'package:code_initial/services/ligne_service.dart';
 import 'package:code_initial/services/tax_service.dart';
 import 'package:code_initial/services/ticket_service.dart';
@@ -81,6 +82,48 @@ String formatPercepteurTicketTime(String value) {
   return '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
 }
 
+String formatPercepteurMecefDate(String value) {
+  final normalized = value.trim();
+  final isoMatch = RegExp(r'^(\d{4})-(\d{2})-(\d{2})').firstMatch(normalized);
+  if (isoMatch != null) {
+    return '${isoMatch.group(3)}/${isoMatch.group(2)}/${isoMatch.group(1)}';
+  }
+
+  final localMatch = RegExp(
+    r'^(\d{1,2})[/-](\d{1,2})[/-](\d{4})',
+  ).firstMatch(normalized);
+  if (localMatch != null) {
+    return '${localMatch.group(1)!.padLeft(2, '0')}/'
+        '${localMatch.group(2)!.padLeft(2, '0')}/'
+        '${localMatch.group(3)}';
+  }
+
+  return normalized;
+}
+
+String formatPercepteurMecefTime(String value) {
+  final match = RegExp(
+    r'(?:T|\s)(\d{1,2}):(\d{2})(?::(\d{2}))?',
+  ).firstMatch(value.trim());
+  if (match == null) return 'Heure non renseignée';
+
+  final hour = int.tryParse(match.group(1)!);
+  final minute = int.tryParse(match.group(2)!);
+  final second = int.tryParse(match.group(3) ?? '0');
+  if (hour == null ||
+      hour > 23 ||
+      minute == null ||
+      minute > 59 ||
+      second == null ||
+      second > 59) {
+    return 'Heure non renseignée';
+  }
+
+  return '${hour.toString().padLeft(2, '0')}:'
+      '${minute.toString().padLeft(2, '0')}:'
+      '${second.toString().padLeft(2, '0')}';
+}
+
 void _returnToPercepteurHistory(BuildContext context) {
   Navigator.of(context).pushAndRemoveUntil(
     MaterialPageRoute(builder: (_) => const PercepteurHistoryPage()),
@@ -102,6 +145,7 @@ class PercepteurReservationRecord {
   final String busMatricule;
   final String status;
   final String rawStatus;
+  final String? paymentStatus;
   final int? ligneId;
   final int? voyageId;
   final int? busId;
@@ -122,6 +166,15 @@ class PercepteurReservationRecord {
   final String passengerFirstName;
   final String passengerLastName;
 
+  bool get isPaid {
+    final normalized = (paymentStatus ?? '').trim().toLowerCase().replaceAll(
+      'é',
+      'e',
+    );
+    return const {'paye', 'paid', 'success', 'successful'}.contains(normalized);
+  }
+
+  bool get canPrint => reference.isNotEmpty && isPaid;
   bool get canCancel => ticketId != null && rawStatus == 'en_cours';
 
   const PercepteurReservationRecord({
@@ -138,6 +191,7 @@ class PercepteurReservationRecord {
     required this.busMatricule,
     required this.status,
     this.rawStatus = '',
+    this.paymentStatus,
     this.ligneId,
     this.voyageId,
     this.busId,
@@ -191,6 +245,7 @@ class PercepteurReservationRecord {
       busMatricule: busMatricule ?? this.busMatricule,
       status: status ?? this.status,
       rawStatus: rawStatus ?? this.rawStatus,
+      paymentStatus: paymentStatus,
       ligneId: ligneId,
       voyageId: voyageId,
       busId: busId,
@@ -273,6 +328,7 @@ class PercepteurReservationRecord {
         _ => rawStatus,
       },
       rawStatus: rawStatus,
+      paymentStatus: json['statut_paiement']?.toString(),
       taxGroupId: int.tryParse(json['taxe_group_id']?.toString() ?? ''),
       baseAmount: double.tryParse(json['montant_base']?.toString() ?? ''),
       taxAmount: double.tryParse(json['montant_taxe']?.toString() ?? ''),
@@ -298,6 +354,7 @@ class PercepteurReservationRecord {
     'passengerName': passengerName,
     'phone': phone,
     'price': price,
+    'paymentStatus': paymentStatus,
     'baseAmount': baseAmount,
     'taxAmount': taxAmount ?? 0,
     'taxRate': taxRate ?? 0,
@@ -2506,8 +2563,12 @@ class PercepteurPaymentChoicePageState
 
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
-        builder: (_) =>
-            PercepteurTicketPrintPage(ticket: reservation.toPrintMap()),
+        builder: (_) => PercepteurTicketPrintPage(
+          ticket: reservation.toPrintMap(),
+          onReturnToHome: () => Navigator.of(
+            context,
+          ).pushNamedAndRemoveUntil(Routes.PERCEPTEUR_HOME, (route) => false),
+        ),
       ),
     );
   }
@@ -3248,6 +3309,7 @@ class PercepteurReservationCard extends StatelessWidget {
   final PercepteurReservationRecord item;
   final VoidCallback? onCancel;
   final VoidCallback? onView;
+  final VoidCallback? onPrint;
   final bool isCancelling;
 
   const PercepteurReservationCard({
@@ -3255,6 +3317,7 @@ class PercepteurReservationCard extends StatelessWidget {
     required this.item,
     this.onCancel,
     this.onView,
+    this.onPrint,
     this.isCancelling = false,
   });
 
@@ -3321,7 +3384,14 @@ class PercepteurReservationCard extends StatelessWidget {
           PercepteurTicketInfoRow(title: 'Passager', value: item.passengerName),
           PercepteurTicketInfoRow(title: 'Téléphone', value: item.phone),
           PercepteurTicketInfoRow(title: 'Total', value: item.price),
-          if (onView != null || onCancel != null) ...[
+          if (item.mecefDate?.isNotEmpty == true)
+            PercepteurTicketInfoRow(
+              title: 'MECeF',
+              value:
+                  '${formatPercepteurMecefDate(item.mecefDate!)} · '
+                  '${formatPercepteurMecefTime(item.mecefDate!)}',
+            ),
+          if (onView != null || onPrint != null || onCancel != null) ...[
             const SizedBox(height: 12),
             Row(
               children: [
@@ -3333,7 +3403,17 @@ class PercepteurReservationCard extends StatelessWidget {
                       label: const Text('Voir'),
                     ),
                   ),
-                if (onView != null && onCancel != null)
+                if (onView != null && (onPrint != null || onCancel != null))
+                  const SizedBox(width: 10),
+                if (onPrint != null)
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: onPrint,
+                      icon: const Icon(Icons.print_outlined),
+                      label: const Text('Imprimer'),
+                    ),
+                  ),
+                if (onPrint != null && onCancel != null)
                   const SizedBox(width: 10),
                 if (onCancel != null)
                   Expanded(

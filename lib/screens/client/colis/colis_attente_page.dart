@@ -500,6 +500,7 @@ class _PendingParcelDetailsPage extends StatelessWidget {
                                     .toSet()
                                     .join(', '),
                           parcelCount: parcel.parcelCount,
+                          parcelItems: parcel.parcelItems,
                           attachmentPath: parcel.attachmentPath,
                           attachmentName: parcel.attachmentName,
                           deliveryFee: parcel.deliveryFee ?? '',
@@ -623,6 +624,7 @@ class _RegisteredParcelDetailsPage extends StatelessWidget {
                                     .toSet()
                                     .join(', '),
                           parcelCount: parcel.parcelCount,
+                          parcelItems: parcel.parcelItems,
                           attachmentPath: parcel.attachmentPath,
                           attachmentName: parcel.attachmentName,
                           deliveryFee: parcel.deliveryFee ?? '',

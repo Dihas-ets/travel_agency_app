@@ -9,134 +9,69 @@ import 'package:code_initial/data/local/session_store.dart';
 class AuthService {
   static const String baseUrl = AppConfig.apiBaseUrl;
 
-  /// INSCRIPTION CLIENT : Envoyer l'OTP
-  Future<Map<String, dynamic>> verifierNumeroInscription(
-    String telephone,
-  ) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/auth/client/otp/verifier-numero-inscription'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      body: jsonEncode({'numero': telephone}),
-    );
-    final data = jsonDecode(response.body);
-    return {
-      'success': response.statusCode == 200 && data['available'] == true,
-      'message': data['message']?.toString() ?? 'Numéro indisponible.',
-    };
-  }
-
-  Future<Map<String, dynamic>> envoyerOtp(String telephone) async {
-    final url = Uri.parse('$baseUrl/auth/client/otp/envoyer');
-    try {
-      final response = await http.post(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: jsonEncode({'numero': telephone}),
-      );
-      final data = jsonDecode(response.body);
-      return {
-        'success': response.statusCode == 200,
-        'message': data['message'],
-      };
-    } catch (e) {
-      return {'success': false, 'message': 'Erreur de connexion au serveur'};
-    }
-  }
-
-  /// CONNEXION CLIENT : Vérifier si le numéro existe et envoyer l'OTP
-  Future<Map<String, dynamic>> connexionOtp(String telephone) async {
-    final url = Uri.parse('$baseUrl/auth/client/otp/connexion');
-    try {
-      final response = await http.post(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: jsonEncode({'numero': telephone}),
-      );
-      final data = jsonDecode(response.body);
-
-      return {
-        'success': response.statusCode == 200,
-        'isStaff': response.statusCode == 409,
-        'message': data['message']?.toString() ?? 'Connexion impossible.',
-      };
-    } catch (e) {
-      return {'success': false, 'message': 'Erreur de connexion'};
-    }
-  }
-
-  Future<Map<String, dynamic>> renvoyerOtp({
+  Future<Map<String, dynamic>> inscrireClient({
+    required String nom,
+    required String prenom,
     required String telephone,
-    required String flow,
+    required String password,
+    required String passwordConfirmation,
   }) async {
-    String normalizedPhone = telephone.trim();
-    normalizedPhone = normalizedPhone.replaceAll(RegExp(r'[^\d+]'), '');
-    if (!normalizedPhone.startsWith('+')) {
-      normalizedPhone = '+$normalizedPhone';
-    }
+    return _postAuthentication('auth/mobile/inscription-client', {
+      'nom': nom,
+      'prenom': prenom,
+      'numero': telephone,
+      'password': password,
+      'password_confirmation': passwordConfirmation,
+    });
+  }
 
-    final endpoint = flow == 'register'
-        ? 'auth/client/otp/envoyer'
-        : 'auth/client/otp/connexion';
+  Future<Map<String, dynamic>> connexionMobile({
+    required String telephone,
+    required String password,
+  }) async {
+    return _postAuthentication('auth/mobile/connexion', {
+      'numero': telephone,
+      'password': password,
+    });
+  }
 
+  Future<Map<String, dynamic>> _postAuthentication(
+    String endpoint,
+    Map<String, String> body,
+  ) async {
     try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/$endpoint'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: jsonEncode({'numero': normalizedPhone}),
-      );
-
-      final data = jsonDecode(response.body);
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/$endpoint'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 20));
+      final decoded = jsonDecode(response.body);
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        if (decoded is! Map<String, dynamic>) {
+          return {'success': false, 'message': 'Réponse invalide du serveur.'};
+        }
+        return {
+          'success': true,
+          'token': decoded['token'],
+          'user': decoded['user'],
+          'message': decoded['message'],
+        };
+      }
       return {
-        'success': response.statusCode >= 200 && response.statusCode < 300,
-        'message':
-            data['message']?.toString() ?? 'Impossible de renvoyer le code.',
+        'success': false,
+        'message': decoded is Map
+            ? decoded['message']?.toString() ?? 'Authentification impossible.'
+            : 'Authentification impossible.',
       };
+    } on FormatException {
+      return {'success': false, 'message': 'Réponse invalide du serveur.'};
     } catch (_) {
       return {'success': false, 'message': 'Erreur de connexion au serveur.'};
-    }
-  }
-
-  /// VÉRIFICATION OTP (Commune Inscription & Connexion Client)
-  Future<Map<String, dynamic>> verifierOtp({
-    required String telephone,
-    required String code,
-    String? nom,
-    String? prenom,
-  }) async {
-    final url = Uri.parse('$baseUrl/auth/client/otp/verifier');
-    try {
-      final response = await http.post(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: jsonEncode({
-          'numero': telephone,
-          'code': code,
-          'nom': nom,
-          'prenom': prenom,
-        }),
-      );
-      final data = jsonDecode(response.body);
-      if (response.statusCode == 200) {
-        return {'success': true, 'token': data['token'], 'user': data['user']};
-      }
-      return {'success': false, 'message': data['message']};
-    } catch (e) {
-      return {'success': false, 'message': 'Erreur de connexion'};
     }
   }
 

@@ -1,9 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:code_initial/navigation.dart';
 import 'package:code_initial/data/local/session_store.dart';
+import 'package:code_initial/config/app_config.dart';
 import 'package:code_initial/models/colis_model.dart';
+import 'package:code_initial/models/store/colis_store.dart';
 import 'package:code_initial/screens/client/colis/billet_page.dart';
 import 'package:code_initial/screens/client/colis/pages_colis.dart';
 import 'package:code_initial/services/colis_service.dart';
+
+enum _ParcelTab {
+  drafts,
+  readyToShip,
+  inTransit,
+  arrived,
+  delivered,
+  issue,
+  lost,
+  cancelled,
+  other,
+}
 
 class PercepteurDynamicColisSection extends StatefulWidget {
   const PercepteurDynamicColisSection({super.key});
@@ -25,7 +40,7 @@ class _PercepteurDynamicColisSectionState
   bool _isLoading = true;
   String? _errorMessage;
   String _searchQuery = '';
-  int _selectedTab = 0;
+  _ParcelTab _selectedTab = _ParcelTab.drafts;
   bool _isProcessingParcel = false;
 
   @override
@@ -71,32 +86,42 @@ class _PercepteurDynamicColisSectionState
     if (created == true && mounted) await _loadParcels();
   }
 
+  Future<void> _openDraftForFinalization(ColisModel parcel) async {
+    try {
+      final latestParcel = await _colisService.showColis(parcel.reference);
+      if (latestParcel == null) {
+        throw Exception('Le brouillon ${parcel.reference} est introuvable.');
+      }
+      if (!mounted) return;
+      final finalized = await Navigator.of(context).push<bool>(
+        MaterialPageRoute(
+          builder: (_) => SendParcelPage(
+            showModeTabs: false,
+            isPercepteur: true,
+            initialParcel: latestParcel,
+          ),
+        ),
+      );
+      if (finalized == true && mounted) await _loadParcels();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Impossible de charger les informations du brouillon : '
+            '${error.toString().replaceFirst('Exception: ', '')}',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   List<ColisModel> get _visibleParcels {
-    final agencyId = SessionStore.currentUser?.agenceId;
     final query = _searchQuery.trim().toLowerCase();
 
     return _parcels.where((parcel) {
-      final isPreRegisteredForAgency =
-          parcel.origine == 'en_externe' &&
-          parcel.statut == 'brouillon' &&
-          agencyId != null &&
-          parcel.agenceDepotId == agencyId;
-      final matchesTab = switch (_selectedTab) {
-        0 =>
-          (parcel.statut == 'a_expedier' ||
-              (parcel.statut == 'brouillon' && parcel.origine != 'en_externe')),
-        1 => isPreRegisteredForAgency,
-        2 => parcel.statut == 'en_transit',
-        3 => parcel.statut == 'annule' || parcel.statut == 'annulé',
-        _ => !{
-          'brouillon',
-          'a_expedier',
-          'en_transit',
-          'annule',
-          'annulé',
-        }.contains(parcel.statut),
-      };
-      if (!matchesTab) return false;
+      if (!_matchesSelectedTab(parcel)) return false;
       if (query.isEmpty) return true;
 
       return parcel.reference.toLowerCase().contains(query) ||
@@ -108,6 +133,62 @@ class _PercepteurDynamicColisSectionState
           (parcel.agenceRetraitNom ?? '').toLowerCase().contains(query);
     }).toList();
   }
+
+  bool _isClientPreRegistrationForAgency(ColisModel parcel) {
+    final agencyId = SessionStore.currentUser?.agenceId;
+    return parcel.origine.trim().toLowerCase() == 'en_externe' &&
+        _normalizeStatus(parcel.statut) == 'brouillon' &&
+        agencyId != null &&
+        parcel.agenceDepotId == agencyId;
+  }
+
+  bool _matchesSelectedTab(ColisModel parcel) =>
+      _matchesTab(parcel, _selectedTab);
+
+  bool _matchesTab(ColisModel parcel, _ParcelTab tab) {
+    final status = _normalizeStatus(parcel.statut);
+    final isClientParcel = parcel.origine.trim().toLowerCase() == 'en_externe';
+
+    return switch (tab) {
+      _ParcelTab.drafts =>
+        status == 'brouillon' &&
+            (!isClientParcel || _isClientPreRegistrationForAgency(parcel)),
+      _ParcelTab.readyToShip => status == 'a_expedier',
+      _ParcelTab.inTransit => status == 'en_transit',
+      _ParcelTab.arrived => status == 'arrive',
+      _ParcelTab.delivered => status == 'livre',
+      _ParcelTab.issue => status == 'litige',
+      _ParcelTab.lost => status == 'perdu',
+      _ParcelTab.cancelled => status == 'annule',
+      _ParcelTab.other => !const {
+        'brouillon',
+        'a_expedier',
+        'en_transit',
+        'arrive',
+        'livre',
+        'litige',
+        'perdu',
+        'annule',
+      }.contains(status),
+    };
+  }
+
+  String _normalizeStatus(String status) => status
+      .trim()
+      .toLowerCase()
+      .replaceAll('é', 'e')
+      .replaceAll('è', 'e')
+      .replaceAll('ê', 'e')
+      .replaceAll('à', 'a')
+      .replaceAll('ù', 'u')
+      .replaceAll(' ', '_');
+
+  bool _isPaid(ColisModel parcel) => const {
+    'paye',
+    'paid',
+    'success',
+    'successful',
+  }.contains(_normalizeStatus(parcel.statutPaiement));
 
   void _showDetails(ColisModel parcel) {
     showModalBottomSheet<void>(
@@ -172,21 +253,9 @@ class _PercepteurDynamicColisSectionState
                   child: Text('Aucun détail disponible.'),
                 )
               else
-                ...parcel.colisDetails.map(
-                  (detail) => ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.inventory_2_outlined),
-                    title: Text('${detail.nature} · ${detail.nombre}'),
-                    subtitle: Text(
-                      detail.description.isEmpty
-                          ? 'Aucune description'
-                          : detail.description,
-                    ),
-                  ),
-                ),
-              if (_selectedTab == 1 &&
-                  parcel.statut == 'brouillon' &&
-                  parcel.statutPaiement != 'payé') ...[
+                _parcelContents(parcel),
+              if (_isClientPreRegistrationForAgency(parcel) &&
+                  !_isPaid(parcel)) ...[
                 const SizedBox(height: 16),
                 SizedBox(
                   width: double.infinity,
@@ -203,8 +272,8 @@ class _PercepteurDynamicColisSectionState
                   ),
                 ),
               ],
-              if (parcel.statutPaiement == 'payé' &&
-                  !{'annule', 'annulé'}.contains(parcel.statut)) ...[
+              if (_isPaid(parcel) &&
+                  _normalizeStatus(parcel.statut) != 'annule') ...[
                 const SizedBox(height: 10),
                 SizedBox(
                   width: double.infinity,
@@ -260,36 +329,152 @@ class _PercepteurDynamicColisSectionState
     ),
   );
 
-  String _statusLabel(String status) => switch (status) {
-    'brouillon' => 'En attente de paiement',
+  Widget _parcelContents(ColisModel parcel) {
+    final totalItems = parcel.colisDetails.fold<int>(
+      0,
+      (total, detail) => total + detail.nombre,
+    );
+    var itemNumber = 0;
+    return Column(
+      children: [
+        for (final detail in parcel.colisDetails)
+          for (var index = 0; index < detail.nombre; index++)
+            _parcelItemTile(detail, ++itemNumber, totalItems),
+      ],
+    );
+  }
+
+  Widget _parcelItemTile(
+    ColisDetailItem detail,
+    int itemNumber,
+    int totalItems,
+  ) {
+    final imageUrl = _parcelImageUrl(detail.imagePath);
+    return Card(
+      margin: const EdgeInsets.only(top: 8),
+      color: const Color(0xFFF8FAFC),
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: SizedBox(
+                width: 76,
+                height: 76,
+                child: imageUrl == null
+                    ? const ColoredBox(
+                        color: Color(0xFFEAF7EF),
+                        child: Icon(Icons.inventory_2_outlined, color: _green),
+                      )
+                    : Image.network(
+                        imageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => const ColoredBox(
+                          color: Color(0xFFEAF7EF),
+                          child: Icon(
+                            Icons.broken_image_outlined,
+                            color: _muted,
+                          ),
+                        ),
+                        loadingBuilder: (context, child, progress) =>
+                            progress == null
+                            ? child
+                            : const ColoredBox(
+                                color: Color(0xFFEAF7EF),
+                                child: Center(
+                                  child: SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                      ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Colis $itemNumber / $totalItems · ${detail.nature}',
+                    style: const TextStyle(
+                      color: _deepGreen,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    'Poids : ${detail.poids > 0 ? '${detail.poids.toStringAsFixed(2)} kg' : 'non renseigné'}',
+                  ),
+                  Text(
+                    'Description : ${detail.description.trim().isEmpty ? 'Aucune description' : detail.description.trim()}',
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String? _parcelImageUrl(String? imagePath) {
+    final path = imagePath?.trim();
+    if (path == null || path.isEmpty) return null;
+    final parsed = Uri.tryParse(path);
+    if (parsed != null && parsed.hasScheme && parsed.hasAuthority) {
+      return parsed.toString();
+    }
+
+    final apiUri = Uri.parse(AppConfig.apiBaseUrl);
+    final segments = apiUri.pathSegments
+        .where((segment) => segment.isNotEmpty)
+        .toList();
+    if (segments.isNotEmpty && segments.last.toLowerCase() == 'api') {
+      segments.removeLast();
+    }
+    final storageBase = apiUri.replace(
+      pathSegments: [...segments, ''],
+      query: null,
+      fragment: null,
+    );
+    final relativePath = path
+        .replaceFirst(RegExp(r'^/+'), '')
+        .replaceFirst(RegExp(r'^storage/+'), '');
+    return storageBase.resolve('storage/$relativePath').toString();
+  }
+
+  String _statusLabel(String status) => switch (_normalizeStatus(status)) {
+    'brouillon' => 'Préenregistré',
     'a_expedier' => 'À expédier',
     'en_transit' => 'En transit',
     'arrive' => 'Arrivé',
     'livre' => 'Livré',
     'litige' => 'En litige',
+    'perdu' => 'Perdu',
     'annule' => 'Annulé',
     _ => status,
   };
 
-  String _paymentLabel(String status) => switch (status) {
-    'payé' => 'Payé',
-    'en_attente_paiement' => 'En attente',
-    _ => status,
-  };
+  String _paymentLabel(String status) {
+    final normalized = _normalizeStatus(status);
+    if (const {'paye', 'paid', 'success', 'successful'}.contains(normalized)) {
+      return 'Payé';
+    }
+    if (const {'en_attente_paiement', 'pending'}.contains(normalized)) {
+      return 'Paiement en attente';
+    }
+    return status.isEmpty ? 'Paiement non renseigné' : status;
+  }
 
   @override
   Widget build(BuildContext context) {
-    final activeCount = _parcels
-        .where(
-          (parcel) =>
-              parcel.statut == 'a_expedier' ||
-              (parcel.statut == 'brouillon' && parcel.origine != 'en_externe'),
-        )
-        .length;
-    final transitCount = _parcels
-        .where((parcel) => parcel.statut == 'en_transit')
-        .length;
-
     return Column(
       children: [
         Padding(
@@ -331,29 +516,13 @@ class _PercepteurDynamicColisSectionState
         ),
         _buildTabs(),
         const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _summaryCard(
-                'À traiter',
-                activeCount.toString(),
-                Icons.pending_actions_rounded,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _summaryCard(
-                'En transit',
-                transitCount.toString(),
-                Icons.local_shipping_rounded,
-              ),
-            ),
-            IconButton(
-              tooltip: 'Actualiser',
-              onPressed: _isLoading ? null : _loadParcels,
-              icon: const Icon(Icons.refresh_rounded),
-            ),
-          ],
+        Align(
+          alignment: Alignment.centerRight,
+          child: IconButton(
+            tooltip: 'Actualiser',
+            onPressed: _isLoading ? null : _loadParcels,
+            icon: const Icon(Icons.refresh_rounded),
+          ),
         ),
         const SizedBox(height: 10),
         SizedBox(
@@ -399,67 +568,78 @@ class _PercepteurDynamicColisSectionState
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
-          _tabButton('À traiter', 0),
-          _tabButton('Préenregistrés', 1),
-          _tabButton('En transit', 2),
-          _tabButton('Annulés', 3),
-          _tabButton('Historique', 4),
+          _tabButton('Brouillons', Icons.edit_note_rounded, _ParcelTab.drafts),
+          _tabButton(
+            'À expédier',
+            Icons.outbox_rounded,
+            _ParcelTab.readyToShip,
+          ),
+          _tabButton(
+            'En transit',
+            Icons.local_shipping_rounded,
+            _ParcelTab.inTransit,
+          ),
+          _tabButton('Arrivés', Icons.place_rounded, _ParcelTab.arrived),
+          _tabButton('Livrés', Icons.task_alt_rounded, _ParcelTab.delivered),
+          _tabButton(
+            'En litige',
+            Icons.report_problem_outlined,
+            _ParcelTab.issue,
+          ),
+          _tabButton('Perdus', Icons.search_off_rounded, _ParcelTab.lost),
+          _tabButton('Annulés', Icons.cancel_outlined, _ParcelTab.cancelled),
+          _tabButton('Autres', Icons.more_horiz_rounded, _ParcelTab.other),
         ],
       ),
     ),
   );
 
-  Widget _tabButton(String label, int index) => Padding(
+  int _countForTab(_ParcelTab tab) =>
+      _parcels.where((parcel) => _matchesTab(parcel, tab)).length;
+
+  Widget _tabButton(String label, IconData icon, _ParcelTab tab) => Padding(
     padding: const EdgeInsets.symmetric(horizontal: 3),
     child: InkWell(
       borderRadius: BorderRadius.circular(12),
-      onTap: () => setState(() => _selectedTab = index),
+      onTap: () => setState(() => _selectedTab = tab),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 160),
-        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
         decoration: BoxDecoration(
-          color: _selectedTab == index ? _green : Colors.transparent,
+          color: _selectedTab == tab ? _green : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
         ),
-        child: Text(
-          label,
-          textAlign: TextAlign.center,
-          maxLines: 1,
-          style: TextStyle(
-            color: _selectedTab == index ? Colors.white : _deepGreen,
-            fontWeight: FontWeight.w800,
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 16,
+              color: _selectedTab == tab ? Colors.white : _deepGreen,
+            ),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              style: TextStyle(
+                color: _selectedTab == tab ? Colors.white : _deepGreen,
+                fontWeight: FontWeight.w800,
+                fontSize: 12,
+              ),
+            ),
+            const SizedBox(width: 5),
+            Text(
+              '${_countForTab(tab)}',
+              style: TextStyle(
+                color: _selectedTab == tab ? Colors.white : _muted,
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
         ),
       ),
-    ),
-  );
-
-  Widget _summaryCard(String label, String value, IconData icon) => Container(
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      border: Border.all(color: _deepGreen.withValues(alpha: 0.08)),
-    ),
-    child: Row(
-      children: [
-        Icon(icon, color: _green, size: 20),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(value, style: const TextStyle(fontWeight: FontWeight.w900)),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: _muted, fontSize: 11),
-              ),
-            ],
-          ),
-        ),
-      ],
     ),
   );
 
@@ -490,21 +670,33 @@ class _PercepteurDynamicColisSectionState
 
     final parcels = _visibleParcels;
     if (parcels.isEmpty) {
-      return Center(
-        child: Text(switch (_selectedTab) {
-          0 => 'Aucun colis à traiter.',
-          1 => 'Aucun colis préenregistré pour cette agence.',
-          2 => 'Aucun colis en transit.',
-          3 => 'Aucun colis annulé.',
-          _ => 'Aucun colis dans l’historique.',
-        }, style: const TextStyle(color: _muted, fontWeight: FontWeight.w700)),
-      );
+      return Center(child: _emptyMessage());
     }
     return ListView.separated(
       padding: const EdgeInsets.only(bottom: 86),
       itemCount: parcels.length,
       separatorBuilder: (context, index) => const SizedBox(height: 10),
       itemBuilder: (context, index) => _parcelCard(parcels[index]),
+    );
+  }
+
+  Widget _emptyMessage() {
+    final message = switch (_selectedTab) {
+      _ParcelTab.drafts =>
+        'Aucun brouillon ni colis préenregistré pour cette agence.',
+      _ParcelTab.readyToShip => 'Aucun colis à expédier.',
+      _ParcelTab.inTransit => 'Aucun colis en transit.',
+      _ParcelTab.arrived => 'Aucun colis arrivé.',
+      _ParcelTab.delivered => 'Aucun colis livré.',
+      _ParcelTab.issue => 'Aucun colis en litige.',
+      _ParcelTab.lost => 'Aucun colis déclaré perdu.',
+      _ParcelTab.cancelled => 'Aucun colis annulé.',
+      _ParcelTab.other => 'Aucun autre colis.',
+    };
+    return Text(
+      message,
+      textAlign: TextAlign.center,
+      style: const TextStyle(color: _muted, fontWeight: FontWeight.w700),
     );
   }
 
@@ -563,9 +755,20 @@ class _PercepteurDynamicColisSectionState
             children: [
               Expanded(
                 child: FilledButton.icon(
-                  onPressed: () => _showDetails(parcel),
-                  icon: const Icon(Icons.inventory_2_outlined, size: 18),
-                  label: const Text('Nature et montant'),
+                  onPressed: _normalizeStatus(parcel.statut) == 'brouillon'
+                      ? () => _openDraftForFinalization(parcel)
+                      : () => _showDetails(parcel),
+                  icon: Icon(
+                    _normalizeStatus(parcel.statut) == 'brouillon'
+                        ? Icons.edit_note_rounded
+                        : Icons.inventory_2_outlined,
+                    size: 18,
+                  ),
+                  label: Text(
+                    _normalizeStatus(parcel.statut) == 'brouillon'
+                        ? 'Finaliser le colis'
+                        : 'Nature et montant',
+                  ),
                   style: FilledButton.styleFrom(
                     backgroundColor: _green,
                     foregroundColor: Colors.white,
@@ -583,7 +786,7 @@ class _PercepteurDynamicColisSectionState
   }
 
   bool _canCancel(ColisModel parcel) =>
-      !{'livre', 'perdu', 'annule', 'annulé'}.contains(parcel.statut) &&
+      !{'livre', 'perdu', 'annule'}.contains(_normalizeStatus(parcel.statut)) &&
       parcel.montant > 0;
 
   Future<void> _processClientPreRegistration(
@@ -731,6 +934,10 @@ class _PercepteurDynamicColisSectionState
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => BilletPage(
+          onReturnToHome: () => Navigator.of(
+            context,
+          rootNavigator: true,
+        ).popUntil((route) => route.isFirst),
           code: parcel.reference,
           departureCity: parcel.agenceDepotNom ?? 'Départ',
           destinationCity: parcel.agenceRetraitNom ?? 'Retrait',
@@ -742,6 +949,17 @@ class _PercepteurDynamicColisSectionState
               .toSet()
               .join(', '),
           parcelCount: parcel.nombreColis,
+          parcelItems: parcel.colisDetails
+              .map(
+                (detail) => ParcelLine(
+                  nature: detail.nature,
+                  quantity: detail.nombre,
+                  weight: detail.poids,
+                  description: detail.description,
+                  attachmentPath: detail.imagePath,
+                ),
+              )
+              .toList(),
           attachmentPath: parcel.colisDetails
               .where((detail) => detail.imagePath?.isNotEmpty == true)
               .firstOrNull

@@ -112,6 +112,7 @@ class _StepTwoForm extends StatelessWidget {
   final bool showStaffFields;
   final VoidCallback onDestinationTap;
   final VoidCallback onPreview;
+  final String previewLabel;
   final bool isSubmitting;
   final Widget? paymentOptions;
   final Widget? taxOptions;
@@ -128,6 +129,7 @@ class _StepTwoForm extends StatelessWidget {
     this.showStaffFields = false,
     required this.onDestinationTap,
     required this.onPreview,
+    this.previewLabel = 'Créer & Aperçu',
     this.isSubmitting = false,
     this.paymentOptions,
     this.taxOptions,
@@ -213,7 +215,7 @@ class _StepTwoForm extends StatelessWidget {
         if (mecefOption != null) ...[const SizedBox(height: 12), mecefOption!],
         const SizedBox(height: 24),
         _PrimaryParcelButton(
-          label: 'Créer & Aperçu',
+          label: previewLabel,
           isLoading: isSubmitting,
           onPressed: isSubmitting ? () {} : onPreview,
         ),
@@ -612,12 +614,14 @@ class _AttachmentField extends StatelessWidget {
   final String? filePath;
   final VoidCallback onTap;
   final bool optional;
+  final bool isRemote;
 
   const _AttachmentField({
     required this.fileName,
     required this.filePath,
     required this.onTap,
     this.optional = false,
+    this.isRemote = false,
   });
 
   @override
@@ -655,7 +659,11 @@ class _AttachmentField extends StatelessWidget {
           ),
           child: Row(
             children: [
-              _AttachmentPreview(filePath: filePath, hasFile: hasFile),
+              _AttachmentPreview(
+                filePath: filePath,
+                hasFile: hasFile,
+                isRemote: isRemote,
+              ),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
@@ -713,8 +721,13 @@ class _AttachmentField extends StatelessWidget {
 class _AttachmentPreview extends StatelessWidget {
   final String? filePath;
   final bool hasFile;
+  final bool isRemote;
 
-  const _AttachmentPreview({required this.filePath, required this.hasFile});
+  const _AttachmentPreview({
+    required this.filePath,
+    required this.hasFile,
+    required this.isRemote,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -734,28 +747,60 @@ class _AttachmentPreview extends StatelessWidget {
       );
     }
 
-    return ClipRRect(
+    final image = isRemote
+        ? Image.network(
+            _resolveColisImageUrl(filePath!),
+            width: 72,
+            height: 72,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => _attachmentPlaceholder(),
+          )
+        : Image.file(
+            File(filePath!),
+            width: 72,
+            height: 72,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => _attachmentPlaceholder(),
+          );
+
+    return ClipRRect(borderRadius: BorderRadius.circular(15), child: image);
+  }
+
+  Widget _attachmentPlaceholder() => Container(
+    width: 72,
+    height: 72,
+    decoration: BoxDecoration(
+      color: _fofanaGreen.withValues(alpha: 0.09),
       borderRadius: BorderRadius.circular(15),
-      child: Image.file(
-        File(filePath!),
-        width: 72,
-        height: 72,
-        fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => Container(
-          width: 72,
-          height: 72,
-          decoration: BoxDecoration(
-            color: _fofanaGreen.withValues(alpha: 0.09),
-            borderRadius: BorderRadius.circular(15),
-          ),
-          child: const Icon(
-            Icons.insert_photo_rounded,
-            color: _fofanaGreen,
-            size: 24,
-          ),
-        ),
-      ),
+    ),
+    child: const Icon(
+      Icons.insert_photo_rounded,
+      color: _fofanaGreen,
+      size: 24,
+    ),
+  );
+
+  String _resolveColisImageUrl(String imagePath) {
+    final parsed = Uri.tryParse(imagePath);
+    if (parsed != null && parsed.hasScheme && parsed.hasAuthority) {
+      return parsed.toString();
+    }
+    final apiUri = Uri.parse(AppConfig.apiBaseUrl);
+    final segments = apiUri.pathSegments
+        .where((segment) => segment.isNotEmpty)
+        .toList();
+    if (segments.isNotEmpty && segments.last.toLowerCase() == 'api') {
+      segments.removeLast();
+    }
+    final base = apiUri.replace(
+      pathSegments: [...segments, ''],
+      query: null,
+      fragment: null,
     );
+    final relativePath = imagePath
+        .replaceFirst(RegExp(r'^/+'), '')
+        .replaceFirst(RegExp(r'^storage/+'), '');
+    return base.resolve('storage/$relativePath').toString();
   }
 }
 
@@ -1032,10 +1077,16 @@ class _ParcelInfoItem extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           _AttachmentField(
-            fileName: parcel.attachment?.name,
-            filePath: parcel.attachment?.path,
+            fileName:
+                parcel.attachment?.name ??
+                (parcel.existingImagePath == null
+                    ? null
+                    : 'Image déjà enregistrée'),
+            filePath: parcel.attachment?.path ?? parcel.existingImagePath,
             onTap: onPickAttachment,
             optional: showStaffFields,
+            isRemote:
+                parcel.attachment == null && parcel.existingImagePath != null,
           ),
           if (!hasNature ||
               (!showStaffFields && parcel.attachment == null)) ...[

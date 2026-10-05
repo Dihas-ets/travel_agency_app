@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -37,6 +36,8 @@ class BilletPage extends StatelessWidget {
   final String description;
   final String issuerName;
   final String taxGroupLabel;
+  final List<ParcelLine> parcelItems;
+  final VoidCallback? onReturnToHome;
 
   const BilletPage({
     super.key,
@@ -62,7 +63,39 @@ class BilletPage extends StatelessWidget {
     this.description = '',
     this.issuerName = '',
     this.taxGroupLabel = '',
+    this.parcelItems = const [],
+    this.onReturnToHome,
   });
+
+  List<ParcelLine> get _expandedParcelItems {
+    final items = parcelItems.isEmpty
+        ? [
+            ParcelLine(
+              nature: parcelNature,
+              quantity: parcelCount,
+              weight: parcelCount > 0 ? poidsTotal / parcelCount : 0,
+              description: description,
+              attachmentPath: attachmentPath,
+            ),
+          ]
+        : parcelItems;
+    final expanded = <ParcelLine>[];
+    for (final item in items) {
+      final quantity = item.quantity > 0 ? item.quantity : 1;
+      for (var index = 0; index < quantity; index++) {
+        expanded.add(
+          ParcelLine(
+            nature: item.nature,
+            quantity: 1,
+            weight: item.weight,
+            description: item.description,
+            attachmentPath: item.attachmentPath,
+          ),
+        );
+      }
+    }
+    return expanded;
+  }
 
   ParcelRecord _toParcelRecord() {
     return ParcelRecord(
@@ -87,15 +120,7 @@ class BilletPage extends StatelessWidget {
       taxAmount: montantTaxe,
       taxRate: taxeTaux,
       taxGroupLabel: taxGroupLabel,
-      parcelItems: [
-        ParcelLine(
-          nature: parcelNature,
-          quantity: parcelCount,
-          weight: parcelCount > 0 ? poidsTotal / parcelCount : 0,
-          description: description,
-          attachmentPath: attachmentPath,
-        ),
-      ],
+      parcelItems: _expandedParcelItems,
       mecefInfo: mecefResponse == null
           ? null
           : ParcelMecefInfo.fromJson(mecefResponse!),
@@ -217,19 +242,19 @@ class BilletPage extends StatelessWidget {
     final pageFormat = settings.width == '58mm'
         ? PdfPageFormat.roll57
         : PdfPageFormat.roll80;
+    final receiptPageFormat = pageFormat.copyWith(
+      height: pageFormat.height + 150,
+    );
     final total = double.tryParse(deliveryFee.replaceAll(',', '.')) ?? 0;
     final base = montantBase > 0 ? montantBase : total - montantTaxe;
     final nature = parcelNature.trim().isEmpty ? 'Colis' : parcelNature;
     final fullName = '$recipientLastName $recipientFirstName'.trim();
-    final printableDescription = description.length > 30
-        ? description.substring(0, 30)
-        : description;
-    final dateLabel = confirmedMecef
+    final dateLabel = hasMecef
         ? _formatMecefDate(mecefResponse?['date_mecef']?.toString())
         : '$date $time';
     pdf.addPage(
       pw.Page(
-        pageFormat: pageFormat,
+        pageFormat: receiptPageFormat,
         theme: pw.ThemeData.withFont(
           base: pw.Font.courier(),
           bold: pw.Font.courierBold(),
@@ -291,10 +316,21 @@ class BilletPage extends StatelessWidget {
                   pw.Row(
                     mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                     children: [
-                      pw.Expanded(child: _pdfRow('N°', code)),
-                      pw.SizedBox(width: 6),
+                      pw.Expanded(
+                        child: pw.Text(
+                          'N° $code',
+                          style: const pw.TextStyle(
+                            color: PdfColors.grey600,
+                            fontSize: 8,
+                          ),
+                        ),
+                      ),
                       pw.Text(
-                        date,
+                        hasMecef
+                            ? _formatMecefDate(
+                                mecefResponse?['date_mecef']?.toString(),
+                              ).split(' ').first
+                            : _formatCurrentDate(),
                         style: const pw.TextStyle(
                           color: PdfColors.grey600,
                           fontSize: 8,
@@ -304,19 +340,19 @@ class BilletPage extends StatelessWidget {
                   ),
                   _dashedLine(accent),
                   _pdfRow('Exp.', senderName.isEmpty ? '—' : senderName),
-                  _pdfRow('Tél exp.', senderPhone),
                   _pdfRow('Dest.', fullName.isEmpty ? '—' : fullName),
-                  _pdfRow('Tél dest.', recipientPhone),
                   _pdfRow('Trajet', '$departureCity → $destinationCity'),
                   _pdfRow('Nature', nature),
                   _pdfRow('Nombre', '$parcelCount colis'),
-                  if (poidsTotal > 0)
-                    _pdfRow('Poids', '${_formatRate(poidsTotal)} kg'),
-                  if (printableDescription.isNotEmpty)
-                    _pdfRow('Description', printableDescription),
+                  _pdfRow('Poids', '${_formatRate(poidsTotal)} kg'),
+                  if (description.trim().isNotEmpty)
+                    _pdfRow(
+                      'Description',
+                      description.trim().length > 30
+                          ? '${description.trim().substring(0, 30)}…'
+                          : description.trim(),
+                    ),
                   _dashedLine(accent),
-                  if (taxGroupLabel.isNotEmpty)
-                    _pdfRow('Groupe taxe', taxGroupLabel),
                   _pdfRow('Montant HT', _formatAmount(base)),
                   _pdfRow(
                     'Taxe (${_formatRate(taxeTaux)}%)',
@@ -346,6 +382,20 @@ class BilletPage extends StatelessWidget {
                       ],
                     ),
                   ),
+                  if (settings.showEnregistrePar && issuerName.isNotEmpty)
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.only(top: 3),
+                      child: pw.Center(
+                        child: pw.Text(
+                          'Bordereau enregistré par : $issuerName',
+                          textAlign: pw.TextAlign.center,
+                          style: const pw.TextStyle(
+                            color: PdfColors.grey500,
+                            fontSize: 7,
+                          ),
+                        ),
+                      ),
+                    ),
                   if (settings.showDgi && hasMecef) ...[
                     pw.SizedBox(height: 6),
                     pw.Container(
@@ -384,6 +434,40 @@ class BilletPage extends StatelessWidget {
                       ),
                     ),
                   ],
+                  if (settings.showDgi && !hasMecef)
+                    pw.Container(
+                      margin: const pw.EdgeInsets.only(top: 6),
+                      padding: const pw.EdgeInsets.all(6),
+                      decoration: pw.BoxDecoration(
+                        border: pw.Border.all(
+                          color: PdfColors.grey300,
+                          style: pw.BorderStyle.dashed,
+                        ),
+                      ),
+                      child: pw.Column(
+                        mainAxisSize: pw.MainAxisSize.min,
+                        children: [
+                          pw.Text(
+                            'REÇU SIMPLE',
+                            textAlign: pw.TextAlign.center,
+                            style: pw.TextStyle(
+                              color: PdfColors.grey500,
+                              fontSize: 7.5,
+                              fontWeight: pw.FontWeight.bold,
+                              fontStyle: pw.FontStyle.italic,
+                            ),
+                          ),
+                          pw.Text(
+                            '(Document non normalisé DGI)',
+                            textAlign: pw.TextAlign.center,
+                            style: const pw.TextStyle(
+                              color: PdfColors.grey500,
+                              fontSize: 5.25,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   if (code.isNotEmpty &&
                       (settings.showBarcode || !confirmedMecef)) ...[
                     pw.SizedBox(height: 8),
@@ -396,24 +480,20 @@ class BilletPage extends StatelessWidget {
                             pw.Radius.circular(6),
                           ),
                         ),
-                        child: pw.Image(qrImage, width: 58, height: 58),
+                        child: pw.Image(qrImage, width: 54, height: 54),
                       ),
                     ),
                     pw.Center(
                       child: pw.Text(
-                        confirmedMecef
-                            ? 'VÉRIFIER SUR EFACTURE.IMPOTS.BJ'
-                            : code,
+                        hasMecef ? 'VÉRIFIER SUR EFACTURE.IMPOTS.BJ' : code,
                         textAlign: pw.TextAlign.center,
-                        style: const pw.TextStyle(
-                          color: PdfColors.grey500,
-                          fontSize: 7,
+                        style: pw.TextStyle(
+                          color: PdfColor.fromHex('#94A3B8'),
+                          fontSize: 6,
                         ),
                       ),
                     ),
                   ],
-                  if (settings.showEnregistrePar && issuerName.isNotEmpty)
-                    _pdfRow('Bordereau enregistré par', issuerName),
                   pw.SizedBox(height: 4),
                   pw.Center(
                     child: pw.Text(
@@ -543,7 +623,296 @@ class BilletPage extends StatelessWidget {
         '${parsed.month.toString().padLeft(2, '0')}/'
         '${parsed.year} '
         '${parsed.hour.toString().padLeft(2, '0')}:'
-        '${parsed.minute.toString().padLeft(2, '0')}';
+        '${parsed.minute.toString().padLeft(2, '0')}:'
+        '${parsed.second.toString().padLeft(2, '0')}';
+  }
+
+  String _formatCurrentDate() {
+    final now = DateTime.now();
+    return '${now.day.toString().padLeft(2, '0')}/'
+        '${now.month.toString().padLeft(2, '0')}/${now.year}';
+  }
+
+  Widget _buildTicketReceiptPreview({
+    required ColisPrintSettings settings,
+    required String date,
+    required List<ParcelLine> items,
+  }) {
+    final parsedAccent = int.tryParse(
+      settings.accentColor.replaceFirst('#', ''),
+      radix: 16,
+    );
+    final accent = Color(
+      parsedAccent == null
+          ? 0xFF0F766E
+          : parsedAccent <= 0xFFFFFF
+          ? 0xFF000000 | parsedAccent
+          : parsedAccent,
+    );
+    final confirmedMecef = mecefResponse?['status']?.toString() == 'confirmed';
+    final mecefQr = mecefResponse?['qr_code']?.toString();
+    final qrValue = confirmedMecef && mecefQr?.isNotEmpty == true
+        ? mecefQr!
+        : code;
+    final total = double.tryParse(deliveryFee.replaceAll(',', '.')) ?? 0;
+    final base = montantBase > 0 ? montantBase : total - montantTaxe;
+    final nature = items.map((item) => item.nature).toSet().join(', ');
+    final count = items.fold<int>(0, (sum, item) => sum + item.quantity);
+
+    Widget row(String label, String value) => Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: const TextStyle(color: Color(0xFF64748B))),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: const TextStyle(
+                color: Color(0xFF1E293B),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    Widget separator() => Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Container(height: 1, color: accent.withValues(alpha: 0.35)),
+    );
+
+    Widget fallbackLogo() => Image.asset(
+      'assets/images/logo_fofana_no_background.png',
+      fit: BoxFit.contain,
+      errorBuilder: (_, __, ___) =>
+          const Icon(Icons.local_shipping_rounded, color: Color(0xFF0F766E)),
+    );
+
+    final logo = settings.agencyLogo;
+    final logoWidget = logo != null && logo.startsWith('http')
+        ? Image.network(
+            logo,
+            fit: BoxFit.contain,
+            errorBuilder: (_, __, ___) => fallbackLogo(),
+          )
+        : fallbackLogo();
+
+    return Center(
+      child: Container(
+        width: settings.width == '58mm' ? 230 : 320,
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x14000000),
+              blurRadius: 12,
+              offset: Offset(0, 5),
+            ),
+          ],
+        ),
+        child: DefaultTextStyle(
+          style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ClipOval(
+                child: Container(
+                  width: 42,
+                  height: 42,
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                    shape: BoxShape.circle,
+                  ),
+                  child: logoWidget,
+                ),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                settings.agencyName.toUpperCase(),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Color(0xFF1E293B),
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                mecefResponse != null
+                    ? 'BORDEREAU NORMALISÉ'
+                    : settings.headerText,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: accent,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+              if (settings.showEmetteur) row('Émetteur :', settings.agencyName),
+              if (settings.showContact && settings.telephone.isNotEmpty)
+                row('Tél :', settings.telephone),
+              if (settings.showContact && settings.email.isNotEmpty)
+                row('Email :', settings.email),
+              row('N° $code', date),
+              separator(),
+              row('Exp.', senderName.isEmpty ? '—' : senderName),
+              row(
+                'Dest.',
+                '$recipientLastName $recipientFirstName'.trim().isEmpty
+                    ? '—'
+                    : '$recipientLastName $recipientFirstName'.trim(),
+              ),
+              row('Trajet', '$departureCity → $destinationCity'),
+              row('Nature', nature.isEmpty ? parcelNature : nature),
+              row('Nombre', '$count colis'),
+              row('Poids', '${_formatRate(poidsTotal)} kg'),
+              if (description.trim().isNotEmpty)
+                row(
+                  'Description',
+                  description.trim().length > 30
+                      ? '${description.trim().substring(0, 30)}…'
+                      : description.trim(),
+                ),
+              separator(),
+              row('Montant HT', _formatAmount(base)),
+              row(
+                'Taxe (${_formatRate(taxeTaux)}%)',
+                _formatAmount(montantTaxe),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 7),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'TOTAL À PAYER',
+                        style: TextStyle(
+                          color: accent,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      deliveryFee.isEmpty
+                          ? 'À déterminer'
+                          : _formatAmount(total),
+                      style: TextStyle(
+                        color: accent,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (settings.showEnregistrePar && issuerName.isNotEmpty)
+                Text(
+                  'Bordereau enregistré par : $issuerName',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 9),
+                ),
+              if (settings.showDgi) ...[
+                const SizedBox(height: 7),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(7),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: const Color(0xFFCBD5E1)),
+                    borderRadius: BorderRadius.circular(5),
+                    color: const Color(0xFFF8FAFC),
+                  ),
+                  child: mecefResponse == null
+                      ? const Column(
+                          children: [
+                            Text(
+                              'REÇU SIMPLE',
+                              style: TextStyle(
+                                color: Color(0xFF94A3B8),
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              '(Document non normalisé DGI)',
+                              style: TextStyle(
+                                color: Color(0xFF94A3B8),
+                                fontSize: 9,
+                              ),
+                            ),
+                          ],
+                        )
+                      : Column(
+                          children: [
+                            const Text(
+                              'ÉLÉMENTS DE SÉCURITÉ DGI',
+                              style: TextStyle(
+                                color: Color(0xFF64748B),
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            row(
+                              'CODE',
+                              mecefResponse?['code_mecef']?.toString() ?? '',
+                            ),
+                            row('NIM', mecefResponse?['nim']?.toString() ?? ''),
+                            row(
+                              'COMPT',
+                              mecefResponse?['counters']?.toString() ?? '',
+                            ),
+                            row(
+                              'DATE',
+                              _formatMecefDate(
+                                mecefResponse?['date_mecef']?.toString(),
+                              ),
+                            ),
+                          ],
+                        ),
+                ),
+              ],
+              if (code.isNotEmpty &&
+                  (settings.showBarcode || !confirmedMecef)) ...[
+                const SizedBox(height: 9),
+                QrImageView(
+                  data: qrValue,
+                  version: QrVersions.auto,
+                  size: 92,
+                  padding: const EdgeInsets.all(6),
+                  backgroundColor: Colors.white,
+                ),
+                Text(
+                  mecefResponse != null
+                      ? 'VÉRIFIER SUR EFACTURE.IMPOTS.BJ'
+                      : code,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Color(0xFF94A3B8),
+                    fontSize: 8,
+                    letterSpacing: 1,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 8),
+              Text(
+                settings.footerText,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Color(0xFF94A3B8),
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -551,8 +920,7 @@ class BilletPage extends StatelessWidget {
     const Color deepBlue = Color(0xFF0B4F2A);
     const Color logoRed = Color(0xFF16A34A);
     const Color pageBg = Color(0xFFEAF7EF);
-    final hasAttachment =
-        attachmentPath != null && attachmentPath!.trim().isNotEmpty;
+    final items = _expandedParcelItems;
 
     final now = DateTime.now();
     final date =
@@ -580,244 +948,30 @@ class BilletPage extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
           child: Column(
             children: [
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: deepBlue.withValues(alpha: 0.12)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: deepBlue.withValues(alpha: 0.06),
-                      blurRadius: 16,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Center(
-                      child: Container(
-                        width: 56,
-                        height: 56,
-                        decoration: BoxDecoration(
-                          color: logoRed.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Icon(
-                          Icons.local_shipping_rounded,
-                          color: logoRed,
-                          size: 30,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    if (showValidation) ...[
-                      Center(
-                        child: Text(
-                          'Code de validation',
-                          style: TextStyle(
-                            color: deepBlue.withValues(alpha: 0.9),
-                            fontWeight: FontWeight.w900,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Center(
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
+              FutureBuilder<ColisPrintSettings>(
+                future: ColisPrintSettingsService().getSettings(),
+                builder: (context, snapshot) {
+                  final settings =
+                      snapshot.data ?? ColisPrintSettings.fromMap({});
+                  return Column(
+                    children: [
+                      if (snapshot.hasError)
+                        const Padding(
+                          padding: EdgeInsets.only(bottom: 8),
                           child: Text(
-                            code,
-                            maxLines: 1,
-                            style: const TextStyle(
-                              color: deepBlue,
-                              fontWeight: FontWeight.w900,
-                              fontSize: 34,
-                              letterSpacing: 1,
-                            ),
+                            'Aperçu standard : configuration du bordereau indisponible.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Color(0xFFB42318)),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 14),
-                      Center(
-                        child: QrImageView(
-                          data: code,
-                          version: QrVersions.auto,
-                          size: 180,
-                          padding: const EdgeInsets.all(0),
-                          backgroundColor: Colors.white,
-                        ),
-                      ),
-                    ] else
-                      Center(
-                        child: Text(
-                          'Aperçu du billet colis',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: deepBlue.withValues(alpha: 0.9),
-                            fontWeight: FontWeight.w900,
-                            fontSize: 20,
-                          ),
-                        ),
-                      ),
-                    const SizedBox(height: 12),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: logoRed.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Text(
-                        "Les frais d'envoi seront déterminés par l'équipe Fofana en agence",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: deepBlue.withValues(alpha: 0.85),
-                          fontWeight: FontWeight.w700,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    const Divider(height: 1),
-                    const SizedBox(height: 10),
-                    _InfoRow(
-                      leftTitle: 'N° du package',
-                      leftValue: code,
-                      rightTitle: 'Date d’envoi',
-                      rightValue: '$date\n$time',
-                    ),
-                    const SizedBox(height: 10),
-                    if (showValidation)
-                      _InfoRow(
-                        leftTitle: 'Expéditeur',
-                        leftValue: SessionStore.currentClientPhone ?? '--',
-                        rightTitle: 'Statut',
-                        rightValue: 'Enregistré',
-                      )
-                    else
-                      _InfoRow(
-                        leftTitle: 'Expéditeur',
-                        leftValue: SessionStore.currentClientPhone ?? '--',
-                        rightTitle: 'Statut',
-                        rightValue: 'Aperçu',
-                      ),
-                    const SizedBox(height: 10),
-                    _InfoRow(
-                      leftTitle: 'Destinataire',
-                      leftValue: '$recipientLastName $recipientFirstName'
-                          .trim(),
-                      rightTitle: 'Téléphone',
-                      rightValue: recipientPhone,
-                      isPhone: true,
-                    ),
-                    const SizedBox(height: 12),
-                    _InfoRow(
-                      leftTitle: 'Départ',
-                      leftValue: departureCity,
-                      rightTitle: 'Destination',
-                      rightValue: destinationCity,
-                    ),
-                    const SizedBox(height: 12),
-                    _SingleInfoBlock(
-                      title: 'Détails colis',
-                      value: parcelNature,
-                    ),
-                    const SizedBox(height: 12),
-                    _SingleInfoBlock(
-                      title: 'Frais de livraison',
-                      value: deliveryFee.isEmpty ? '--' : '$deliveryFee CFA',
-                    ),
-                    if (hasAttachment) ...[
-                      const SizedBox(height: 12),
-                      _SingleInfoBlock(
-                        title: 'Pièce jointe',
-                        value: attachmentName ?? 'Image du colis',
-                      ),
-                      const SizedBox(height: 14),
-                      Text(
-                        'Fichier importé',
-                        style: TextStyle(
-                          color: deepBlue.withValues(alpha: 0.75),
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: Image.file(
-                          File(attachmentPath!),
-                          width: double.infinity,
-                          height: 190,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
-                            height: 74,
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF8F9FE),
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(
-                                  Icons.insert_drive_file_rounded,
-                                  color: logoRed,
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Text(
-                                    attachmentName ?? 'Fichier importé',
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      color: deepBlue,
-                                      fontWeight: FontWeight.w900,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
+                      _buildTicketReceiptPreview(
+                        settings: settings,
+                        date: date,
+                        items: items,
                       ),
                     ],
-                    const SizedBox(height: 10),
-                    _InfoRow(
-                      leftTitle: 'Nature du colis',
-                      leftValue: parcelNature,
-                      rightTitle: 'Quantité',
-                      rightValue: 'x$parcelCount',
-                    ),
-                    const SizedBox(height: 14),
-                    Center(
-                      child: Column(
-                        children: [
-                          Text(
-                            'Trajet',
-                            style: TextStyle(
-                              color: deepBlue.withValues(alpha: 0.75),
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            '$departureCity → $destinationCity',
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              color: deepBlue,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 15,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+                  );
+                },
               ),
               const SizedBox(height: 18),
               SizedBox(
@@ -865,120 +1019,33 @@ class BilletPage extends StatelessWidget {
                   label: const Text('Imprimer le bordereau'),
                 ),
               ),
+              if (onReturnToHome != null) ...[
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  height: 58,
+                  child: OutlinedButton.icon(
+                    onPressed: onReturnToHome,
+                    icon: const Icon(Icons.home_rounded),
+                    label: const Text("Retour à l'accueil"),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: deepBlue,
+                      side: BorderSide(color: deepBlue.withValues(alpha: 0.24)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      textStyle: const TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 15.5,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
       ),
-    );
-  }
-}
-
-class _SingleInfoBlock extends StatelessWidget {
-  final String title;
-  final String value;
-
-  const _SingleInfoBlock({required this.title, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    const deepBlue = Color(0xFF0B4F2A);
-
-    return _Block(
-      title: title,
-      value: value,
-      valueStyle: const TextStyle(
-        color: deepBlue,
-        fontWeight: FontWeight.w900,
-        fontSize: 16,
-      ),
-    );
-  }
-}
-
-class _InfoRow extends StatelessWidget {
-  final String leftTitle;
-  final String leftValue;
-  final String rightTitle;
-  final String rightValue;
-  final bool isPhone;
-
-  const _InfoRow({
-    required this.leftTitle,
-    required this.leftValue,
-    required this.rightTitle,
-    required this.rightValue,
-    this.isPhone = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    const deepBlue = Color(0xFF0B4F2A);
-
-    TextStyle valueStyle() {
-      return TextStyle(
-        color: deepBlue,
-        fontWeight: FontWeight.w900,
-        fontSize: isPhone ? 15.5 : 16,
-      );
-    }
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: _Block(
-            title: leftTitle,
-            value: leftValue,
-            valueStyle: valueStyle(),
-          ),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: _Block(
-            title: rightTitle,
-            value: rightValue,
-            valueStyle: valueStyle(),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _Block extends StatelessWidget {
-  final String title;
-  final String value;
-  final TextStyle valueStyle;
-
-  const _Block({
-    required this.title,
-    required this.value,
-    required this.valueStyle,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    const deepBlue = Color(0xFF0B4F2A);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: TextStyle(
-            color: deepBlue.withValues(alpha: 0.55),
-            fontWeight: FontWeight.w900,
-            fontSize: 14,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          value,
-          maxLines: 3,
-          overflow: TextOverflow.ellipsis,
-          style: valueStyle,
-        ),
-      ],
     );
   }
 }

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:code_initial/models/models_and_stores.dart';
 import 'package:code_initial/models/user_model.dart';
 import 'package:code_initial/data/local/session_store.dart';
-import 'package:code_initial/screens/client/colis/colis_attente_page.dart';
 import 'package:code_initial/screens/percepteur/parts/assignments_section.dart';
 import 'package:code_initial/widgets/profile_avatar.dart';
 import 'package:code_initial/menus/menu_percepteur/percepteur_profile_panel.dart'
@@ -11,7 +10,9 @@ import 'package:code_initial/menus/menu_percepteur/percepteur_profile_panel.dart
 // Menu principal percepteur, profil editable et conditions.
 
 class PercepteurMainMenuSheet extends StatefulWidget {
-  const PercepteurMainMenuSheet({super.key});
+  final VoidCallback onOpenParcels;
+
+  const PercepteurMainMenuSheet({super.key, required this.onOpenParcels});
 
   @override
   State<PercepteurMainMenuSheet> createState() =>
@@ -48,11 +49,7 @@ class PercepteurMainMenuSheetState extends State<PercepteurMainMenuSheet> {
     _selectMenu(PercepteurMainMenuTarget.parcels);
     final navigator = Navigator.of(context);
     navigator.pop();
-    navigator.push(
-      MaterialPageRoute(
-        builder: (_) => const ColisAttentePage(initialTabIndex: 1),
-      ),
-    );
+    widget.onOpenParcels();
   }
 
   void _showTerms() {

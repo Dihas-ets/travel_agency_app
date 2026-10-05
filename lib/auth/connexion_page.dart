@@ -2,35 +2,44 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:code_initial/navigation.dart';
 import 'package:code_initial/auth/widgets/connexion_widgets.dart';
+import 'package:code_initial/auth/stockage_auth_local.dart';
+import 'package:code_initial/data/local/session_store.dart';
+import 'package:code_initial/models/user_model.dart';
 
 import 'package:code_initial/services/auth_service.dart';
 
 /// Page de connexion.
 ///
-/// Elle demande d'abord un numéro de téléphone.
-/// Les clients inscrits continuent par OTP, l'equipe par mot de passe.
+/// Les clients et le personnel se connectent avec leur numéro et mot de passe.
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
-  
+
   @override
   State<LoginPage> createState() => _LoginPageState();
 }
 
 class _LoginPageState extends State<LoginPage> {
   final TextEditingController _telephoneController = TextEditingController();
-  String _numeroComplet = ""; 
+  final TextEditingController _passwordController = TextEditingController();
+  String _numeroComplet = "";
+
   /// Libère les contrôleurs quand la page est retirée de l'arbre Flutter.
   @override
   void dispose() {
     _telephoneController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 
-Future<void> _continuer() async {
+  Future<void> _continuer() async {
     // On vérifie toujours si c'est vide via le contrôleur
-    if (_telephoneController.text.trim().isEmpty) {
-      Get.snackbar("Champs requis", "Veuillez entrer votre numéro.",
-          backgroundColor: Colors.redAccent, colorText: Colors.white);
+    if (_numeroComplet.trim().isEmpty || _passwordController.text.isEmpty) {
+      Get.snackbar(
+        "Champs requis",
+        "Veuillez entrer votre numéro et votre mot de passe.",
+        backgroundColor: Colors.redAccent,
+        colorText: Colors.white,
+      );
       return;
     }
 
@@ -40,29 +49,39 @@ Future<void> _continuer() async {
     );
 
     try {
-      // MODIFICATION : On envoie _numeroComplet au lieu de telephone
-      final result = await AuthService().connexionOtp(_numeroComplet);
+      final result = await AuthService().connexionMobile(
+        telephone: _numeroComplet,
+        password: _passwordController.text,
+      );
 
       Get.back();
 
       if (result['success']) {
-        Get.toNamed(
-          Routes.VERIFY_CODE,
-          arguments: {
-            'flow': 'login', 
-            'phone': _numeroComplet // On passe le numéro complet
-          },
-        );
-      } else if (result['isStaff'] == true) {
-        Get.toNamed(
-          Routes.PERCEPTEUR_PASSWORD, 
-          arguments: {
-            'phone': _numeroComplet // On passe le numéro complet
-          }
-        );
+        final token = result['token']?.toString();
+        final userData = result['user'];
+        if (token == null ||
+            token.isEmpty ||
+            userData is! Map<String, dynamic>) {
+          Get.snackbar('Erreur', 'Réponse de connexion incomplète.');
+          return;
+        }
+        await AuthLocalStore.saveToken(token);
+        final user = UserModel.fromJson(userData);
+        SessionStore.setCurrentUser(user);
+        await AuthLocalStore.saveCurrentUser(user);
+        final role = user.role.trim().toLowerCase();
+        if (role == 'percepteur') {
+          Get.offAllNamed(Routes.PERCEPTEUR_HOME);
+        } else if (role == 'controlleur' || role == 'controleur') {
+          Get.offAllNamed(Routes.CONTROLEUR_HOME);
+        } else if (role == 'chauffeur') {
+          Get.offAllNamed(Routes.CHAUFFEUR_HOME);
+        } else {
+          Get.offAllNamed(Routes.HOME);
+        }
       } else {
         Get.snackbar(
-          "Compte introuvable",
+          "Connexion impossible",
           result['message']?.toString() ??
               "Ce numéro n'est associé à aucun compte. Veuillez vous inscrire.",
           backgroundColor: Colors.orange,
@@ -164,9 +183,20 @@ Future<void> _continuer() async {
                       PhoneLoginField(
                         controller: _telephoneController,
                         onFullNumberChanged: (value) {
-                          _numeroComplet = value; // Ici, value contient le format "+229XXXXXXXX"
+                          _numeroComplet = value;
                         },
                       ),
+                      const SizedBox(height: 18),
+                      const Text(
+                        'Mot de passe',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF0B4F2A),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      PasswordField(controller: _passwordController),
                     ],
                   ),
                 ),
@@ -175,7 +205,7 @@ Future<void> _continuer() async {
 
                 LoginButton(
                   onPressed: _continuer,
-                  label: 'Suivant',
+                  label: 'Se connecter',
                   icon: Icons.arrow_forward_rounded,
                 ),
 
@@ -183,7 +213,9 @@ Future<void> _continuer() async {
                 Center(
                   child: TextButton(
                     onPressed: () => Get.offNamed(Routes.REGISTER),
-                    child: const Text('Vous n’avez pas encore de compte ? S’inscrire'),
+                    child: const Text(
+                      'Vous n’avez pas encore de compte ? S’inscrire',
+                    ),
                   ),
                 ),
               ],

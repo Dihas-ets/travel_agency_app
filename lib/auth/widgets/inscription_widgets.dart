@@ -150,21 +150,28 @@ class PhoneInputField extends StatelessWidget {
   // ⬇️ AJOUT : callback pour récupérer le numéro complet avec indicatif
   final ValueChanged<String>? onFullNumberChanged;
 
-  const PhoneInputField({super.key, this.controller,
-    this.onFullNumberChanged,});
+  const PhoneInputField({super.key, this.controller, this.onFullNumberChanged});
 
   @override
-  Widget build(BuildContext context) =>
-      AfricanPhoneField(controller: controller,
-        onFullNumberChanged: onFullNumberChanged,);
+  Widget build(BuildContext context) => AfricanPhoneField(
+    controller: controller,
+    onFullNumberChanged: onFullNumberChanged,
+  );
 }
 
 /// Champ de mot de passe utilisé pendant l'inscription.
 class RegisterPasswordField extends StatefulWidget {
   /// Controleur fourni par RegisterPage pour lire le mot de passe saisi.
   final TextEditingController? controller;
+  final String label;
+  final String hint;
 
-  const RegisterPasswordField({super.key, this.controller});
+  const RegisterPasswordField({
+    super.key,
+    this.controller,
+    this.label = 'Mot de passe',
+    this.hint = 'Entrez votre mot de passe',
+  });
 
   @override
   State<RegisterPasswordField> createState() => _RegisterPasswordFieldState();
@@ -179,8 +186,8 @@ class _RegisterPasswordFieldState extends State<RegisterPasswordField> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          "Mot de passe",
+        Text(
+          widget.label,
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
@@ -208,7 +215,7 @@ class _RegisterPasswordFieldState extends State<RegisterPasswordField> {
                 horizontal: 20,
                 vertical: 18,
               ),
-              hintText: "Entrez votre mot de passe",
+              hintText: widget.hint,
               border: InputBorder.none,
               hintStyle: const TextStyle(
                 color: Color(0xFF7B849B),
@@ -269,12 +276,17 @@ class WhatsAppInfoBox extends StatelessWidget {
   }
 }
 
-/// Bouton rouge "Envoyer le code" pleine largeur.
+/// Bouton principal de création de compte.
 class SubmitButton extends StatelessWidget {
   /// Action exécutée après validation du formulaire par RegisterPage.
   final VoidCallback onPressed;
+  final String label;
 
-  const SubmitButton({super.key, required this.onPressed});
+  const SubmitButton({
+    super.key,
+    required this.onPressed,
+    this.label = 'Créer mon compte',
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -290,14 +302,18 @@ class SubmitButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
           ),
         ),
-        child: const Row(
+        child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.sms_rounded, color: Colors.white, size: 21),
-            SizedBox(width: 10),
+            const Icon(
+              Icons.person_add_alt_1_rounded,
+              color: Colors.white,
+              size: 21,
+            ),
+            const SizedBox(width: 10),
             Text(
-              "Envoyer le code",
-              style: TextStyle(
+              label,
+              style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
                 color: Colors.white,

@@ -53,6 +53,7 @@ class _ParcelDraft {
     text: '1',
   );
   XFile? attachment;
+  String? existingImagePath;
   int quantity = 1;
 
   bool get isComplete {

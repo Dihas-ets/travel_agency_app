@@ -1,12 +1,21 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:code_initial/screens/percepteur/parts/reservation_flow.dart';
+import 'package:code_initial/screens/percepteur/parts/percepteur_ticket_print_page.dart';
 import 'package:code_initial/services/ticket_service.dart';
 import 'package:code_initial/services/staff_ticket_service.dart';
 
 // Historique percepteur et actualites affichees dans l espace percepteur.
 
-enum PercepteurHistoryScope { reservationsAgence, annules, absent, present }
+enum PercepteurHistoryScope {
+  reservationsAgence,
+  enCours,
+  enAttente,
+  payes,
+  present,
+  absent,
+  annules,
+}
 
 class PercepteurHistoryPage extends StatefulWidget {
   const PercepteurHistoryPage({super.key});
@@ -152,6 +161,12 @@ class PercepteurHistoryPageState extends State<PercepteurHistoryPage> {
               const SizedBox(height: 14),
               _ticketDetail('Référence', ticket.reference),
               _ticketDetail('Statut', ticket.status),
+              _ticketDetail(
+                'Paiement',
+                ticket.paymentStatus?.isNotEmpty == true
+                    ? ticket.paymentStatus!
+                    : 'Non renseigné',
+              ),
               _ticketDetail('Passager', ticket.passengerName),
               _ticketDetail('Téléphone', ticket.phone),
               _ticketDetail(
@@ -186,10 +201,26 @@ class PercepteurHistoryPageState extends State<PercepteurHistoryPage> {
               if (ticket.mecefCounters?.isNotEmpty == true)
                 _ticketDetail('Compteurs MECeF', ticket.mecefCounters!),
               if (ticket.mecefDate?.isNotEmpty == true)
-                _ticketDetail('Date MECeF', ticket.mecefDate!),
+                _ticketDetail(
+                  'Date MECeF',
+                  formatPercepteurMecefDate(ticket.mecefDate!),
+                ),
+              if (ticket.mecefDate?.isNotEmpty == true)
+                _ticketDetail(
+                  'Heure MECeF',
+                  formatPercepteurMecefTime(ticket.mecefDate!),
+                ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  void _printTicket(PercepteurReservationRecord ticket) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => PercepteurTicketPrintPage(ticket: ticket.toPrintMap()),
       ),
     );
   }
@@ -236,25 +267,63 @@ class PercepteurHistoryPageState extends State<PercepteurHistoryPage> {
       cancelledByIdentity.putIfAbsent(identity, () => ticket);
     }
     final cancelledTickets = cancelledByIdentity.values.toList();
+    final allTicketsByIdentity = <String, PercepteurReservationRecord>{};
+    for (final ticket in [..._agencyTickets, ..._emittedTickets]) {
+      final identity = ticket.ticketId != null
+          ? 'id:${ticket.ticketId}'
+          : 'reference:${ticket.reference}';
+      allTicketsByIdentity.putIfAbsent(identity, () => ticket);
+    }
+    final allTickets = allTicketsByIdentity.values.toList();
+    final inProgressTickets = _ticketsWithStatus(allTickets, 'en_cours');
+    final pendingTickets = _ticketsWithStatus(allTickets, 'en_attente');
+    final paidTickets = _ticketsWithStatus(allTickets, 'paye');
+    final presentTickets = _ticketsWithStatus(allTickets, 'present');
+    final absentTickets = _ticketsWithStatus(allTickets, 'absent');
     final cancellationErrors = [
       _agencyHistoryError,
       _emittedHistoryError,
     ].whereType<String>().where((error) => error.isNotEmpty).toList();
-    final attendanceTickets = _emittedTickets.where((ticket) {
-      final status = ticket.rawStatus.toLowerCase();
-      if (_scope == PercepteurHistoryScope.absent) {
-        return status == 'absent';
-      }
-      return const {
-        'utilisé',
-        'utilise',
-        'present',
-        'présent',
-        'valide',
-        'embarque',
-        'embarqué',
-      }.contains(status);
-    }).toList();
+    final statusLoading = _loadingAgencyTickets || _loadingEmittedTickets;
+    final selectedTickets = switch (_scope) {
+      PercepteurHistoryScope.reservationsAgence => agencyReservations,
+      PercepteurHistoryScope.enCours => inProgressTickets,
+      PercepteurHistoryScope.enAttente => pendingTickets,
+      PercepteurHistoryScope.payes => paidTickets,
+      PercepteurHistoryScope.present => presentTickets,
+      PercepteurHistoryScope.absent => absentTickets,
+      PercepteurHistoryScope.annules => cancelledTickets,
+    };
+    final selectedTitle = switch (_scope) {
+      PercepteurHistoryScope.reservationsAgence =>
+        'Aucune réservation pour cette agence',
+      PercepteurHistoryScope.enCours => 'Aucun ticket en cours',
+      PercepteurHistoryScope.enAttente => 'Aucun ticket en attente',
+      PercepteurHistoryScope.payes => 'Aucun ticket payé',
+      PercepteurHistoryScope.present => 'Aucun passager présent',
+      PercepteurHistoryScope.absent => 'Aucun passager absent',
+      PercepteurHistoryScope.annules => 'Aucun ticket annulé',
+    };
+    final selectedMessage = switch (_scope) {
+      PercepteurHistoryScope.reservationsAgence =>
+        'Les réservations des clients au départ de l’agence '
+            'd’affectation apparaîtront ici.',
+      PercepteurHistoryScope.enCours =>
+        'Les tickets au statut « en_cours » apparaîtront ici.',
+      PercepteurHistoryScope.enAttente =>
+        'Les tickets au statut « en_attente » apparaîtront ici.',
+      PercepteurHistoryScope.payes =>
+        'Les tickets au statut « paye » apparaîtront ici.',
+      PercepteurHistoryScope.present =>
+        'Les tickets validés, utilisés ou embarqués apparaîtront ici.',
+      PercepteurHistoryScope.absent =>
+        'Les tickets au statut « absent » apparaîtront ici.',
+      PercepteurHistoryScope.annules =>
+        'Les tickets au statut « annule » apparaîtront ici.',
+    };
+    final selectedIsAgency =
+        _scope == PercepteurHistoryScope.reservationsAgence;
+    final selectedIsCancelled = _scope == PercepteurHistoryScope.annules;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FBFF),
@@ -273,96 +342,86 @@ class PercepteurHistoryPageState extends State<PercepteurHistoryPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Row(
-                children: [
-                  _HistoryActionButton(
-                    icon: Icons.confirmation_number_rounded,
-                    label: 'Réservations agence',
-                    selected:
-                        _scope == PercepteurHistoryScope.reservationsAgence,
-                    onTap: () => setState(
-                      () => _scope = PercepteurHistoryScope.reservationsAgence,
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _HistoryTab(
+                      icon: Icons.storefront_rounded,
+                      label: 'Agence',
+                      count: agencyReservations.length,
+                      selected: selectedIsAgency,
+                      onTap: () => _selectScope(
+                        PercepteurHistoryScope.reservationsAgence,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  _HistoryActionButton(
-                    icon: Icons.cancel_rounded,
-                    label: 'Tickets annulés',
-                    selected: _scope == PercepteurHistoryScope.annules,
-                    onTap: () =>
-                        setState(() => _scope = PercepteurHistoryScope.annules),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  _HistoryActionButton(
-                    icon: Icons.person_off_rounded,
-                    label: 'Absent',
-                    selected: _scope == PercepteurHistoryScope.absent,
-                    onTap: () =>
-                        setState(() => _scope = PercepteurHistoryScope.absent),
-                  ),
-                  const SizedBox(width: 8),
-                  _HistoryActionButton(
-                    icon: Icons.how_to_reg_rounded,
-                    label: 'Présent',
-                    selected: _scope == PercepteurHistoryScope.present,
-                    onTap: () =>
-                        setState(() => _scope = PercepteurHistoryScope.present),
-                  ),
-                ],
+                    _HistoryTab(
+                      icon: Icons.pending_actions_rounded,
+                      label: 'En cours',
+                      count: inProgressTickets.length,
+                      selected: _scope == PercepteurHistoryScope.enCours,
+                      onTap: () => _selectScope(PercepteurHistoryScope.enCours),
+                    ),
+                    _HistoryTab(
+                      icon: Icons.hourglass_top_rounded,
+                      label: 'En attente',
+                      count: pendingTickets.length,
+                      selected: _scope == PercepteurHistoryScope.enAttente,
+                      onTap: () =>
+                          _selectScope(PercepteurHistoryScope.enAttente),
+                    ),
+                    _HistoryTab(
+                      icon: Icons.payments_rounded,
+                      label: 'Payés',
+                      count: paidTickets.length,
+                      selected: _scope == PercepteurHistoryScope.payes,
+                      onTap: () => _selectScope(PercepteurHistoryScope.payes),
+                    ),
+                    _HistoryTab(
+                      icon: Icons.how_to_reg_rounded,
+                      label: 'Présents',
+                      count: presentTickets.length,
+                      selected: _scope == PercepteurHistoryScope.present,
+                      onTap: () => _selectScope(PercepteurHistoryScope.present),
+                    ),
+                    _HistoryTab(
+                      icon: Icons.person_off_rounded,
+                      label: 'Absents',
+                      count: absentTickets.length,
+                      selected: _scope == PercepteurHistoryScope.absent,
+                      onTap: () => _selectScope(PercepteurHistoryScope.absent),
+                    ),
+                    _HistoryTab(
+                      icon: Icons.cancel_rounded,
+                      label: 'Annulés',
+                      count: cancelledTickets.length,
+                      selected: selectedIsCancelled,
+                      onTap: () => _selectScope(PercepteurHistoryScope.annules),
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 12),
-              if (_scope == PercepteurHistoryScope.reservationsAgence)
-                Expanded(
-                  child: PercepteurReservationList(
-                    reservations: agencyReservations,
-                    isLoading: _loadingAgencyTickets,
-                    error: _agencyHistoryError,
-                    emptyTitle: 'Aucune réservation pour cette agence',
-                    emptyMessage:
-                        'Les réservations des clients au départ de '
-                        'l’agence d’affectation apparaîtront ici.',
-                    onRetry: _loadAgencyTickets,
-                    onCancel: _cancelTicket,
-                    onView: _showTicketDetails,
-                    cancellingTicketId: _cancellingTicketId,
-                  ),
-                )
-              else if (_scope == PercepteurHistoryScope.annules)
-                Expanded(
-                  child: PercepteurReservationList(
-                    reservations: cancelledTickets,
-                    isLoading: _loadingAgencyTickets || _loadingEmittedTickets,
-                    error: cancellationErrors.isEmpty
-                        ? null
-                        : cancellationErrors.join('\n'),
-                    emptyTitle: 'Aucun ticket annulé',
-                    emptyMessage:
-                        'Les tickets annulés de votre agence apparaîtront ici.',
-                    onRetry: _loadTickets,
-                    onCancel: _cancelTicket,
-                    onView: _showTicketDetails,
-                    cancellingTicketId: _cancellingTicketId,
-                  ),
-                )
-              else
-                Expanded(
-                  child: PercepteurAttendanceList(
-                    title: _scope == PercepteurHistoryScope.absent
-                        ? 'Passagers absents'
-                        : 'Passagers présents',
-                    emptyMessage: _scope == PercepteurHistoryScope.absent
-                        ? 'Aucun passager absent enregistré.'
-                        : 'Aucun passager présent enregistré.',
-                    reservations: attendanceTickets,
-                    isLoading: _loadingEmittedTickets,
-                    error: _emittedHistoryError,
-                    onRetry: _loadEmittedTickets,
-                  ),
+              Expanded(
+                child: PercepteurReservationList(
+                  reservations: selectedTickets,
+                  isLoading: selectedIsAgency
+                      ? _loadingAgencyTickets
+                      : statusLoading,
+                  error: selectedIsAgency
+                      ? _agencyHistoryError
+                      : cancellationErrors.isEmpty
+                      ? null
+                      : cancellationErrors.join('\n'),
+                  emptyTitle: selectedTitle,
+                  emptyMessage: selectedMessage,
+                  onRetry: selectedIsAgency ? _loadAgencyTickets : _loadTickets,
+                  onCancel: _cancelTicket,
+                  onView: _showTicketDetails,
+                  onPrint: _printTicket,
+                  cancellingTicketId: _cancellingTicketId,
                 ),
+              ),
             ],
           ),
         ),
@@ -371,12 +430,41 @@ class PercepteurHistoryPageState extends State<PercepteurHistoryPage> {
   }
 
   bool _isCancelled(PercepteurReservationRecord ticket) {
-    return const {
-      'annule',
-      'annulé',
-      'annulee',
-      'annulée',
-    }.contains(ticket.rawStatus.trim().toLowerCase());
+    return _normalizeStatus(ticket.rawStatus) == 'annule';
+  }
+
+  List<PercepteurReservationRecord> _ticketsWithStatus(
+    List<PercepteurReservationRecord> tickets,
+    String status,
+  ) {
+    return tickets
+        .where((ticket) => _normalizeStatus(ticket.rawStatus) == status)
+        .toList();
+  }
+
+  String _normalizeStatus(String value) {
+    final normalized = value
+        .trim()
+        .toLowerCase()
+        .replaceAll('é', 'e')
+        .replaceAll('è', 'e')
+        .replaceAll('ê', 'e')
+        .replaceAll('à', 'a')
+        .replaceAll('û', 'u')
+        .replaceAll(' ', '_');
+
+    return switch (normalized) {
+      'annulee' => 'annule',
+      'utilise' || 'valide' || 'embarque' || 'present' => 'present',
+      'en_cours' => 'en_cours',
+      'en_attente' => 'en_attente',
+      'paye' => 'paye',
+      _ => normalized,
+    };
+  }
+
+  void _selectScope(PercepteurHistoryScope scope) {
+    setState(() => _scope = scope);
   }
 }
 
@@ -387,6 +475,7 @@ class PercepteurReservationList extends StatelessWidget {
   final Future<void> Function() onRetry;
   final Future<void> Function(PercepteurReservationRecord ticket) onCancel;
   final void Function(PercepteurReservationRecord ticket) onView;
+  final void Function(PercepteurReservationRecord ticket) onPrint;
   final int? cancellingTicketId;
   final String emptyTitle;
   final String emptyMessage;
@@ -399,6 +488,7 @@ class PercepteurReservationList extends StatelessWidget {
     required this.onRetry,
     required this.onCancel,
     required this.onView,
+    required this.onPrint,
     required this.cancellingTicketId,
     this.emptyTitle = 'Aucune réservation',
     this.emptyMessage =
@@ -439,6 +529,7 @@ class PercepteurReservationList extends StatelessWidget {
                 item: item,
                 onCancel: item.canCancel ? () => onCancel(item) : null,
                 onView: () => onView(item),
+                onPrint: item.canPrint ? () => onPrint(item) : null,
                 isCancelling: cancellingTicketId == item.ticketId,
               ),
             ),
@@ -448,54 +539,71 @@ class PercepteurReservationList extends StatelessWidget {
   }
 }
 
-class _HistoryActionButton extends StatelessWidget {
+class _HistoryTab extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
   final bool selected;
+  final int count;
 
-  const _HistoryActionButton({
+  const _HistoryTab({
     required this.icon,
     required this.label,
     required this.onTap,
     required this.selected,
+    required this.count,
   });
 
   @override
   Widget build(BuildContext context) {
     const deepBlue = Color(0xFF0B4F2A);
-    return Expanded(
-      child: SizedBox(
-        height: 58,
-        child: OutlinedButton(
-          onPressed: onTap,
-          style: OutlinedButton.styleFrom(
-            foregroundColor: selected ? Colors.white : deepBlue,
-            side: BorderSide(color: deepBlue.withValues(alpha: 0.18)),
-            backgroundColor: selected ? const Color(0xFF16A34A) : Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 6),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: ChoiceChip(
+        selected: selected,
+        onSelected: (_) => onTap(),
+        showCheckmark: false,
+        selectedColor: const Color(0xFF16A34A),
+        backgroundColor: Colors.white,
+        side: BorderSide(
+          color: selected
+              ? const Color(0xFF16A34A)
+              : deepBlue.withValues(alpha: 0.18),
+        ),
+        shape: const StadiumBorder(),
+        labelPadding: const EdgeInsets.symmetric(horizontal: 4),
+        label: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: selected ? Colors.white : deepBlue),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                color: selected ? Colors.white : deepBlue,
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+              ),
             ),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 19),
-              const SizedBox(height: 3),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  style: const TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w900,
-                  ),
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: selected
+                    ? Colors.white.withValues(alpha: 0.2)
+                    : deepBlue.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                '$count',
+                style: TextStyle(
+                  color: selected ? Colors.white : deepBlue,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
