@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:code_initial/screens/client/colis/pages_colis.dart';
+import 'package:fofanavoyage/screens/client/colis/pages_colis.dart';
 
 class EnvoisEffectuesPage extends StatefulWidget {
   final String code;

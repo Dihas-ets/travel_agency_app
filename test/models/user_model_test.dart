@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:code_initial/config/app_config.dart';
-import 'package:code_initial/models/user_model.dart';
+import 'package:fofanavoyage/config/app_config.dart';
+import 'package:fofanavoyage/models/user_model.dart';
 
 void main() {
   String expectedStorageUrl(String path) {

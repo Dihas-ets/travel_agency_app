@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:code_initial/models/models_and_stores.dart';
-import 'package:code_initial/models/user_model.dart';
-import 'package:code_initial/data/local/session_store.dart';
-import 'package:code_initial/screens/percepteur/parts/assignments_section.dart';
-import 'package:code_initial/widgets/profile_avatar.dart';
-import 'package:code_initial/menus/menu_percepteur/percepteur_profile_panel.dart'
+import 'package:fofanavoyage/models/models_and_stores.dart';
+import 'package:fofanavoyage/models/user_model.dart';
+import 'package:fofanavoyage/data/local/session_store.dart';
+import 'package:fofanavoyage/screens/percepteur/parts/assignments_section.dart';
+import 'package:fofanavoyage/widgets/profile_avatar.dart';
+import 'package:fofanavoyage/menus/menu_percepteur/percepteur_profile_panel.dart'
     as live_profile;
 
 // Menu principal percepteur, profil editable et conditions.

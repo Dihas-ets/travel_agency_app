@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:code_initial/config/app_config.dart';
-import 'package:code_initial/auth/stockage_auth_local.dart';
+import 'package:fofanavoyage/config/app_config.dart';
+import 'package:fofanavoyage/auth/stockage_auth_local.dart';
 
 String? ticketReferenceFromQr(String payload) {
   final value = payload.trim();
@@ -314,7 +314,7 @@ class StaffTicketModel {
 }
 
 class StaffTicketService {
-  static const String _base = AppConfig.apiBaseUrl;
+  String get _baseUrl => AppConfig.apiBaseUrl;
 
   Future<Map<String, String>> _headers() async {
     final token = await AuthLocalStore.getToken();
@@ -333,7 +333,7 @@ class StaffTicketService {
     try {
       final response = await http
           .get(
-            Uri.parse('$_base/tickets/${Uri.encodeComponent(ref)}'),
+            Uri.parse('$_baseUrl/tickets/${Uri.encodeComponent(ref)}'),
             headers: await _headers(),
           )
           .timeout(const Duration(seconds: 10));
@@ -383,7 +383,7 @@ class StaffTicketService {
     var lastPage = 1;
     do {
       final uri = Uri.parse(
-        '$_base/tickets',
+        '$_baseUrl/tickets',
       ).replace(queryParameters: {'page': '$page', 'per_page': '100'});
       final response = await http
           .get(uri, headers: await _headers())
@@ -431,7 +431,7 @@ class StaffTicketService {
     try {
       final response = await http
           .patch(
-            Uri.parse('$_base/tickets/$ticketId/valider'),
+            Uri.parse('$_baseUrl/tickets/$ticketId/valider'),
             headers: await _headers(),
           )
           .timeout(const Duration(seconds: 10));
@@ -465,7 +465,7 @@ class StaffTicketService {
   Future<Map<String, dynamic>> annulerTicket(int ticketId) async {
     final response = await http
         .put(
-          Uri.parse('$_base/tickets/$ticketId/annuler'),
+          Uri.parse('$_baseUrl/tickets/$ticketId/annuler'),
           headers: await _headers(),
         )
         .timeout(const Duration(seconds: 15));
@@ -493,7 +493,7 @@ class StaffTicketService {
       final d = today.day.toString().padLeft(2, '0');
       final dateStr = '$y-$m-$d';
       final uri = Uri.parse(
-        '$_base/tickets',
+        '$_baseUrl/tickets',
       ).replace(queryParameters: {'date': dateStr});
       final response = await http
           .get(uri, headers: await _headers())
@@ -521,7 +521,7 @@ class StaffTicketService {
   Future<List<Map<String, dynamic>>> getColisParStatut(String statut) async {
     try {
       final uri = Uri.parse(
-        '$_base/colis',
+        '$_baseUrl/colis',
       ).replace(queryParameters: {'statut': statut});
       final response = await http
           .get(uri, headers: await _headers())

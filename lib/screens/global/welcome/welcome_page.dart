@@ -1,5 +1,5 @@
-import 'package:code_initial/navigation.dart';
-import 'package:code_initial/auth/inscription_page.dart';
+import 'package:fofanavoyage/navigation.dart';
+import 'package:fofanavoyage/auth/inscription_page.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 

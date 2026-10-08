@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:code_initial/models/user_model.dart';
+import 'package:fofanavoyage/models/user_model.dart';
 
 class SessionStore {
   static String? currentClientPhone;

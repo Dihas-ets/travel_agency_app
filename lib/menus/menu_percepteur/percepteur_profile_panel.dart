@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:code_initial/models/user_model.dart';
-import 'package:code_initial/services/auth_service.dart';
-import 'package:code_initial/widgets/profile_avatar.dart';
+import 'package:fofanavoyage/models/user_model.dart';
+import 'package:fofanavoyage/services/auth_service.dart';
+import 'package:fofanavoyage/widgets/profile_avatar.dart';
 
 class PercepteurProfilePanel extends StatefulWidget {
   const PercepteurProfilePanel({super.key});

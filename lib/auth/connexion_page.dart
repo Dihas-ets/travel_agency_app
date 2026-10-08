@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:code_initial/navigation.dart';
-import 'package:code_initial/auth/widgets/connexion_widgets.dart';
-import 'package:code_initial/auth/stockage_auth_local.dart';
-import 'package:code_initial/data/local/session_store.dart';
-import 'package:code_initial/models/user_model.dart';
+import 'package:fofanavoyage/navigation.dart';
+import 'package:fofanavoyage/auth/widgets/connexion_widgets.dart';
+import 'package:fofanavoyage/auth/stockage_auth_local.dart';
+import 'package:fofanavoyage/data/local/session_store.dart';
+import 'package:fofanavoyage/models/user_model.dart';
 
-import 'package:code_initial/services/auth_service.dart';
+import 'package:fofanavoyage/services/auth_service.dart';
 
 /// Page de connexion.
 ///

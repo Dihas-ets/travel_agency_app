@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:code_initial/menus/menu_controleur/menu_controleur.dart';
-import 'package:code_initial/screens/percepteur/parts/percepteur_access_gate.dart';
-import 'package:code_initial/screens/percepteur/parts/history_news_section.dart';
-import 'package:code_initial/screens/percepteur/parts/notifications_section.dart';
-import 'package:code_initial/screens/percepteur/parts/ticket_validation_section.dart';
-import 'package:code_initial/screens/controleur/controleur_history_section.dart';
-import 'package:code_initial/screens/controleur/controleur_profile_section.dart';
+import 'package:fofanavoyage/menus/menu_controleur/menu_controleur.dart';
+import 'package:fofanavoyage/screens/percepteur/parts/percepteur_access_gate.dart';
+import 'package:fofanavoyage/screens/percepteur/parts/history_news_section.dart';
+import 'package:fofanavoyage/screens/percepteur/parts/notifications_section.dart';
+import 'package:fofanavoyage/screens/percepteur/parts/ticket_validation_section.dart';
+import 'package:fofanavoyage/screens/controleur/controleur_history_section.dart';
+import 'package:fofanavoyage/screens/controleur/controleur_profile_section.dart';
 
 // Page racine de l espace controleur.
 // Les trois actions metier du voyage reutilisent exactement les pages du

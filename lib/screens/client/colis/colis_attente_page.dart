@@ -2,10 +2,10 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-import 'package:code_initial/data/local/session_store.dart';
-import 'package:code_initial/screens/client/colis/billet_page.dart';
-import 'package:code_initial/models/store/colis_store.dart';
-import 'package:code_initial/services/colis_service.dart';
+import 'package:fofanavoyage/data/local/session_store.dart';
+import 'package:fofanavoyage/screens/client/colis/billet_page.dart';
+import 'package:fofanavoyage/models/store/colis_store.dart';
+import 'package:fofanavoyage/services/colis_service.dart';
 
 const Color _deepBlue = Color(0xFF0B4F2A);
 const Color _logoRed = Color(0xFFE53935);

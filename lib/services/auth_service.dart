@@ -1,13 +1,14 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
-import 'package:code_initial/config/app_config.dart';
-import 'package:code_initial/auth/stockage_auth_local.dart';
-import 'package:code_initial/models/user_model.dart';
-import 'package:code_initial/data/local/session_store.dart';
+import 'package:fofanavoyage/config/app_config.dart';
+import 'package:fofanavoyage/auth/stockage_auth_local.dart';
+import 'package:fofanavoyage/models/user_model.dart';
+import 'package:fofanavoyage/data/local/session_store.dart';
 
 class AuthService {
-  static const String baseUrl = AppConfig.apiBaseUrl;
+  
+  String get _baseUrl => AppConfig.apiBaseUrl;
 
   Future<Map<String, dynamic>> inscrireClient({
     required String nom,
@@ -42,7 +43,7 @@ class AuthService {
     try {
       final response = await http
           .post(
-            Uri.parse('$baseUrl/$endpoint'),
+            Uri.parse('$_baseUrl/$endpoint'),
             headers: {
               'Content-Type': 'application/json',
               'Accept': 'application/json',
@@ -80,7 +81,7 @@ class AuthService {
     String telephone,
     String password,
   ) async {
-    final url = Uri.parse('$baseUrl/auth/staff/connexion');
+    final url = Uri.parse('$_baseUrl/auth/staff/connexion');
 
     // --- NORMALISATION COMME SUR LE WEB ---
     String finalPhone = telephone.replaceAll(RegExp(r'[^\d+]'), '');
@@ -119,7 +120,7 @@ class AuthService {
     try {
       final response = await http
           .get(
-            Uri.parse('$baseUrl/auth/moi'),
+            Uri.parse('$_baseUrl/auth/moi'),
             headers: {
               'Accept': 'application/json',
               'Authorization': 'Bearer $token',
@@ -150,7 +151,7 @@ class AuthService {
 
     final response = await http
         .get(
-          Uri.parse('$baseUrl/auth/moi'),
+          Uri.parse('$_baseUrl/auth/moi'),
           headers: {
             'Accept': 'application/json',
             'Authorization': 'Bearer $token',
@@ -193,7 +194,7 @@ class AuthService {
       return {'success': false, 'message': 'Non authentifié.'};
     }
 
-    final uri = Uri.parse('$baseUrl/auth/client/modifier-profil');
+    final uri = Uri.parse('$_baseUrl/auth/client/modifier-profil');
     final request = http.MultipartRequest('POST', uri);
     request.headers['Accept'] = 'application/json';
     request.headers['Authorization'] = 'Bearer $token';
@@ -265,7 +266,7 @@ class AuthService {
       try {
         await http
             .post(
-              Uri.parse('$baseUrl/auth/client/deconnexion'),
+              Uri.parse('$_baseUrl/auth/client/deconnexion'),
               headers: {
                 'Accept': 'application/json',
                 'Authorization': 'Bearer $token',

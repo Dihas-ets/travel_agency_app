@@ -1,4 +1,4 @@
-package com.fofanavoyage.code_initial
+package com.fofanavoyage.fofanavoyage
 
 import io.flutter.embedding.android.FlutterActivity
 

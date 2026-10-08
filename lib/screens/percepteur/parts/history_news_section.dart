@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:code_initial/screens/percepteur/parts/reservation_flow.dart';
-import 'package:code_initial/screens/percepteur/parts/percepteur_ticket_print_page.dart';
-import 'package:code_initial/services/ticket_service.dart';
-import 'package:code_initial/services/staff_ticket_service.dart';
+import 'package:fofanavoyage/screens/percepteur/parts/reservation_flow.dart';
+import 'package:fofanavoyage/screens/percepteur/parts/percepteur_ticket_print_page.dart';
+import 'package:fofanavoyage/services/ticket_service.dart';
+import 'package:fofanavoyage/services/staff_ticket_service.dart';
 
 // Historique percepteur et actualites affichees dans l espace percepteur.
 

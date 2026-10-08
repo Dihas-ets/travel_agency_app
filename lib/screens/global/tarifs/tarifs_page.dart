@@ -1,12 +1,12 @@
 // ignore_for_file: deprecated_member_use
 
 import 'package:flutter/material.dart';
-import 'package:code_initial/screens/global/widgets/tarifs/tarifs_widgets.dart';
+import 'package:fofanavoyage/screens/global/widgets/tarifs/tarifs_widgets.dart';
 
-import 'package:code_initial/models/ligne_model.dart';
-import 'package:code_initial/models/voyage_disponibilite_model.dart';
-import 'package:code_initial/models/voyage_du_jour_model.dart';
-import 'package:code_initial/services/ligne_service.dart';
+import 'package:fofanavoyage/models/ligne_model.dart';
+import 'package:fofanavoyage/models/voyage_disponibilite_model.dart';
+import 'package:fofanavoyage/models/voyage_du_jour_model.dart';
+import 'package:fofanavoyage/services/ligne_service.dart';
 
 /// Page de consultation des tarifs.
 ///

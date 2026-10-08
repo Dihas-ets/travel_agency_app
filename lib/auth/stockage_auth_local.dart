@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:code_initial/models/user_model.dart';
+import 'package:fofanavoyage/models/user_model.dart';
 
 class AuthLocalStore {
   static const _clientPhonesKey = 'client_phone_numbers';
@@ -66,6 +66,17 @@ class AuthLocalStore {
   static Future<void> removeCurrentUser() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_currentUserKey);
+  }
+
+  static Future<void> removeClientIdentity(String phone) async {
+    final normalizedPhone = normalizePhone(phone);
+    final prefs = await SharedPreferences.getInstance();
+    final phones = prefs.getStringList(_clientPhonesKey) ?? <String>[];
+    phones.remove(normalizedPhone);
+    await prefs.setStringList(_clientPhonesKey, phones);
+
+    final profiles = _readProfiles(prefs)..remove(normalizedPhone);
+    await prefs.setString(_clientProfilesKey, jsonEncode(profiles));
   }
 
   // --- MÉTHODES EXISTANTES ---

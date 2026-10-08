@@ -1,12 +1,12 @@
 import 'dart:convert';
 
-import 'package:code_initial/auth/stockage_auth_local.dart';
-import 'package:code_initial/config/app_config.dart';
-import 'package:code_initial/models/tax_group_model.dart';
+import 'package:fofanavoyage/auth/stockage_auth_local.dart';
+import 'package:fofanavoyage/config/app_config.dart';
+import 'package:fofanavoyage/models/tax_group_model.dart';
 import 'package:http/http.dart' as http;
 
 class TaxService {
-  static const String _baseUrl = AppConfig.apiBaseUrl;
+  String get _baseUrl => AppConfig.apiBaseUrl;
 
   Future<List<TaxGroup>> getGroupsForModule(
     String module, {

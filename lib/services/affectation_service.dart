@@ -1,11 +1,11 @@
 import 'dart:convert';
 
-import 'package:code_initial/auth/stockage_auth_local.dart';
-import 'package:code_initial/config/app_config.dart';
+import 'package:fofanavoyage/auth/stockage_auth_local.dart';
+import 'package:fofanavoyage/config/app_config.dart';
 import 'package:http/http.dart' as http;
 
 class AffectationService {
-  static const String _baseUrl = AppConfig.apiBaseUrl;
+ String get _baseUrl => AppConfig.apiBaseUrl;
 
   Future<Map<String, String>> _headers() async {
     final token = await AuthLocalStore.getToken();

@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:code_initial/models/expense_model.dart';
-import 'package:code_initial/models/store/expense_store.dart';
-import 'package:code_initial/screens/percepteur/parts/reservation_flow.dart';
-import 'package:code_initial/screens/percepteur/expense/manual_expense_page.dart';
-import 'package:code_initial/screens/percepteur/expense/qr_scanner_page.dart';
-import 'package:code_initial/services/cash_service.dart';
+import 'package:fofanavoyage/models/expense_model.dart';
+import 'package:fofanavoyage/models/store/expense_store.dart';
+import 'package:fofanavoyage/screens/percepteur/parts/reservation_flow.dart';
+import 'package:fofanavoyage/screens/percepteur/expense/manual_expense_page.dart';
+import 'package:fofanavoyage/screens/percepteur/expense/qr_scanner_page.dart';
+import 'package:fofanavoyage/services/cash_service.dart';
 
 // Ecran de consultation des depenses du percepteur et de leur synthese.
 

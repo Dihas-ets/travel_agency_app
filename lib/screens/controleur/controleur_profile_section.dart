@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:code_initial/data/local/session_store.dart';
-import 'package:code_initial/models/user_model.dart';
-import 'package:code_initial/widgets/profile_avatar.dart';
+import 'package:fofanavoyage/data/local/session_store.dart';
+import 'package:fofanavoyage/models/user_model.dart';
+import 'package:fofanavoyage/widgets/profile_avatar.dart';
 
 class ControleurProfileTabContent extends StatelessWidget {
   const ControleurProfileTabContent({super.key});

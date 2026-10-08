@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
-import 'package:code_initial/screens/percepteur/parts/notifications_section.dart';
-import 'package:code_initial/data/local/session_store.dart';
-import 'package:code_initial/models/access_session_model.dart';
-import 'package:code_initial/services/affectation_service.dart';
+import 'package:fofanavoyage/screens/percepteur/parts/notifications_section.dart';
+import 'package:fofanavoyage/data/local/session_store.dart';
+import 'package:fofanavoyage/models/access_session_model.dart';
+import 'package:fofanavoyage/services/affectation_service.dart';
 
 // Missions percepteur: filtres, listes, detail, itineraire et connexion.
 

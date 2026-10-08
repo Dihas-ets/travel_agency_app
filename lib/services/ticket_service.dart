@@ -1,12 +1,12 @@
 import 'dart:convert';
 
-import 'package:code_initial/auth/stockage_auth_local.dart';
-import 'package:code_initial/config/app_config.dart';
-import 'package:code_initial/models/voyage_programme_model.dart';
+import 'package:fofanavoyage/auth/stockage_auth_local.dart';
+import 'package:fofanavoyage/config/app_config.dart';
+import 'package:fofanavoyage/models/voyage_programme_model.dart';
 import 'package:http/http.dart' as http;
 
 class TicketService {
-  static const String baseUrl = AppConfig.apiBaseUrl;
+  String get _baseUrl => AppConfig.apiBaseUrl;
 
   String _errorMessage(http.Response response, String fallback) {
     try {
@@ -34,7 +34,7 @@ class TicketService {
   Future<List<Map<String, dynamic>>> getHistoriqueClient() async {
     final response = await http
         .get(
-          Uri.parse('$baseUrl/auth/client/tickets/historique'),
+          Uri.parse('$_baseUrl/auth/client/tickets/historique'),
           headers: await _headers(),
         )
         .timeout(const Duration(seconds: 10));
@@ -56,7 +56,7 @@ class TicketService {
     final value = query.trim();
     if (value.isEmpty) return [];
     final uri = Uri.parse(
-      '$baseUrl/users/search',
+      '$_baseUrl/users/search',
     ).replace(queryParameters: {'q': value});
     final response = await http
         .get(uri, headers: await _headers())
@@ -81,7 +81,7 @@ class TicketService {
     var page = 1;
     var lastPage = 1;
     do {
-      final uri = Uri.parse('$baseUrl/tickets').replace(
+      final uri = Uri.parse('$_baseUrl/tickets').replace(
         queryParameters: {
           'only_mine': '1',
           'per_page': '100',
@@ -117,7 +117,7 @@ class TicketService {
     var page = 1;
     var lastPage = 1;
     do {
-      final uri = Uri.parse('$baseUrl/tickets').replace(
+      final uri = Uri.parse('$_baseUrl/tickets').replace(
         queryParameters: {
           'origine': 'en_externe',
           'per_page': '100',
@@ -158,7 +158,7 @@ class TicketService {
   Future<Map<String, dynamic>> annulerClient(int ticketId) async {
     final response = await http
         .put(
-          Uri.parse('$baseUrl/tickets/$ticketId/annuler'),
+          Uri.parse('$_baseUrl/tickets/$ticketId/annuler'),
           headers: await _headers(),
         )
         .timeout(const Duration(seconds: 10));
@@ -188,7 +188,7 @@ class TicketService {
   }) async {
     final response = await http
         .put(
-          Uri.parse('$baseUrl/auth/client/tickets/$ticketId/reprogrammer'),
+          Uri.parse('$_baseUrl/auth/client/tickets/$ticketId/reprogrammer'),
           headers: await _headers(),
           body: jsonEncode({
             'nouvelle_date': nouvelleDate,
@@ -230,7 +230,7 @@ class TicketService {
   }) async {
     final dateStr =
         '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-    final uri = Uri.parse('$baseUrl/tickets/programmation').replace(
+    final uri = Uri.parse('$_baseUrl/tickets/programmation').replace(
       queryParameters: {
         'ligne_id': ligneId.toString(),
         'date': dateStr,
@@ -271,7 +271,7 @@ class TicketService {
   }) async {
     final dateStr =
         '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-    final uri = Uri.parse('$baseUrl/tickets/verifier-places').replace(
+    final uri = Uri.parse('$_baseUrl/tickets/verifier-places').replace(
       queryParameters: {
         'voyage_id': voyageId.toString(),
         'bus_id': busId.toString(),
@@ -341,7 +341,7 @@ class TicketService {
     };
     final response = await http
         .post(
-          Uri.parse('$baseUrl/tickets'),
+          Uri.parse('$_baseUrl/tickets'),
           headers: await _headers(),
           body: jsonEncode(body),
         )

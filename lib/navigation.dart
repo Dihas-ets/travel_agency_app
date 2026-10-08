@@ -1,25 +1,25 @@
-//export 'package:code_initial/core/navigation/app_navigation.dart';
+//export 'package:fofanavoyage/core/navigation/app_navigation.dart';
 
 // ignore_for_file: constant_identifier_names
 
 import 'package:get/get.dart';
-import 'package:code_initial/screens/global/welcome/welcome_page.dart';
-import 'package:code_initial/screens/global/onboarding/onboarding_page.dart';
-import 'package:code_initial/auth/inscription_page.dart';
-import 'package:code_initial/auth/connexion_page.dart';
-import 'package:code_initial/screens/percepteur/percepteur_password_page.dart';
-import 'package:code_initial/screens/client/home/home_page.dart';
-import 'package:code_initial/screens/percepteur/percepteur_home_page.dart';
-import 'package:code_initial/screens/controleur/controleur_home_page.dart';
-import 'package:code_initial/screens/controleur/controleur_password_page.dart';
-import 'package:code_initial/auth/mot_de_passe_oublie_page.dart';
-import 'package:code_initial/screens/client/colis/envois_effectues_page.dart';
-import 'package:code_initial/screens/chauffeur/chauffeur_home_page.dart';
-import 'package:code_initial/pages/payment_success_page.dart';
-import 'package:code_initial/pages/payment_error_page.dart';
-import 'package:code_initial/auth/stockage_auth_local.dart';
-import 'package:code_initial/data/local/session_store.dart';
-import 'package:code_initial/services/auth_service.dart';
+import 'package:fofanavoyage/screens/global/welcome/welcome_page.dart';
+import 'package:fofanavoyage/screens/global/onboarding/onboarding_page.dart';
+import 'package:fofanavoyage/auth/inscription_page.dart';
+import 'package:fofanavoyage/auth/connexion_page.dart';
+import 'package:fofanavoyage/screens/percepteur/percepteur_password_page.dart';
+import 'package:fofanavoyage/screens/client/home/home_page.dart';
+import 'package:fofanavoyage/screens/percepteur/percepteur_home_page.dart';
+import 'package:fofanavoyage/screens/controleur/controleur_home_page.dart';
+import 'package:fofanavoyage/screens/controleur/controleur_password_page.dart';
+import 'package:fofanavoyage/auth/mot_de_passe_oublie_page.dart';
+import 'package:fofanavoyage/screens/client/colis/envois_effectues_page.dart';
+import 'package:fofanavoyage/screens/chauffeur/chauffeur_home_page.dart';
+import 'package:fofanavoyage/pages/payment_success_page.dart';
+import 'package:fofanavoyage/pages/payment_error_page.dart';
+import 'package:fofanavoyage/auth/stockage_auth_local.dart';
+import 'package:fofanavoyage/data/local/session_store.dart';
+import 'package:fofanavoyage/services/auth_service.dart';
 
 /// Centralise toutes les pages accessibles avec GetX.
 ///

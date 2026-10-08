@@ -1,7 +1,7 @@
 import 'dart:convert';
 
-import 'package:code_initial/config/app_config.dart';
-import 'package:code_initial/models/colis_print_settings.dart';
+import 'package:fofanavoyage/config/app_config.dart';
+import 'package:fofanavoyage/models/colis_print_settings.dart';
 import 'package:http/http.dart' as http;
 
 class ColisPrintSettingsService {

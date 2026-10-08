@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:code_initial/screens/percepteur/parts/percepteur_access_gate.dart';
-import 'package:code_initial/services/affectation_service.dart';
+import 'package:fofanavoyage/screens/percepteur/parts/percepteur_access_gate.dart';
+import 'package:fofanavoyage/services/affectation_service.dart';
 
 class _SessionService extends AffectationService {
   final Map<String, dynamic> response;

@@ -8,8 +8,8 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-import 'package:code_initial/models/ticket_print_settings.dart';
-import 'package:code_initial/services/ticket_print_settings_service.dart';
+import 'package:fofanavoyage/models/ticket_print_settings.dart';
+import 'package:fofanavoyage/services/ticket_print_settings_service.dart';
 
 String _formatTravelDate(String value) {
   final date = value.split(RegExp(r'[T ]')).first;

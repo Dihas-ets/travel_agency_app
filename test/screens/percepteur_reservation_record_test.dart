@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:code_initial/screens/percepteur/parts/reservation_flow.dart';
+import 'package:fofanavoyage/screens/percepteur/parts/reservation_flow.dart';
 
 void main() {
   test(

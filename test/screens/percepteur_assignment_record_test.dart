@@ -1,5 +1,5 @@
-import 'package:code_initial/screens/percepteur/parts/assignments_section.dart';
-import 'package:code_initial/services/affectation_service.dart';
+import 'package:fofanavoyage/screens/percepteur/parts/assignments_section.dart';
+import 'package:fofanavoyage/services/affectation_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

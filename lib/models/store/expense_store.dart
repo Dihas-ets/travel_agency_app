@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
-import 'package:code_initial/models/expense_model.dart';
-import 'package:code_initial/services/expense_service.dart';
+import 'package:fofanavoyage/models/expense_model.dart';
+import 'package:fofanavoyage/services/expense_service.dart';
 
 class ExpenseStore {
   static final ExpenseStore _instance = ExpenseStore._internal();

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:code_initial/auth/widgets/connexion_widgets.dart';
+import 'package:fofanavoyage/auth/widgets/connexion_widgets.dart';
 
 /// Information de récupération, sans envoi de code OTP.
 class ForgotPasswordPage extends StatefulWidget {

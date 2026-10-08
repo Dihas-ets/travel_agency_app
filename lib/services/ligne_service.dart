@@ -1,16 +1,16 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:code_initial/config/app_config.dart';
-import 'package:code_initial/models/ligne_model.dart';
-import 'package:code_initial/models/voyage_disponibilite_model.dart';
-import 'package:code_initial/models/voyage_du_jour_model.dart';
+import 'package:fofanavoyage/config/app_config.dart';
+import 'package:fofanavoyage/models/ligne_model.dart';
+import 'package:fofanavoyage/models/voyage_disponibilite_model.dart';
+import 'package:fofanavoyage/models/voyage_du_jour_model.dart';
 
 class LigneService {
-  static const String baseUrl = AppConfig.apiBaseUrl;
+  String get _baseUrl => AppConfig.apiBaseUrl;
 
   Future<List<Ligne>> getLignesActives() async {
     final uri = Uri.parse(
-      '$baseUrl/public/lignes',
+      '$_baseUrl/public/lignes',
     ).replace(queryParameters: {'status': 'actif', 'all': '1'});
     final response = await http
         .get(uri, headers: {'Accept': 'application/json'})
@@ -30,7 +30,7 @@ class LigneService {
 
   Future<List<Ligne>> getLignesPourReservation() async {
     final uri = Uri.parse(
-      '$baseUrl/public/lignes',
+      '$_baseUrl/public/lignes',
     ).replace(queryParameters: {'all': '1'});
     final response = await http
         .get(uri, headers: {'Accept': 'application/json'})
@@ -75,7 +75,7 @@ class LigneService {
 
   /// ⬅️ MODIF : route publique correcte
   Future<List<Ligne>> getPopulaires() async {
-    final uri = Uri.parse('$baseUrl/public/lignes/populaires');
+    final uri = Uri.parse('$_baseUrl/public/lignes/populaires');
 
     final response = await http
         .get(uri, headers: {'Accept': 'application/json'})
@@ -97,7 +97,7 @@ class LigneService {
     final dateStr =
         '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 
-    final uri = Uri.parse('$baseUrl/public/recherche/disponibilites').replace(
+    final uri = Uri.parse('$_baseUrl/public/recherche/disponibilites').replace(
       queryParameters: {'ligne_id': ligneId.toString(), 'date': dateStr},
     );
 
@@ -137,7 +137,7 @@ class LigneService {
   Future<List<VoyageDuJour>> getVoyagesDuJour({int limit = 8}) async {
     final uri =
         Uri.parse(
-              '$baseUrl/voyages/du-jour',
+              '$_baseUrl/voyages/du-jour',
             ) // ⬅️ MODIF : cohérent avec les autres routes publiques
             .replace(queryParameters: {'limit': limit.toString()});
 

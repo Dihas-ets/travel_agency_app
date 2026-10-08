@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:code_initial/screens/percepteur/parts/dynamic_colis_section.dart';
+import 'package:fofanavoyage/screens/percepteur/parts/dynamic_colis_section.dart';
 
 class PercepteurColisContent extends StatelessWidget {
   const PercepteurColisContent({super.key});

@@ -1,4 +1,4 @@
-import 'package:code_initial/config/app_config.dart';
+import 'package:fofanavoyage/config/app_config.dart';
 
 class UserModel {
   final int id;

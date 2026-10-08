@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:code_initial/navigation.dart';
-import 'package:code_initial/data/local/session_store.dart';
-import 'package:code_initial/config/app_config.dart';
-import 'package:code_initial/models/colis_model.dart';
-import 'package:code_initial/models/store/colis_store.dart';
-import 'package:code_initial/screens/client/colis/billet_page.dart';
-import 'package:code_initial/screens/client/colis/pages_colis.dart';
-import 'package:code_initial/services/colis_service.dart';
+import 'package:fofanavoyage/navigation.dart';
+import 'package:fofanavoyage/data/local/session_store.dart';
+import 'package:fofanavoyage/config/app_config.dart';
+import 'package:fofanavoyage/models/colis_model.dart';
+import 'package:fofanavoyage/models/store/colis_store.dart';
+import 'package:fofanavoyage/screens/client/colis/billet_page.dart';
+import 'package:fofanavoyage/screens/client/colis/pages_colis.dart';
+import 'package:fofanavoyage/services/colis_service.dart';
 
 enum _ParcelTab {
   drafts,

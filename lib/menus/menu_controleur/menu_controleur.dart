@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:code_initial/models/user_model.dart';
-import 'package:code_initial/data/local/session_store.dart';
-import 'package:code_initial/menus/menu_percepteur/menu_percepteur.dart';
-import 'package:code_initial/menus/menu_percepteur/menu_profil_percepteur.dart';
-import 'package:code_initial/screens/percepteur/parts/assignments_section.dart';
-import 'package:code_initial/screens/percepteur/parts/history_news_section.dart';
-import 'package:code_initial/screens/percepteur/parts/ticket_validation_section.dart';
-import 'package:code_initial/screens/controleur/controleur_history_section.dart';
-import 'package:code_initial/widgets/profile_avatar.dart';
+import 'package:fofanavoyage/models/user_model.dart';
+import 'package:fofanavoyage/data/local/session_store.dart';
+import 'package:fofanavoyage/menus/menu_percepteur/menu_percepteur.dart';
+import 'package:fofanavoyage/menus/menu_percepteur/menu_profil_percepteur.dart';
+import 'package:fofanavoyage/screens/percepteur/parts/assignments_section.dart';
+import 'package:fofanavoyage/screens/percepteur/parts/history_news_section.dart';
+import 'package:fofanavoyage/screens/percepteur/parts/ticket_validation_section.dart';
+import 'package:fofanavoyage/screens/controleur/controleur_history_section.dart';
+import 'package:fofanavoyage/widgets/profile_avatar.dart';
 
 class ControleurVoyageContent extends StatelessWidget {
   const ControleurVoyageContent({super.key});

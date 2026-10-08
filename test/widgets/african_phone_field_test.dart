@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:code_initial/screens/global/widgets/common/african_phone_field.dart';
+import 'package:fofanavoyage/screens/global/widgets/common/african_phone_field.dart';
 
 void main() {
   testWidgets('separates a saved country code from the editable number', (

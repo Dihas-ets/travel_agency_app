@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:code_initial/auth/stockage_auth_local.dart';
-import 'package:code_initial/data/local/session_store.dart';
-import 'package:code_initial/models/user_model.dart';
-import 'package:code_initial/navigation.dart';
+import 'package:fofanavoyage/auth/stockage_auth_local.dart';
+import 'package:fofanavoyage/data/local/session_store.dart';
+import 'package:fofanavoyage/models/user_model.dart';
+import 'package:fofanavoyage/navigation.dart';
 // Import de tous les widgets de ce dossier
-import 'package:code_initial/auth/widgets/inscription_widgets.dart';
+import 'package:fofanavoyage/auth/widgets/inscription_widgets.dart';
 
-import 'package:code_initial/services/auth_service.dart';
+import 'package:fofanavoyage/services/auth_service.dart';
 
 /// Page de création de compte.
 ///

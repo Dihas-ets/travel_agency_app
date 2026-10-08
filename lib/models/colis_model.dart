@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:code_initial/models/store/colis_store.dart';
+import 'package:fofanavoyage/models/store/colis_store.dart';
 
 class ColisDetailItem {
   final String nature;

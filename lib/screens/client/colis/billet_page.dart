@@ -8,12 +8,12 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:http/http.dart' as http;
 import 'package:qr_flutter/qr_flutter.dart';
-import 'package:code_initial/config/app_config.dart';
-import 'package:code_initial/data/local/session_store.dart';
-import 'package:code_initial/models/colis_print_settings.dart';
-import 'package:code_initial/screens/client/colis/colis_attente_page.dart';
-import 'package:code_initial/models/store/colis_store.dart';
-import 'package:code_initial/services/colis_print_settings_service.dart';
+import 'package:fofanavoyage/config/app_config.dart';
+import 'package:fofanavoyage/data/local/session_store.dart';
+import 'package:fofanavoyage/models/colis_print_settings.dart';
+import 'package:fofanavoyage/screens/client/colis/colis_attente_page.dart';
+import 'package:fofanavoyage/models/store/colis_store.dart';
+import 'package:fofanavoyage/services/colis_print_settings_service.dart';
 
 class BilletPage extends StatelessWidget {
   final String code;

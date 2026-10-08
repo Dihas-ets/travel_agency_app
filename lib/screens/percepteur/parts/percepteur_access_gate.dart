@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:code_initial/models/access_session_model.dart';
-import 'package:code_initial/screens/percepteur/parts/assignments_section.dart';
-import 'package:code_initial/services/affectation_service.dart';
+import 'package:fofanavoyage/models/access_session_model.dart';
+import 'package:fofanavoyage/screens/percepteur/parts/assignments_section.dart';
+import 'package:fofanavoyage/services/affectation_service.dart';
 
 class PercepteurAccessGate extends StatefulWidget {
   final Widget child;

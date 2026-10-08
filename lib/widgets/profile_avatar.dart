@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:code_initial/models/user_model.dart';
+import 'package:fofanavoyage/models/user_model.dart';
 
 class ProfileAvatar extends StatelessWidget {
   final UserModel? user;

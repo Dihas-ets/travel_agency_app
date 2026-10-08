@@ -1,4 +1,4 @@
-// export 'package:code_initial/core/theme/app_colors.dart';
+// export 'package:fofanavoyage/core/theme/app_colors.dart';
 
 import 'package:flutter/material.dart';
 

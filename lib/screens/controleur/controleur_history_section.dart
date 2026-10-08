@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:code_initial/models/controleur_models.dart';
-import 'package:code_initial/screens/percepteur/parts/reservation_flow.dart';
-import 'package:code_initial/screens/percepteur/parts/ticket_validation_section.dart';
-import 'package:code_initial/services/staff_ticket_service.dart';
+import 'package:fofanavoyage/models/controleur_models.dart';
+import 'package:fofanavoyage/screens/percepteur/parts/reservation_flow.dart';
+import 'package:fofanavoyage/screens/percepteur/parts/ticket_validation_section.dart';
+import 'package:fofanavoyage/services/staff_ticket_service.dart';
 
 // Historique controleur: liste les tickets deja scannes pendant les validations.
 

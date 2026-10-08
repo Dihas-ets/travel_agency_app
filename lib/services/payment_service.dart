@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:code_initial/config/app_config.dart';
-import 'package:code_initial/models/payment_provider_model.dart';
-import 'package:code_initial/auth/stockage_auth_local.dart';
+import 'package:fofanavoyage/config/app_config.dart';
+import 'package:fofanavoyage/models/payment_provider_model.dart';
+import 'package:fofanavoyage/auth/stockage_auth_local.dart';
 
 class PaymentService {
-  static const String baseUrl = AppConfig.apiBaseUrl;
+  String get _baseUrl => AppConfig.apiBaseUrl;
 
   Future<Map<String, String>> _headers() async {
     final token = await AuthLocalStore.getToken();
@@ -19,7 +19,7 @@ class PaymentService {
 
   /// Récupère les agrégateurs activés pour l'agence (FedaPay, Feexpay, KkiaPay...).
   Future<List<PaymentProvider>> getProvidersActifs() async {
-    final uri = Uri.parse('$baseUrl/paiements/providers-actifs');
+    final uri = Uri.parse('$_baseUrl/paiements/providers-actifs');
     final response = await http
         .get(uri, headers: await _headers())
         .timeout(const Duration(seconds: 8));
@@ -43,7 +43,7 @@ class PaymentService {
     String payableType = 'ticket',
     String? clientEmail,
   }) async {
-    final uri = Uri.parse('$baseUrl/paiements/initier');
+    final uri = Uri.parse('$_baseUrl/paiements/initier');
 
     final body = {
       'payable_type': payableType,
@@ -72,7 +72,7 @@ class PaymentService {
     String payableType = 'ticket',
     String? externalId,
   }) async {
-    final uri = Uri.parse('$baseUrl/paiements/verifier');
+    final uri = Uri.parse('$_baseUrl/paiements/verifier');
 
     final body = {
       'reference': reference,

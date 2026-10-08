@@ -1,18 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
-import 'package:code_initial/navigation.dart';
-import 'package:code_initial/config/couleurs/app_colors.dart';
+import 'package:fofanavoyage/navigation.dart';
+import 'package:fofanavoyage/config/couleurs/app_colors.dart';
 
-/// Point d'entrée de l'application.
-///
-/// On initialise Flutter avant de récupérer la route de départ, car certaines
-/// dépendances futures peuvent avoir besoin des bindings Flutter.
-void main() async {
+
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  var initialRoute = await Routes.initialRoute;
+  await dotenv.load(fileName: '.env');
+  final initialRoute = await Routes.initialRoute;
   runApp(Main(initialRoute));
 }
 

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:code_initial/data/local/session_store.dart';
-import 'package:code_initial/screens/percepteur/parts/percepteur_access_gate.dart';
-import 'package:code_initial/screens/percepteur/parts/tab_content.dart';
-import 'package:code_initial/screens/percepteur/parts/notifications_section.dart';
-import 'package:code_initial/menus/menu_percepteur/menu_profil_percepteur.dart';
-import 'package:code_initial/screens/percepteur/parts/history_news_section.dart';
-import 'package:code_initial/services/cash_service.dart';
+import 'package:fofanavoyage/data/local/session_store.dart';
+import 'package:fofanavoyage/screens/percepteur/parts/percepteur_access_gate.dart';
+import 'package:fofanavoyage/screens/percepteur/parts/tab_content.dart';
+import 'package:fofanavoyage/screens/percepteur/parts/notifications_section.dart';
+import 'package:fofanavoyage/menus/menu_percepteur/menu_profil_percepteur.dart';
+import 'package:fofanavoyage/screens/percepteur/parts/history_news_section.dart';
+import 'package:fofanavoyage/services/cash_service.dart';
 
 // Page racine de l espace percepteur: garde le shell Scaffold et delegue les sections aux fichiers part.
 

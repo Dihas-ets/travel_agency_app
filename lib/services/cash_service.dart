@@ -1,8 +1,8 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
-import 'package:code_initial/auth/stockage_auth_local.dart';
-import 'package:code_initial/config/app_config.dart';
+import 'package:fofanavoyage/auth/stockage_auth_local.dart';
+import 'package:fofanavoyage/config/app_config.dart';
 
 class CashSummary {
   final double balance;
@@ -39,7 +39,7 @@ class CashSummary {
 }
 
 class CashService {
-  static const _base = AppConfig.apiBaseUrl;
+  String get _baseUrl => AppConfig.apiBaseUrl;
 
   Future<Map<String, String>> _headers() async {
     final token = await AuthLocalStore.getToken();
@@ -52,7 +52,7 @@ class CashService {
   Future<Map<String, dynamic>?> getOpenRegister() async {
     final response = await http
         .get(
-          Uri.parse('$_base/caisses').replace(
+          Uri.parse('$_baseUrl/caisses').replace(
             queryParameters: const {'status': 'ouverte', 'per_page': '50'},
           ),
           headers: await _headers(),
@@ -86,7 +86,7 @@ class CashService {
     headers['Content-Type'] = 'application/json';
     final response = await http
         .post(
-          Uri.parse('$_base/caisses/ouvrir'),
+          Uri.parse('$_baseUrl/caisses/ouvrir'),
           headers: headers,
           body: jsonEncode({
             'agency_id': agencyId,
@@ -128,7 +128,7 @@ class CashService {
     };
     final registersResponse = await http
         .get(
-          Uri.parse('$_base/caisses').replace(queryParameters: query),
+          Uri.parse('$_baseUrl/caisses').replace(queryParameters: query),
           headers: await _headers(),
         )
         .timeout(const Duration(seconds: 15));
@@ -153,7 +153,7 @@ class CashService {
     if (id == null) return CashSummary.fromJson(register);
 
     final balanceResponse = await http
-        .get(Uri.parse('$_base/caisses/$id/solde'), headers: await _headers())
+        .get(Uri.parse('$_baseUrl/caisses/$id/solde'), headers: await _headers())
         .timeout(const Duration(seconds: 15));
     if (balanceResponse.statusCode != 200) {
       throw Exception(

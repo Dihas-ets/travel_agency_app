@@ -1,12 +1,12 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:code_initial/models/agence_model.dart';
-import 'package:code_initial/config/app_config.dart';
+import 'package:fofanavoyage/models/agence_model.dart';
+import 'package:fofanavoyage/config/app_config.dart';
 
-import 'package:code_initial/auth/stockage_auth_local.dart';
+import 'package:fofanavoyage/auth/stockage_auth_local.dart';
 
 class AgenceService {
-  static const String baseUrl = AppConfig.apiBaseUrl;
+  String get _baseUrl => AppConfig.apiBaseUrl;
 
   Future<List<Agence>> getAgencesProches({
   required double latitude,
@@ -14,7 +14,7 @@ class AgenceService {
   double? rayon,
 }) async {
   
-  final uri = Uri.parse('$baseUrl/auth/client/agences/proches').replace(  
+  final uri = Uri.parse('$_baseUrl/auth/client/agences/proches').replace(  
     queryParameters: {
       'latitude': latitude.toString(),
       'longitude': longitude.toString(),
@@ -49,7 +49,7 @@ class AgenceService {
 
   // ⬇️ AJOUT : récupère toutes les agences actives (pour affichage sur la carte)
   Future<List<Agence>> getAllAgences() async {
-    final uri = Uri.parse('$baseUrl/agences?status=actif');
+    final uri = Uri.parse('$_baseUrl/agences?status=actif');
 
     // ⬇️ AJOUT : récupération du token sauvegardé lors du login
     final token = await AuthLocalStore.getToken();

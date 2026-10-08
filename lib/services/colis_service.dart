@@ -2,12 +2,12 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
-import 'package:code_initial/config/app_config.dart';
-import 'package:code_initial/auth/stockage_auth_local.dart';
-import 'package:code_initial/models/colis_model.dart';
+import 'package:fofanavoyage/config/app_config.dart';
+import 'package:fofanavoyage/auth/stockage_auth_local.dart';
+import 'package:fofanavoyage/models/colis_model.dart';
 
 class ColisService {
-  static const String baseUrl = AppConfig.apiBaseUrl;
+  String get _baseUrl => AppConfig.apiBaseUrl;
 
   /// Créer / Enregistrer un colis sur le backend Laravel (`POST /api/colis`)
   Future<Map<String, dynamic>> createColis({
@@ -29,7 +29,7 @@ class ColisService {
     String? destinataireTelSecondaire,
     List<XFile?>? images,
   }) async {
-    final uri = Uri.parse('$baseUrl/colis');
+    final uri = Uri.parse('$_baseUrl/colis');
     final token = await AuthLocalStore.getToken();
 
     final request = http.MultipartRequest('POST', uri);
@@ -138,7 +138,7 @@ class ColisService {
       if (statut != null && statut.isNotEmpty) 'statut': statut,
     };
     final uri = Uri.parse(
-      '$baseUrl/auth/client/colis/historique',
+      '$_baseUrl/auth/client/colis/historique',
     ).replace(queryParameters: queryParams);
 
     final response = await http
@@ -169,7 +169,7 @@ class ColisService {
   /// Suivi public d'un colis par sa référence (`GET /api/colis/show/{reference}`)
   Future<ColisModel?> showColis(String reference) async {
     final token = await AuthLocalStore.getToken();
-    final uri = Uri.parse('$baseUrl/colis/show/$reference');
+    final uri = Uri.parse('$_baseUrl/colis/show/$reference');
 
     final response = await http
         .get(
@@ -195,7 +195,7 @@ class ColisService {
   /// Récupérer la liste des configurations de tarifs de colis (`GET /api/configuration-colis?statut=actif`)
   Future<List<Map<String, dynamic>>> getConfigurations() async {
     final token = await AuthLocalStore.getToken();
-    final uri = Uri.parse('$baseUrl/configuration-colis?statut=actif');
+    final uri = Uri.parse('$_baseUrl/configuration-colis?statut=actif');
 
     final response = await http
         .get(
@@ -230,7 +230,7 @@ class ColisService {
     var lastPage = 1;
 
     do {
-      final uri = Uri.parse('$baseUrl/colis').replace(
+      final uri = Uri.parse('$_baseUrl/colis').replace(
         queryParameters: {
           'page': page.toString(),
           'per_page': '100',
@@ -303,7 +303,7 @@ class ColisService {
     final token = await AuthLocalStore.getToken();
     final request = http.MultipartRequest(
       'POST',
-      Uri.parse('$baseUrl/colis/$reference'),
+      Uri.parse('$_baseUrl/colis/$reference'),
     );
     request.headers['Accept'] = 'application/json';
     if (token != null && token.isNotEmpty) {
@@ -401,7 +401,7 @@ class ColisService {
     final token = await AuthLocalStore.getToken();
     final response = await http
         .put(
-          Uri.parse('$baseUrl/colis/$id/$action'),
+          Uri.parse('$_baseUrl/colis/$id/$action'),
           headers: {
             'Accept': 'application/json',
             'Content-Type': 'application/json',

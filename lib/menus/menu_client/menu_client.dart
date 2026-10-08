@@ -590,7 +590,9 @@ class _MainMenuSheetState extends State<_MainMenuSheet> {
       await AuthService().deconnexion();
     } catch (_) {}
     if (mounted) {
-      Navigator.of(context).pushNamedAndRemoveUntil('/welcomepage', (_) => false);
+      Navigator.of(
+        context,
+      ).pushNamedAndRemoveUntil('/welcomepage', (_) => false);
     }
   }
 
@@ -686,10 +688,15 @@ class _MainMenuView extends StatelessWidget {
               return CircleAvatar(
                 radius: 48,
                 backgroundColor: const Color(0xFF58648D),
-                backgroundImage:
-                    photoUrl != null && photoUrl.isNotEmpty ? NetworkImage(photoUrl) : null,
+                backgroundImage: photoUrl != null && photoUrl.isNotEmpty
+                    ? NetworkImage(photoUrl)
+                    : null,
                 child: photoUrl == null || photoUrl.isEmpty
-                    ? const Icon(Icons.person_rounded, color: Colors.white, size: 62)
+                    ? const Icon(
+                        Icons.person_rounded,
+                        color: Colors.white,
+                        size: 62,
+                      )
                     : null,
               );
             },
@@ -859,7 +866,61 @@ class _AccountMenuView extends StatefulWidget {
 
 class _AccountMenuViewState extends State<_AccountMenuView> {
   final ImagePicker _picker = ImagePicker();
+  final AccountDeletionService _deletionService = AccountDeletionService();
   XFile? _pickedAvatar;
+  int _selectedAccountTab = 0;
+  bool _deletingAccount = false;
+  String? _deletionError;
+
+  Future<void> _deleteAccount() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Supprimer définitivement votre compte ?'),
+        content: const Text(
+          'Cette action est immédiate et irréversible. Votre compte sera '
+          'désactivé et vos informations personnelles seront anonymisées. '
+          'Vos tickets, paiements et autres informations liées aux opérations '
+          'seront conservés.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFB42318),
+            ),
+            child: const Text('Supprimer mon compte'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() {
+      _deletingAccount = true;
+      _deletionError = null;
+    });
+    try {
+      await _deletionService.deleteMyAccount();
+      final phone = SessionStore.currentUser?.numero ?? '';
+      await AuthLocalStore.removeToken();
+      await AuthLocalStore.removeCurrentUser();
+      await AuthLocalStore.removeClientIdentity(phone);
+      SessionStore.clear();
+      if (!mounted) return;
+      Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _deletingAccount = false;
+        _deletionError = error.toString().replaceFirst('Exception: ', '');
+      });
+    }
+  }
 
   Future<void> _pickAvatar() async {
     final file = await _picker.pickImage(
@@ -929,66 +990,186 @@ class _AccountMenuViewState extends State<_AccountMenuView> {
                   ],
                 ),
                 const SizedBox(height: 18),
-                Center(
-                  child: GestureDetector(
-                    onTap: _pickAvatar,
-                    child: Stack(
-                      alignment: Alignment.bottomRight,
-                      children: [
-                        CircleAvatar(
-                          radius: 52,
-                          backgroundColor: const Color(0xFF58648D),
-                          backgroundImage: avatarImage,
-                          child: avatarImage == null
-                              ? const Icon(
-                                  Icons.person_rounded,
-                                  color: Colors.white,
-                                  size: 70,
-                                )
-                              : null,
-                        ),
-                        Container(
-                          width: 36,
-                          height: 36,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFE53935),
-                            shape: BoxShape.circle,
-                            border: Border.fromBorderSide(
-                              BorderSide(color: Colors.white, width: 3),
-                            ),
-                          ),
-                          child: const Icon(
-                            Icons.edit_rounded,
-                            color: Colors.white,
-                            size: 18,
-                          ),
-                        ),
-                      ],
-                    ),
+                Container(
+                  padding: const EdgeInsets.all(5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEAF1ED),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    children: [
+                      _accountSectionButton('Mon profil', 0),
+                      _accountSectionButton('Supprimer mon compte', 1),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 14),
-                ValueListenableBuilder<UserModel?>(
-                  valueListenable: SessionStore.currentUserNotifier,
-                  builder: (context, user, _) {
-                    return Text(
-                      user?.fullName ?? 'Profil client',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Color(0xFF0B4F2A),
-                        fontSize: 24,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    );
-                  },
-                ),
                 const SizedBox(height: 18),
-                _AccountPanel(onAvatarPicked: _pickedAvatar),
+                if (_selectedAccountTab == 0) ...[
+                  Center(
+                    child: GestureDetector(
+                      onTap: _pickAvatar,
+                      child: Stack(
+                        alignment: Alignment.bottomRight,
+                        children: [
+                          CircleAvatar(
+                            radius: 52,
+                            backgroundColor: const Color(0xFF58648D),
+                            backgroundImage: avatarImage,
+                            child: avatarImage == null
+                                ? const Icon(
+                                    Icons.person_rounded,
+                                    color: Colors.white,
+                                    size: 70,
+                                  )
+                                : null,
+                          ),
+                          Container(
+                            width: 36,
+                            height: 36,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFE53935),
+                              shape: BoxShape.circle,
+                              border: Border.fromBorderSide(
+                                BorderSide(color: Colors.white, width: 3),
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.edit_rounded,
+                              color: Colors.white,
+                              size: 18,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  ValueListenableBuilder<UserModel?>(
+                    valueListenable: SessionStore.currentUserNotifier,
+                    builder: (context, user, _) {
+                      return Text(
+                        user?.fullName ?? 'Profil client',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Color(0xFF0B4F2A),
+                          fontSize: 24,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 18),
+                  _AccountPanel(onAvatarPicked: _pickedAvatar),
+                ] else
+                  _deleteAccountPanel(),
               ],
             ),
           ),
         );
       },
+    );
+  }
+
+  Widget _accountSectionButton(String label, int index) {
+    final selected = _selectedAccountTab == index;
+    return Expanded(
+      child: Material(
+        color: selected ? Colors.white : Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => setState(() => _selectedAccountTab = index),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 12),
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: selected
+                    ? const Color(0xFF0B4F2A)
+                    : const Color(0xFF64748B),
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _deleteAccountPanel() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFE8EEF0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Icon(
+            Icons.person_remove_alt_1_rounded,
+            color: Color(0xFFB42318),
+            size: 42,
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'Supprimer mon compte',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Color(0xFF0B4F2A),
+              fontSize: 19,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'La suppression est immédiate, sans validation par un '
+            'administrateur. Votre compte sera désactivé et vos données '
+            'personnelles anonymisées. Les tickets, paiements et autres '
+            'informations liées aux opérations déjà réalisées seront conservés.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Color(0xFF5F6B86),
+              fontSize: 13,
+              height: 1.5,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          if (_deletionError != null) ...[
+            const SizedBox(height: 16),
+            Text(
+              _deletionError!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Color(0xFFB42318),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+          const SizedBox(height: 18),
+          if (_deletingAccount)
+            const Center(
+              child: CircularProgressIndicator(color: Color(0xFFB42318)),
+            )
+          else
+            FilledButton.icon(
+              onPressed: _deleteAccount,
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFB42318),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(15),
+                ),
+              ),
+              icon: const Icon(Icons.delete_forever_rounded),
+              label: const Text('Supprimer mon compte'),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -1147,9 +1328,15 @@ class _AccountPanelState extends State<_AccountPanel> {
       final result = await AuthService().updateProfile(
         nom: nom.isNotEmpty ? nom : prenom,
         prenom: parts.length > 1 ? prenom : null,
-        email: _emailController.text.trim().isNotEmpty ? _emailController.text.trim() : null,
-        country: _countryController.text.trim().isNotEmpty ? _countryController.text.trim() : null,
-        photo: widget.onAvatarPicked != null ? File(widget.onAvatarPicked!.path) : null,
+        email: _emailController.text.trim().isNotEmpty
+            ? _emailController.text.trim()
+            : null,
+        country: _countryController.text.trim().isNotEmpty
+            ? _countryController.text.trim()
+            : null,
+        photo: widget.onAvatarPicked != null
+            ? File(widget.onAvatarPicked!.path)
+            : null,
       );
 
       if (!mounted) return;
@@ -1162,10 +1349,14 @@ class _AccountPanelState extends State<_AccountPanel> {
       }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(result['success'] == true
-              ? (result['message'] ?? 'Profil mis à jour avec succès.')
-              : (result['message'] ?? 'Erreur lors de la mise à jour.')),
-          backgroundColor: result['success'] == true ? const Color(0xFF0B4F2A) : const Color(0xFFE53935),
+          content: Text(
+            result['success'] == true
+                ? (result['message'] ?? 'Profil mis à jour avec succès.')
+                : (result['message'] ?? 'Erreur lors de la mise à jour.'),
+          ),
+          backgroundColor: result['success'] == true
+              ? const Color(0xFF0B4F2A)
+              : const Color(0xFFE53935),
         ),
       );
     } else {
@@ -1226,7 +1417,11 @@ class _AccountPanelState extends State<_AccountPanel> {
                       _isEditing ? Icons.check_rounded : Icons.edit_rounded,
                       size: 21,
                     ),
-              label: Text(_isSaving ? 'Sauvegarde...' : (_isEditing ? 'Enregistrer' : 'Modifier')),
+              label: Text(
+                _isSaving
+                    ? 'Sauvegarde...'
+                    : (_isEditing ? 'Enregistrer' : 'Modifier'),
+              ),
               style: TextButton.styleFrom(
                 foregroundColor: const Color(0xFF16A34A),
                 textStyle: const TextStyle(
@@ -1327,8 +1522,18 @@ class _AccountStatsGridState extends State<_AccountStatsGrid> {
   String _formatCreatedAt(DateTime? date) {
     if (date == null) return '--';
     const months = [
-      'janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin',
-      'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.',
+      'janv.',
+      'févr.',
+      'mars',
+      'avr.',
+      'mai',
+      'juin',
+      'juil.',
+      'août',
+      'sept.',
+      'oct.',
+      'nov.',
+      'déc.',
     ];
     return '${date.day} ${months[date.month - 1]} ${date.year}';
   }

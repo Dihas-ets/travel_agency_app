@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:code_initial/services/staff_ticket_service.dart';
+import 'package:fofanavoyage/services/staff_ticket_service.dart';
 
 // Donnees memoire propres a l espace controleur.
 // Elles restent separees du percepteur pour pouvoir brancher plus tard une API

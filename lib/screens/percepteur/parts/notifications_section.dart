@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:code_initial/models/models_and_stores.dart';
-import 'package:code_initial/screens/percepteur/parts/reservation_flow.dart';
+import 'package:fofanavoyage/models/models_and_stores.dart';
+import 'package:fofanavoyage/screens/percepteur/parts/reservation_flow.dart';
 
 // Boutons, feuille et pages de detail des notifications percepteur.
 

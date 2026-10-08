@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-import 'package:code_initial/models/access_session_model.dart';
-import 'package:code_initial/models/controleur_models.dart';
-import 'package:code_initial/services/affectation_service.dart';
-import 'package:code_initial/services/staff_ticket_service.dart';
+import 'package:fofanavoyage/models/access_session_model.dart';
+import 'package:fofanavoyage/models/controleur_models.dart';
+import 'package:fofanavoyage/services/affectation_service.dart';
+import 'package:fofanavoyage/services/staff_ticket_service.dart';
 
 // Consultation de billet et cartes d information associees.
 // Donne acces aux vraies donnees ticket via GET /api/tickets/{reference}

@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:code_initial/auth/stockage_auth_local.dart';
-import 'package:code_initial/models/tax_group_model.dart';
-import 'package:code_initial/models/user_model.dart';
-import 'package:code_initial/models/store/expense_store.dart';
-import 'package:code_initial/services/auth_service.dart';
-import 'package:code_initial/services/expense_service.dart';
-import 'package:code_initial/services/tax_service.dart';
+import 'package:fofanavoyage/auth/stockage_auth_local.dart';
+import 'package:fofanavoyage/models/tax_group_model.dart';
+import 'package:fofanavoyage/models/user_model.dart';
+import 'package:fofanavoyage/models/store/expense_store.dart';
+import 'package:fofanavoyage/services/auth_service.dart';
+import 'package:fofanavoyage/services/expense_service.dart';
+import 'package:fofanavoyage/services/tax_service.dart';
 
 class ManualExpensePage extends StatefulWidget {
   final String? initialMecefCode;

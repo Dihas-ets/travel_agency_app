@@ -1,8 +1,8 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
-import 'package:code_initial/config/app_config.dart';
-import 'package:code_initial/models/ticket_print_settings.dart';
+import 'package:fofanavoyage/config/app_config.dart';
+import 'package:fofanavoyage/models/ticket_print_settings.dart';
 
 class TicketPrintSettingsService {
   Future<TicketPrintSettings> getSettings() async {

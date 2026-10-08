@@ -1,4 +1,4 @@
-import 'package:code_initial/models/ligne_model.dart';
+import 'package:fofanavoyage/models/ligne_model.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

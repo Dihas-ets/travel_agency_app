@@ -3,15 +3,15 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
-import 'package:code_initial/screens/percepteur/parts/assignments_section.dart';
-import 'package:code_initial/screens/percepteur/parts/history_news_section.dart';
-import 'package:code_initial/screens/percepteur/parts/notifications_section.dart';
-import 'package:code_initial/data/local/session_store.dart';
-import 'package:code_initial/navigation.dart';
-import 'package:code_initial/services/affectation_service.dart';
-import 'package:code_initial/services/auth_service.dart';
-import 'package:code_initial/services/driver_position_service.dart';
-import 'package:code_initial/widgets/profile_avatar.dart';
+import 'package:fofanavoyage/screens/percepteur/parts/assignments_section.dart';
+import 'package:fofanavoyage/screens/percepteur/parts/history_news_section.dart';
+import 'package:fofanavoyage/screens/percepteur/parts/notifications_section.dart';
+import 'package:fofanavoyage/data/local/session_store.dart';
+import 'package:fofanavoyage/navigation.dart';
+import 'package:fofanavoyage/services/affectation_service.dart';
+import 'package:fofanavoyage/services/auth_service.dart';
+import 'package:fofanavoyage/services/driver_position_service.dart';
+import 'package:fofanavoyage/widgets/profile_avatar.dart';
 
 class ChauffeurTab {
   final String title;

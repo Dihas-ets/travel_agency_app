@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:code_initial/screens/percepteur/parts/assignments_section.dart';
-import 'package:code_initial/screens/percepteur/parts/history_news_section.dart';
-import 'package:code_initial/screens/percepteur/parts/reservation_flow.dart';
-import 'package:code_initial/screens/percepteur/parts/ticket_validation_section.dart';
+import 'package:fofanavoyage/screens/percepteur/parts/assignments_section.dart';
+import 'package:fofanavoyage/screens/percepteur/parts/history_news_section.dart';
+import 'package:fofanavoyage/screens/percepteur/parts/reservation_flow.dart';
+import 'package:fofanavoyage/screens/percepteur/parts/ticket_validation_section.dart';
 
 // Menu Voyage percepteur et boutons d action d acces rapide.
 
