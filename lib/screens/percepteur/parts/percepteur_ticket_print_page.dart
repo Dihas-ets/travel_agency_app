@@ -75,7 +75,10 @@ class _PercepteurTicketPrintPageState extends State<PercepteurTicketPrintPage> {
     }
     try {
       final bytes = await _buildPdf(settings);
-      await Printing.sharePdf(bytes: bytes, filename: 'ticket_$_reference.pdf');
+      await Printing.layoutPdf(
+        name: 'ticket_$_reference.pdf',
+        onLayout: (_) async => bytes,
+      );
     } catch (error) {
       _showError(
         'Impossible de générer le PDF : '
@@ -133,7 +136,7 @@ class _PercepteurTicketPrintPageState extends State<PercepteurTicketPrintPage> {
         build: (_) => pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.stretch,
           children: [
-            _tornEdge(format.width),
+            _tornEdge(format.width, isTop: true),
             pw.Padding(
               padding: const pw.EdgeInsets.fromLTRB(12, 12, 12, 6),
               child: pw.Column(
@@ -299,39 +302,6 @@ class _PercepteurTicketPrintPageState extends State<PercepteurTicketPrintPage> {
                           ],
                         ),
                       )
-                    else
-                      pw.Container(
-                        padding: const pw.EdgeInsets.all(6),
-                        decoration: pw.BoxDecoration(
-                          border: pw.Border.all(
-                            color: PdfColors.grey300,
-                            style: pw.BorderStyle.dashed,
-                          ),
-                        ),
-                        child: pw.Center(
-                          child: pw.Column(
-                            mainAxisSize: pw.MainAxisSize.min,
-                            children: [
-                              pw.Text(
-                                'REÇU SIMPLE',
-                                style: pw.TextStyle(
-                                  color: PdfColor.fromHex('#94A3B8'),
-                                  fontSize: 7.5,
-                                  fontWeight: pw.FontWeight.bold,
-                                  fontStyle: pw.FontStyle.italic,
-                                ),
-                              ),
-                              pw.Text(
-                                '(Document non normalisé DGI)',
-                                style: pw.TextStyle(
-                                  color: PdfColor.fromHex('#94A3B8'),
-                                  fontSize: 5.25,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
                   ],
                   if (settings.showBarcode) ...[
                     pw.SizedBox(height: 6),
@@ -391,7 +361,7 @@ class _PercepteurTicketPrintPageState extends State<PercepteurTicketPrintPage> {
                 ],
               ),
             ),
-            _tornEdge(format.width),
+            _tornEdge(format.width, isTop: false),
           ],
         ),
       ),
@@ -431,7 +401,7 @@ class _PercepteurTicketPrintPageState extends State<PercepteurTicketPrintPage> {
       ? value.toStringAsFixed(0)
       : value.toStringAsFixed(2);
 
-  pw.Widget _tornEdge(double width) => pw.SizedBox(
+  pw.Widget _tornEdge(double width, {required bool isTop}) => pw.SizedBox(
     height: 7.5,
     width: width,
     child: pw.CustomPaint(
@@ -440,16 +410,16 @@ class _PercepteurTicketPrintPageState extends State<PercepteurTicketPrintPage> {
         const teeth = 16;
         final toothWidth = size.x / teeth;
         canvas
-          ..setFillColor(PdfColors.white)
-          ..moveTo(0, 0);
+          ..setFillColor(PdfColors.grey400)
+          ..moveTo(0, isTop ? 0 : size.y);
         for (var index = 0; index < teeth; index++) {
           canvas
-            ..lineTo(index * toothWidth + toothWidth / 2, size.y)
-            ..lineTo((index + 1) * toothWidth, 0);
+            ..lineTo(index * toothWidth + toothWidth / 2, isTop ? size.y : 0)
+            ..lineTo((index + 1) * toothWidth, isTop ? 0 : size.y);
         }
         canvas
-          ..lineTo(size.x, size.y)
-          ..lineTo(0, size.y)
+          ..lineTo(size.x, isTop ? size.y : 0)
+          ..lineTo(0, isTop ? size.y : 0)
           ..fillPath();
       },
     ),
@@ -666,28 +636,6 @@ class _PercepteurTicketPrintPageState extends State<PercepteurTicketPrintPage> {
                         style: TextStyle(color: Color(0xFFB42318)),
                       ),
                     ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    height: 54,
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.history_rounded),
-                      label: const Text('Retour à la réservation'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF0B4F2A),
-                        side: BorderSide(
-                          color: const Color(
-                            0xFF0B4F2A,
-                          ).withValues(alpha: 0.24),
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        textStyle: const TextStyle(fontWeight: FontWeight.w900),
-                      ),
-                    ),
-                  ),
                   if (widget.onReturnToHome != null) ...[
                     const SizedBox(height: 12),
                     SizedBox(
@@ -1032,37 +980,6 @@ class _TicketPreview extends StatelessWidget {
                         ],
                       ),
                     )
-                  else
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(7),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Text(
-                            'REÇU SIMPLE',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: Color(0xFF94A3B8),
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              fontStyle: FontStyle.italic,
-                            ),
-                          ),
-                          const Text(
-                            '(Document non normalisé DGI)',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: Color(0xFF94A3B8),
-                              fontSize: 7,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
                 ],
                 if (settings.showBarcode) ...[
                   const SizedBox(height: 8),

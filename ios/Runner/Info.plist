@@ -26,6 +26,8 @@
 		<true/>
 		<key>NSCameraUsageDescription</key>
 		<string>Fofana utilise la caméra pour scanner le QR code des tickets.</string>
+		<key>NSLocationWhenInUseUsageDescription</key>
+		<string>Fofana utilise votre position pour partager le suivi GPS du bus pendant votre mission.</string>
 		<key>UILaunchStoryboardName</key>
 		<string>LaunchScreen</string>
 		<key>UIMainStoryboardFile</key>

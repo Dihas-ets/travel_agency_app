@@ -4,9 +4,9 @@ import 'package:code_initial/data/local/session_store.dart';
 import 'package:code_initial/menus/menu_percepteur/menu_percepteur.dart';
 import 'package:code_initial/menus/menu_percepteur/menu_profil_percepteur.dart';
 import 'package:code_initial/screens/percepteur/parts/assignments_section.dart';
+import 'package:code_initial/screens/percepteur/parts/history_news_section.dart';
 import 'package:code_initial/screens/percepteur/parts/ticket_validation_section.dart';
 import 'package:code_initial/screens/controleur/controleur_history_section.dart';
-import 'package:code_initial/services/staff_ticket_service.dart';
 import 'package:code_initial/widgets/profile_avatar.dart';
 
 class ControleurVoyageContent extends StatelessWidget {
@@ -17,155 +17,10 @@ class ControleurVoyageContent extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.only(bottom: 18),
       children: const [
-        ControleurLiveOverview(),
+        PercepteurNewsSection(),
         SizedBox(height: 22),
         ControleurVoyageMenu(),
       ],
-    );
-  }
-}
-
-class ControleurLiveOverview extends StatefulWidget {
-  const ControleurLiveOverview({super.key});
-
-  @override
-  State<ControleurLiveOverview> createState() => _ControleurLiveOverviewState();
-}
-
-class _ControleurLiveOverviewState extends State<ControleurLiveOverview> {
-  late Future<_ControleurOverviewData> _future;
-
-  @override
-  void initState() {
-    super.initState();
-    _future = _loadOverview();
-  }
-
-  Future<_ControleurOverviewData> _loadOverview() async {
-    try {
-      final tickets = await StaffTicketService().getTicketsDuJour();
-      final user = SessionStore.currentUser;
-      return _ControleurOverviewData(
-        fullName: user?.fullName ?? 'Chargement...',
-        role: user?.role ?? 'controlleur',
-        ticketCount: tickets.length,
-      );
-    } catch (_) {
-      final user = SessionStore.currentUser;
-      return _ControleurOverviewData(
-        fullName: user?.fullName ?? 'Utilisateur',
-        role: user?.role ?? 'controlleur',
-      );
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<_ControleurOverviewData>(
-      future: _future,
-      builder: (context, snapshot) {
-        final data = snapshot.data ?? const _ControleurOverviewData();
-        return Container(
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: const Color(0xFF16A34A).withValues(alpha: 0.16)),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF0B4F2A).withValues(alpha: 0.08),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Bienvenue, ${data.fullName}',
-                style: const TextStyle(
-                  color: Color(0xFF0B4F2A),
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Rôle : ${data.role.toUpperCase()}',
-                style: const TextStyle(
-                  color: Color(0xFF5F6B86),
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 14),
-              _InfoPill(
-                label: 'Tickets du jour',
-                value: '${data.ticketCount}',
-                color: const Color(0xFF16A34A),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _ControleurOverviewData {
-  final String fullName;
-  final String role;
-  final int ticketCount;
-
-  const _ControleurOverviewData({
-    this.fullName = 'Utilisateur',
-    this.role = 'controlleur',
-    this.ticketCount = 0,
-  });
-}
-
-class _InfoPill extends StatelessWidget {
-  final String label;
-  final String value;
-  final Color color;
-
-  const _InfoPill({
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: Color(0xFF5F6B86),
-              fontSize: 11.5,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: TextStyle(
-              color: color,
-              fontSize: 18,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -283,7 +138,9 @@ class ControleurMainMenuSheet extends StatelessWidget {
                 valueListenable: SessionStore.currentUserNotifier,
                 builder: (context, user, _) {
                   return Text(
-                    user?.fullName.isNotEmpty == true ? user!.fullName : 'Chargement...',
+                    user?.fullName.isNotEmpty == true
+                        ? user!.fullName
+                        : 'Chargement...',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       color: Color(0xFF0B4F2A),

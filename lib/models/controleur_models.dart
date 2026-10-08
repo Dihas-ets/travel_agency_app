@@ -10,8 +10,6 @@ class ControleurScannedTicket {
   final String passenger;
   final String route;
   final String departure;
-  final String seat;
-  final String scannedAt;
   final String status;
 
   const ControleurScannedTicket({
@@ -19,8 +17,6 @@ class ControleurScannedTicket {
     required this.passenger,
     required this.route,
     required this.departure,
-    required this.seat,
-    required this.scannedAt,
     required this.status,
   });
 
@@ -33,8 +29,6 @@ class ControleurScannedTicket {
           .whereType<String>()
           .where((value) => value.trim().isNotEmpty)
           .join(' à '),
-      seat: ticket.numPlace ?? '-',
-      scannedAt: '-',
       status: ticket.statutLabel,
     );
   }
@@ -47,22 +41,12 @@ class ControleurScannedTicketStore {
   static void add(String rawCode) {
     final code = rawCode.trim();
     if (code.isEmpty) return;
-    final now = DateTime.now();
-    final scannedAt =
-        '${now.day.toString().padLeft(2, '0')}/'
-        '${now.month.toString().padLeft(2, '0')}/'
-        '${now.year} à '
-        '${now.hour.toString().padLeft(2, '0')}:'
-        '${now.minute.toString().padLeft(2, '0')}';
-
     tickets.value = [
       ControleurScannedTicket(
         code: code,
         passenger: '-',
         route: '-',
         departure: '-',
-        seat: '-',
-        scannedAt: scannedAt,
         status: 'En attente',
       ),
       ...tickets.value.where((ticket) => ticket.code != code),

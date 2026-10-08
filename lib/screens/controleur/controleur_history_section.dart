@@ -74,6 +74,7 @@ class _ControleurScannedTicketListState
       if (!mounted) return;
       setState(() {
         _tickets = tickets
+            .where((ticket) => ticket.isBoarded)
             .map<ControleurScannedTicket>(ControleurScannedTicket.fromApi)
             .toList(growable: false);
         _isLoading = false;
@@ -230,8 +231,6 @@ class ControleurScannedTicketCard extends StatelessWidget {
           PercepteurTicketInfoRow(title: 'Passager', value: ticket.passenger),
           PercepteurTicketInfoRow(title: 'Trajet', value: ticket.route),
           PercepteurTicketInfoRow(title: 'Depart', value: ticket.departure),
-          PercepteurTicketInfoRow(title: 'Siege', value: ticket.seat),
-          PercepteurTicketInfoRow(title: 'Scanne le', value: ticket.scannedAt),
         ],
       ),
     );

@@ -2561,13 +2561,15 @@ class PercepteurPaymentChoicePageState
           '${reservation.passengerName} - ${reservation.departure} vers ${reservation.destination}.',
     );
 
-    Navigator.of(context).pushReplacement(
+    final navigator = Navigator.of(context);
+    navigator.pushReplacement(
       MaterialPageRoute(
         builder: (_) => PercepteurTicketPrintPage(
           ticket: reservation.toPrintMap(),
-          onReturnToHome: () => Navigator.of(
-            context,
-          ).pushNamedAndRemoveUntil(Routes.PERCEPTEUR_HOME, (route) => false),
+          onReturnToHome: () => navigator.pushNamedAndRemoveUntil(
+            Routes.PERCEPTEUR_HOME,
+            (route) => false,
+          ),
         ),
       ),
     );

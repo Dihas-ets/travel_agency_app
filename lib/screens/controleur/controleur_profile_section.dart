@@ -1,203 +1,131 @@
 import 'package:flutter/material.dart';
-import 'package:code_initial/models/controleur_models.dart';
-import 'package:code_initial/models/user_model.dart';
 import 'package:code_initial/data/local/session_store.dart';
-import 'package:code_initial/menus/menu_percepteur/menu_profil_percepteur.dart';
+import 'package:code_initial/models/user_model.dart';
 import 'package:code_initial/widgets/profile_avatar.dart';
-
-// Profil controleur: edition locale des informations de compte.
 
 class ControleurProfileTabContent extends StatelessWidget {
   const ControleurProfileTabContent({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.only(bottom: 18),
-      children: [
-        Center(
-          child: ValueListenableBuilder<UserModel?>(
-            valueListenable: SessionStore.currentUserNotifier,
-            builder: (context, user, _) {
-              return ProfileAvatar(
+    return ValueListenableBuilder<UserModel?>(
+      valueListenable: SessionStore.currentUserNotifier,
+      builder: (context, user, _) {
+        return ListView(
+          padding: const EdgeInsets.only(bottom: 18),
+          children: [
+            Center(
+              child: ProfileAvatar(
                 user: user,
                 radius: 52,
                 fallbackIcon: Icons.verified_user_rounded,
-              );
-            },
-          ),
-        ),
-        const SizedBox(height: 16),
-        const Text(
-          'Profil controleur',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: Color(0xFF0B4F2A),
-            fontSize: 24,
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-        const SizedBox(height: 18),
-        const ControleurProfilePanel(),
-      ],
-    );
-  }
-}
-
-class ControleurProfilePanel extends StatelessWidget {
-  const ControleurProfilePanel({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return ValueListenableBuilder<ControleurProfileData>(
-      valueListenable: ControleurProfileStore.profile,
-      builder: (context, profile, _) {
-        return ValueListenableBuilder<UserModel?>(
-          valueListenable: SessionStore.currentUserNotifier,
-          builder: (context, user, _) {
-            final currentProfile = profile.fullName.isNotEmpty
-                ? profile
-                : ControleurProfileData(
-                    fullName: user?.fullName ?? '',
-                    phone: user?.numero ?? '',
-                    agency: user?.agence?['nom_agence']?.toString() ?? '',
-                    role: user?.role ?? '',
-                  );
-            return ControleurProfileEditor(profile: currentProfile);
-          },
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Profil contrôleur',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Color(0xFF0B4F2A),
+                fontSize: 24,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 18),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(28),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.06),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  _ProfileInfoRow(
+                    icon: Icons.badge_rounded,
+                    label: 'Nom et prénom',
+                    value: user?.fullName,
+                  ),
+                  _ProfileInfoRow(
+                    icon: Icons.phone_rounded,
+                    label: 'Téléphone',
+                    value: user?.numero,
+                  ),
+                  _ProfileInfoRow(
+                    icon: Icons.location_city_rounded,
+                    label: 'Agence',
+                    value: user?.agence?['nom_agence']?.toString(),
+                  ),
+                  _ProfileInfoRow(
+                    icon: Icons.work_rounded,
+                    label: 'Fonction',
+                    value: user?.role,
+                    isLast: true,
+                  ),
+                ],
+              ),
+            ),
+          ],
         );
       },
     );
   }
 }
 
-class ControleurProfileEditor extends StatefulWidget {
-  final ControleurProfileData profile;
+class _ProfileInfoRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String? value;
+  final bool isLast;
 
-  const ControleurProfileEditor({super.key, required this.profile});
-
-  @override
-  State<ControleurProfileEditor> createState() =>
-      ControleurProfileEditorState();
-}
-
-class ControleurProfileEditorState extends State<ControleurProfileEditor> {
-  late final TextEditingController _nameController;
-  late final TextEditingController _phoneController;
-  late final TextEditingController _agencyController;
-  late final TextEditingController _roleController;
-
-  @override
-  void initState() {
-    super.initState();
-    _nameController = TextEditingController(text: widget.profile.fullName);
-    _phoneController = TextEditingController(text: widget.profile.phone);
-    _agencyController = TextEditingController(text: widget.profile.agency);
-    _roleController = TextEditingController(text: widget.profile.role);
-  }
-
-  @override
-  void didUpdateWidget(covariant ControleurProfileEditor oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.profile != widget.profile) {
-      _nameController.text = widget.profile.fullName;
-      _phoneController.text = widget.profile.phone;
-      _agencyController.text = widget.profile.agency;
-      _roleController.text = widget.profile.role;
-    }
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _phoneController.dispose();
-    _agencyController.dispose();
-    _roleController.dispose();
-    super.dispose();
-  }
-
-  void _saveProfile() {
-    final nextProfile = widget.profile.copyWith(
-      fullName: _nameController.text.trim().isEmpty
-          ? widget.profile.fullName
-          : _nameController.text.trim(),
-      phone: _phoneController.text.trim().isEmpty
-          ? widget.profile.phone
-          : _phoneController.text.trim(),
-      agency: _agencyController.text.trim().isEmpty
-          ? widget.profile.agency
-          : _agencyController.text.trim(),
-      role: _roleController.text.trim().isEmpty
-          ? widget.profile.role
-          : _roleController.text.trim(),
-    );
-
-    ControleurProfileStore.update(nextProfile);
-    FocusScope.of(context).unfocus();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Profil controleur mis a jour.'),
-        backgroundColor: Color(0xFF0B4F2A),
-      ),
-    );
-  }
+  const _ProfileInfoRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.isLast = false,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Column(
+    final displayValue = value?.trim();
+    return Padding(
+      padding: EdgeInsets.only(bottom: isLast ? 0 : 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          PercepteurProfileEditField(
-            icon: Icons.badge_rounded,
-            label: 'Nom et prenom',
-            controller: _nameController,
-          ),
-          PercepteurProfileEditField(
-            icon: Icons.phone_rounded,
-            label: 'Telephone',
-            controller: _phoneController,
-            keyboardType: TextInputType.phone,
-          ),
-          PercepteurProfileEditField(
-            icon: Icons.location_city_rounded,
-            label: 'Agence',
-            controller: _agencyController,
-          ),
-          PercepteurProfileEditField(
-            icon: Icons.work_rounded,
-            label: 'Fonction',
-            controller: _roleController,
-          ),
-          const SizedBox(height: 4),
-          SizedBox(
-            width: double.infinity,
-            height: 52,
-            child: ElevatedButton.icon(
-              onPressed: _saveProfile,
-              icon: const Icon(Icons.save_rounded),
-              label: const Text('Enregistrer le profil'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF16A34A),
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+          Icon(icon, color: const Color(0xFF16A34A)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: Color(0xFF5F6B86),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
-                textStyle: const TextStyle(fontWeight: FontWeight.w900),
-              ),
+                const SizedBox(height: 4),
+                Text(
+                  displayValue == null || displayValue.isEmpty
+                      ? 'Non renseigné'
+                      : displayValue,
+                  style: const TextStyle(
+                    color: Color(0xFF0B4F2A),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
             ),
           ),
         ],

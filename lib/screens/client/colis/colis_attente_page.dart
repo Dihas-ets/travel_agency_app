@@ -51,7 +51,7 @@ class _ColisAttentePageState extends State<ColisAttentePage> {
 
       for (final colis in list) {
         final rec = colis.toParcelRecord();
-        if (colis.statut == 'brouillon' || colis.statutPaiement != 'payé') {
+        if (colis.statut == 'brouillon') {
           pendingList.add(rec);
         } else {
           registeredList.add(rec);
@@ -91,14 +91,23 @@ class _ColisAttentePageState extends State<ColisAttentePage> {
 
   List<ParcelRecord> _visibleParcels(
     List<ParcelRecord> localParcels,
-    List<ParcelRecord> remoteParcels,
-  ) {
+    List<ParcelRecord> remoteParcels, {
+    required bool pending,
+  }) {
     // Les données du backend sont la source de vérité prioritaire
     final Map<String, ParcelRecord> map = {};
     for (final p in localParcels) {
-      if (!widget.filterClientParcels ||
+      final isPending = p.rawStatus != null
+          ? p.rawStatus == 'brouillon'
+          : p.status == 'En attente' ||
+                p.status == 'En attente en agence' ||
+                p.status == 'Pré-enregistré';
+      final belongsToTab = pending ? isPending : !isPending;
+      final belongsToClient =
+          !widget.filterClientParcels ||
           !SessionStore.hasClientPhone ||
-          p.senderPhone == SessionStore.currentClientPhone) {
+          p.senderPhone == SessionStore.currentClientPhone;
+      if (belongsToTab && belongsToClient) {
         map[p.code] = p;
       }
     }
@@ -111,10 +120,15 @@ class _ColisAttentePageState extends State<ColisAttentePage> {
 
   @override
   Widget build(BuildContext context) {
-    final pending = _visibleParcels(ParcelStore.pendingParcels, _remotePending);
+    final pending = _visibleParcels(
+      ParcelStore.pendingParcels,
+      _remotePending,
+      pending: true,
+    );
     final registered = _visibleParcels(
       ParcelStore.registeredParcels,
       _remoteRegistered,
+      pending: false,
     );
     final currentList = _selectedIndex == 0 ? registered : pending;
 
@@ -137,25 +151,31 @@ class _ColisAttentePageState extends State<ColisAttentePage> {
                       ],
                     ),
                     const SizedBox(height: 22),
-                    const Align(
+                    Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        'Liste des colis',
-                        style: TextStyle(
+                        widget.filterClientParcels
+                            ? (_selectedIndex == 0
+                                  ? 'Mes colis'
+                                  : 'Initiations d’envoi')
+                            : 'Liste des colis',
+                        style: const TextStyle(
                           color: _deepBlue,
                           fontSize: 26,
                           fontWeight: FontWeight.w900,
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    _SegmentedTabs(
-                      selectedIndex: _selectedIndex,
-                      registeredCount: registered.length,
-                      pendingCount: pending.length,
-                      onChanged: (index) =>
-                          setState(() => _selectedIndex = index),
-                    ),
+                    if (!widget.filterClientParcels) ...[
+                      const SizedBox(height: 16),
+                      _SegmentedTabs(
+                        selectedIndex: _selectedIndex,
+                        registeredCount: registered.length,
+                        pendingCount: pending.length,
+                        onChanged: (index) =>
+                            setState(() => _selectedIndex = index),
+                      ),
+                    ],
                   ],
                 ],
               ),
@@ -381,27 +401,39 @@ class _ParcelListCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  _StatusPill(text: statusText, color: pillColor),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 128),
+                    child: _StatusPill(text: statusText, color: pillColor),
+                  ),
                 ],
               ),
               const SizedBox(height: 14),
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    '${parcel.parcelNature} x${parcel.parcelCount}',
-                    style: const TextStyle(
-                      color: _deepBlue,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w900,
+                  Expanded(
+                    child: Text(
+                      '${parcel.parcelNature} x${parcel.parcelCount}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: _deepBlue,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w900,
+                      ),
                     ),
                   ),
-                  Text(
-                    parcel.code,
-                    style: TextStyle(
-                      color: _deepBlue.withValues(alpha: 0.6),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      parcel.code,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.right,
+                      style: TextStyle(
+                        color: _deepBlue.withValues(alpha: 0.6),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ),
                 ],
@@ -409,6 +441,8 @@ class _ParcelListCard extends StatelessWidget {
               const SizedBox(height: 6),
               Text(
                 'Destinataire : ${parcel.recipientPhone}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   color: _mutedText,
                   fontSize: 13.5,
@@ -503,6 +537,7 @@ class _PendingParcelDetailsPage extends StatelessWidget {
                           parcelItems: parcel.parcelItems,
                           attachmentPath: parcel.attachmentPath,
                           attachmentName: parcel.attachmentName,
+                          showPrintButton: false,
                           deliveryFee: parcel.deliveryFee ?? '',
                           showValidation: false,
                           senderName: parcel.senderName ?? '',
@@ -627,6 +662,7 @@ class _RegisteredParcelDetailsPage extends StatelessWidget {
                           parcelItems: parcel.parcelItems,
                           attachmentPath: parcel.attachmentPath,
                           attachmentName: parcel.attachmentName,
+                          showPrintButton: false,
                           deliveryFee: parcel.deliveryFee ?? '',
                           showValidation: true,
                           senderName: parcel.senderName ?? '',
@@ -1178,6 +1214,8 @@ class _StatusPill extends StatelessWidget {
       ),
       child: Text(
         text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
         style: TextStyle(
           color: color,
           fontSize: 12,

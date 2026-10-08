@@ -239,7 +239,9 @@ class PercepteurAssignmentRecord {
 }
 
 class PercepteurAssignmentsPage extends StatefulWidget {
-  const PercepteurAssignmentsPage({super.key});
+  final bool showBackButton;
+
+  const PercepteurAssignmentsPage({super.key, this.showBackButton = true});
 
   @override
   State<PercepteurAssignmentsPage> createState() =>
@@ -342,6 +344,7 @@ class PercepteurAssignmentsPageState extends State<PercepteurAssignmentsPage> {
               (assignment) =>
                   assignment.rawStatus == 'passe' ||
                   assignment.rawStatus == 'absent' ||
+                  assignment.rawStatus == 'reaffecte' ||
                   assignment.rawStatus == 'reaffectee',
             )
             .where((assignment) => _pastStatusFilter.matches(assignment.status))
@@ -408,10 +411,13 @@ class PercepteurAssignmentsPageState extends State<PercepteurAssignmentsPage> {
                 children: [
                   Row(
                     children: [
-                      PercepteurHeaderIconButton(
-                        icon: Icons.arrow_back_rounded,
-                        onTap: () => Navigator.of(context).maybePop(),
-                      ),
+                      if (widget.showBackButton)
+                        PercepteurHeaderIconButton(
+                          icon: Icons.arrow_back_rounded,
+                          onTap: () => Navigator.of(context).maybePop(),
+                        )
+                      else
+                        const SizedBox(width: 48),
                       const Spacer(),
                       Image.asset(
                         'assets/images/logo_fofana_black.png',
@@ -1373,11 +1379,13 @@ class PercepteurPhoneSheet extends StatelessWidget {
 class PercepteurConnectionPage extends StatefulWidget {
   final AffectationService? service;
   final bool closeOnActivation;
+  final bool showBackButton;
 
   const PercepteurConnectionPage({
     super.key,
     this.service,
     this.closeOnActivation = false,
+    this.showBackButton = true,
   });
 
   @override
@@ -1706,13 +1714,19 @@ class PercepteurConnectionPageState extends State<PercepteurConnectionPage> {
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: PercepteurHeaderIconButton(
-                      icon: Icons.arrow_back_rounded,
-                      onTap: () => Navigator.of(context).pop(),
+                  if (widget.showBackButton)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: PercepteurHeaderIconButton(
+                        icon: Icons.arrow_back_rounded,
+                        onTap: () => Navigator.of(context).maybePop(),
+                      ),
+                    )
+                  else
+                    const Align(
+                      alignment: Alignment.centerLeft,
+                      child: SizedBox(width: 48),
                     ),
-                  ),
                   Image.asset(
                     'assets/images/logo_fofana_no_background.png',
                     height: 56,

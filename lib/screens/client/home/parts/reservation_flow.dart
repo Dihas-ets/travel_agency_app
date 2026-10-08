@@ -1718,7 +1718,11 @@ class _GeneratedTicketPageState extends State<_GeneratedTicketPage> {
   @override
   void initState() {
     super.initState();
-    _reservation = widget.reservation;
+    _reservation =
+        !widget.reservation.isPaymentPending &&
+            widget.reservation.qrData == null
+        ? widget.reservation.copyWith(qrData: widget.reservation.reference)
+        : widget.reservation;
   }
 
   void _showPaymentSheet() {
@@ -1729,12 +1733,15 @@ class _GeneratedTicketPageState extends State<_GeneratedTicketPage> {
       builder: (_) => _PaymentMethodSheet(
         total: _reservation.price,
         ticketReference: _reservation.reference,
-        onPaymentConfirmed: () {
+        onPaymentConfirmed: (ticket) {
           setState(() {
-            _reservation = _reservation.copyWith(
-              isPaymentPending: false,
-              status: 'en_cours',
-            );
+            _reservation = ticket == null
+                ? _reservation.copyWith(
+                    isPaymentPending: false,
+                    status: 'en_cours',
+                    qrData: _reservation.qrData ?? _reservation.reference,
+                  )
+                : _reservationWithConfirmedTicket(_reservation, ticket);
           });
         },
       ),
@@ -1897,6 +1904,10 @@ class _GeneratedTicketPageState extends State<_GeneratedTicketPage> {
                     else
                       const _PaymentConfirmedBadge(),
                     const SizedBox(height: 20),
+                    if (!_reservation.isPaymentPending) ...[
+                      _PrintTicketButton(item: _reservation),
+                      const SizedBox(height: 12),
+                    ],
                     _TicketVisual(
                       departure: _reservation.departure,
                       destination: _reservation.destination,
@@ -1907,12 +1918,18 @@ class _GeneratedTicketPageState extends State<_GeneratedTicketPage> {
                       beneficiaryName: _reservation.beneficiaryName,
                       total: _reservation.price,
                       reference: _reservation.reference,
+                      qrData: _reservation.isPaymentPending
+                          ? null
+                          : _reservation.qrData ?? _reservation.reference,
                       amountBase: _reservation.amountBase,
                       taxAmount: _reservation.taxAmount,
                       taxRate: _reservation.taxRate,
                       taxGroupLabel: _reservation.taxGroupLabel,
                       taxGroupCode: _reservation.taxGroupCode,
                       refundStatus: _reservation.refundStatus,
+                      mecefCode: _reservation.mecefCode,
+                      mecefNim: _reservation.mecefNim,
+                      mecefCounters: _reservation.mecefCounters,
                       primaryActionLabel: '',
                       showCancelAction:
                           _reservation.status.trim().toLowerCase() ==
@@ -2044,7 +2061,7 @@ class _PaymentMethodSheet extends StatefulWidget {
   final String total;
   final String
   ticketReference; // ⬅️ AJOUT : nécessaire pour initier/vérifier le paiement
-  final VoidCallback? onPaymentConfirmed;
+  final ValueChanged<Map<String, dynamic>?>? onPaymentConfirmed;
 
   const _PaymentMethodSheet({
     required this.total,
@@ -2262,7 +2279,10 @@ class _PaymentMethodSheetState extends State<_PaymentMethodSheet> {
           timer.cancel();
           if (!mounted) return;
           setState(() => _isProcessing = false);
-          widget.onPaymentConfirmed?.call();
+          final payable = result['payable'];
+          widget.onPaymentConfirmed?.call(
+            payable is Map ? Map<String, dynamic>.from(payable) : null,
+          );
           Navigator.of(context).pop();
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(

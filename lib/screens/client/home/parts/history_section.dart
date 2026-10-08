@@ -279,6 +279,45 @@ class _HistoryPageState extends State<_HistoryPage>
     if (mounted) await _loadHistory();
   }
 
+  Future<void> _cancelReservation(_ReservationItem reservation) async {
+    final confirmed = await _showCancelReservationDialog(
+      context,
+      reservation.reference,
+    );
+    if (confirmed != true || !mounted) return;
+
+    final ticketId = reservation.ticketId;
+    if (ticketId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Réservation introuvable sur le serveur.'),
+        ),
+      );
+      return;
+    }
+
+    try {
+      final response = await TicketService().annulerClient(ticketId);
+      if (!mounted) return;
+      await _loadHistory();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            response['message']?.toString() ?? 'Ticket annulé et avoir créé.',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -486,6 +525,9 @@ class _HistoryPageState extends State<_HistoryPage>
               item: item,
               onPay: item.isPaymentPending
                   ? () => _openReservationTicket(item)
+                  : null,
+              onCancel: !item.isPaymentPending && item.status == 'en_cours'
+                  ? () => _cancelReservation(item)
                   : null,
             ),
           ),
@@ -706,6 +748,35 @@ class _ReservationItem {
   }
 }
 
+_ReservationItem _reservationWithConfirmedTicket(
+  _ReservationItem reservation,
+  Map<String, dynamic> ticket,
+) {
+  final mecef = ticket['mecef_response'] is Map
+      ? Map<String, dynamic>.from(ticket['mecef_response'] as Map)
+      : const <String, dynamic>{};
+  final isMecefConfirmed =
+      mecef['status']?.toString().trim().toLowerCase() == 'confirmed';
+  final mecefQrCode = mecef['qr_code']?.toString().trim();
+  final mecefCode = mecef['code_mecef']?.toString().trim();
+
+  return reservation.copyWith(
+    isPaymentPending: false,
+    status: ticket['statut']?.toString() ?? 'en_cours',
+    qrData: isMecefConfirmed
+        ? (mecefQrCode != null && mecefQrCode.isNotEmpty
+              ? mecefQrCode
+              : mecefCode != null && mecefCode.isNotEmpty
+              ? mecefCode
+              : ticket['qr_code']?.toString() ?? reservation.reference)
+        : ticket['qr_code']?.toString() ?? reservation.reference,
+    mecefCode: isMecefConfirmed ? mecefCode : null,
+    mecefNim: isMecefConfirmed ? mecef['nim']?.toString() : null,
+    mecefCounters: isMecefConfirmed ? mecef['counters']?.toString() : null,
+    mecefDate: isMecefConfirmed ? mecef['date_mecef']?.toString() : null,
+  );
+}
+
 class _TicketItem {
   final String code;
   final String departure;
@@ -741,8 +812,13 @@ class _TicketItem {
 class _ReservationSummaryCard extends StatelessWidget {
   final _ReservationItem item;
   final VoidCallback? onPay;
+  final VoidCallback? onCancel;
 
-  const _ReservationSummaryCard({required this.item, this.onPay});
+  const _ReservationSummaryCard({
+    required this.item,
+    this.onPay,
+    this.onCancel,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -780,6 +856,28 @@ class _ReservationSummaryCard extends StatelessWidget {
           if (onPay == null && item.qrData != null) ...[
             const SizedBox(height: 12),
             _PrintTicketButton(item: item),
+          ],
+          if (onCancel != null) ...[
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: OutlinedButton.icon(
+                onPressed: onCancel,
+                icon: const Icon(Icons.cancel_outlined),
+                label: const Text(
+                  'Annuler le ticket',
+                  style: TextStyle(fontWeight: FontWeight.w900),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFFB42318),
+                  side: const BorderSide(color: Color(0xFFF2B8B5)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              ),
+            ),
           ],
         ],
       ),
@@ -1025,12 +1123,14 @@ class _ReservationTicketPageState extends State<_ReservationTicketPage> {
       builder: (_) => _PaymentMethodSheet(
         total: _reservation.price,
         ticketReference: _reservation.reference, // ⬅️ AJOUT
-        onPaymentConfirmed: () {
+        onPaymentConfirmed: (ticket) {
           setState(() {
-            _reservation = _reservation.copyWith(
-              isPaymentPending: false,
-              status: 'en_cours',
-            );
+            _reservation = ticket == null
+                ? _reservation.copyWith(
+                    isPaymentPending: false,
+                    status: 'en_cours',
+                  )
+                : _reservationWithConfirmedTicket(_reservation, ticket);
           });
         },
       ),
@@ -1181,16 +1281,48 @@ class _ReservationTicketPageState extends State<_ReservationTicketPage> {
                       taxGroupLabel: _reservation.taxGroupLabel,
                       taxGroupCode: _reservation.taxGroupCode,
                       refundStatus: _reservation.refundStatus,
+                      mecefCode: _reservation.mecefCode,
+                      mecefNim: _reservation.mecefNim,
+                      mecefCounters: _reservation.mecefCounters,
                       primaryActionLabel: '',
-                      showCancelAction: _reservation.status == 'en_cours',
+                      showCancelAction: false,
                       onEdit: _editReservation,
-                      onCancel: _confirmCancel,
-                      isCancelling: _isCancelling,
                     ),
                     if (!_reservation.isPaymentPending &&
                         _reservation.qrData != null) ...[
                       const SizedBox(height: 12),
                       _PrintTicketButton(item: _reservation),
+                    ],
+                    if (!_reservation.isPaymentPending &&
+                        _reservation.status == 'en_cours') ...[
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: OutlinedButton.icon(
+                          onPressed: _isCancelling ? null : _confirmCancel,
+                          icon: _isCancelling
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.cancel_outlined),
+                          label: const Text(
+                            'Annuler le ticket',
+                            style: TextStyle(fontWeight: FontWeight.w900),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFFB42318),
+                            side: const BorderSide(color: Color(0xFFF2B8B5)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                        ),
+                      ),
                     ],
                   ],
                 ),
@@ -1342,11 +1474,6 @@ Future<void> _printTicket(_ReservationItem ticket) async {
                 if (ticket.beneficiaryPhone.isNotEmpty)
                   _printRow('Tél', ticket.beneficiaryPhone),
                 _printDashedLine(accent),
-                if (ticket.taxGroupLabel?.isNotEmpty == true)
-                  _printRow(
-                    'Groupe taxe',
-                    '${ticket.taxGroupCode?.isNotEmpty == true ? '${ticket.taxGroupCode} - ' : ''}${ticket.taxGroupLabel}',
-                  ),
                 _printRow('Montant HT', ticket.amountBase),
                 _printRow('Taxe (${ticket.taxRate}%)', ticket.taxAmount),
                 pw.Padding(
@@ -1415,26 +1542,6 @@ Future<void> _printTicket(_ReservationItem ticket) async {
                         ],
                       ),
                     )
-                  else
-                    pw.Container(
-                      padding: const pw.EdgeInsets.all(6),
-                      decoration: pw.BoxDecoration(
-                        border: pw.Border.all(
-                          color: PdfColors.grey300,
-                          style: pw.BorderStyle.dashed,
-                        ),
-                      ),
-                      child: pw.Center(
-                        child: pw.Text(
-                          'REÇU SIMPLE\n(Document non normalisé DGI)',
-                          textAlign: pw.TextAlign.center,
-                          style: const pw.TextStyle(
-                            color: PdfColors.grey500,
-                            fontSize: 7,
-                          ),
-                        ),
-                      ),
-                    ),
                 ],
                 if (settings.showBarcode) ...[
                   pw.SizedBox(height: 6),
@@ -2200,9 +2307,7 @@ class _TicketVisual extends StatelessWidget {
               ),
             ],
           ),
-          if (taxGroupLabel?.isNotEmpty == true ||
-              amountBase != null ||
-              taxAmount != null) ...[
+          if (amountBase != null || taxAmount != null) ...[
             const SizedBox(height: 20),
             Container(
               width: double.infinity,
@@ -2214,20 +2319,7 @@ class _TicketVisual extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (taxGroupLabel?.isNotEmpty == true)
-                    Text(
-                      'Groupe de taxe : '
-                      '${taxGroupCode?.isNotEmpty == true ? '$taxGroupCode - ' : ''}'
-                      '$taxGroupLabel',
-                      style: const TextStyle(
-                        color: deepBlue,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
                   if (amountBase != null) ...[
-                    if (taxGroupLabel?.isNotEmpty == true)
-                      const SizedBox(height: 10),
                     _TicketPriceRow(label: 'Montant HT', value: amountBase!),
                   ],
                   if (taxAmount != null) ...[

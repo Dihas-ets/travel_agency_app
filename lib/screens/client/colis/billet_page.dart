@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -7,6 +8,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:http/http.dart' as http;
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:code_initial/config/app_config.dart';
 import 'package:code_initial/data/local/session_store.dart';
 import 'package:code_initial/models/colis_print_settings.dart';
 import 'package:code_initial/screens/client/colis/colis_attente_page.dart';
@@ -38,6 +40,7 @@ class BilletPage extends StatelessWidget {
   final String taxGroupLabel;
   final List<ParcelLine> parcelItems;
   final VoidCallback? onReturnToHome;
+  final bool showPrintButton;
 
   const BilletPage({
     super.key,
@@ -65,6 +68,7 @@ class BilletPage extends StatelessWidget {
     this.taxGroupLabel = '',
     this.parcelItems = const [],
     this.onReturnToHome,
+    this.showPrintButton = true,
   });
 
   List<ParcelLine> get _expandedParcelItems {
@@ -263,7 +267,7 @@ class BilletPage extends StatelessWidget {
         build: (_) => pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.stretch,
           children: [
-            _tornEdge(pageFormat.width),
+            _tornEdge(pageFormat.width, isTop: true),
             pw.Padding(
               padding: const pw.EdgeInsets.fromLTRB(12, 12, 12, 6),
               child: pw.Column(
@@ -508,7 +512,7 @@ class BilletPage extends StatelessWidget {
                 ],
               ),
             ),
-            _tornEdge(pageFormat.width),
+            _tornEdge(pageFormat.width, isTop: false),
           ],
         ),
       ),
@@ -539,7 +543,7 @@ class BilletPage extends StatelessWidget {
     }
   }
 
-  pw.Widget _tornEdge(double width) => pw.SizedBox(
+  pw.Widget _tornEdge(double width, {required bool isTop}) => pw.SizedBox(
     height: 7.5,
     width: width,
     child: pw.CustomPaint(
@@ -548,16 +552,16 @@ class BilletPage extends StatelessWidget {
         const teeth = 16;
         final toothWidth = size.x / teeth;
         canvas
-          ..setFillColor(PdfColors.white)
-          ..moveTo(0, 0);
+          ..setFillColor(PdfColors.grey400)
+          ..moveTo(0, isTop ? 0 : size.y);
         for (var index = 0; index < teeth; index++) {
           canvas
-            ..lineTo(index * toothWidth + toothWidth / 2, size.y)
-            ..lineTo((index + 1) * toothWidth, 0);
+            ..lineTo(index * toothWidth + toothWidth / 2, isTop ? size.y : 0)
+            ..lineTo((index + 1) * toothWidth, isTop ? 0 : size.y);
         }
         canvas
-          ..lineTo(size.x, size.y)
-          ..lineTo(0, size.y)
+          ..lineTo(size.x, isTop ? size.y : 0)
+          ..lineTo(0, isTop ? size.y : 0)
           ..fillPath();
       },
     ),
@@ -633,6 +637,76 @@ class BilletPage extends StatelessWidget {
         '${now.month.toString().padLeft(2, '0')}/${now.year}';
   }
 
+  String _resolveParcelImageUrl(String path) {
+    final parsed = Uri.tryParse(path);
+    if (parsed != null &&
+        (parsed.scheme == 'http' || parsed.scheme == 'https')) {
+      return path;
+    }
+
+    final apiUri = Uri.parse(AppConfig.apiBaseUrl);
+    final baseSegments = apiUri.pathSegments.toList();
+    if (baseSegments.isNotEmpty && baseSegments.last == 'api') {
+      baseSegments.removeLast();
+    }
+    var relativePath = path.replaceAll('\\', '/');
+    relativePath = relativePath.replaceFirst(RegExp(r'^public/'), '');
+    relativePath = relativePath.replaceFirst(RegExp(r'^storage/'), '');
+    final pathSegments = [
+      ...baseSegments.where((segment) => segment.isNotEmpty),
+      'storage',
+      ...relativePath.split('/').where((segment) => segment.isNotEmpty),
+    ];
+    return apiUri
+        .replace(
+          path: '/${pathSegments.join('/')}',
+          query: null,
+          fragment: null,
+        )
+        .toString();
+  }
+
+  Widget _buildParcelImage(String? rawPath) {
+    final path = rawPath?.trim();
+    if (path == null || path.isEmpty) return const SizedBox.shrink();
+
+    final parsed = Uri.tryParse(path);
+    final isRemote =
+        parsed != null && (parsed.scheme == 'http' || parsed.scheme == 'https');
+    final file = File(path);
+    final image = isRemote
+        ? Image.network(
+            path,
+            fit: BoxFit.contain,
+            errorBuilder: (_, __, ___) => const _ParcelImageUnavailable(),
+          )
+        : file.existsSync()
+        ? Image.file(
+            file,
+            fit: BoxFit.contain,
+            errorBuilder: (_, __, ___) => const _ParcelImageUnavailable(),
+          )
+        : Image.network(
+            _resolveParcelImageUrl(path),
+            fit: BoxFit.contain,
+            errorBuilder: (_, __, ___) => const _ParcelImageUnavailable(),
+          );
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 7),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(5),
+        child: Container(
+          width: double.infinity,
+          height: 130,
+          color: const Color(0xFFF1F5F9),
+          alignment: Alignment.center,
+          child: image,
+        ),
+      ),
+    );
+  }
+
   Widget _buildTicketReceiptPreview({
     required ColisPrintSettings settings,
     required String date,
@@ -658,6 +732,10 @@ class BilletPage extends StatelessWidget {
     final base = montantBase > 0 ? montantBase : total - montantTaxe;
     final nature = items.map((item) => item.nature).toSet().join(', ');
     final count = items.fold<int>(0, (sum, item) => sum + item.quantity);
+    final displayedWeight = items.fold<double>(
+      0,
+      (sum, item) => sum + item.weight * item.quantity,
+    );
 
     Widget row(String label, String value) => Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
@@ -701,215 +779,260 @@ class BilletPage extends StatelessWidget {
           )
         : fallbackLogo();
 
+    final width = settings.width == '58mm' ? 230.0 : 320.0;
     return Center(
-      child: Container(
-        width: settings.width == '58mm' ? 230 : 320,
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: const Color(0xFFE2E8F0)),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x14000000),
-              blurRadius: 12,
-              offset: Offset(0, 5),
+      child: SizedBox(
+        width: width,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CustomPaint(
+              size: Size(width, 10),
+              painter: const _TicketTornEdgePainter(isTop: true),
             ),
-          ],
-        ),
-        child: DefaultTextStyle(
-          style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ClipOval(
-                child: Container(
-                  width: 42,
-                  height: 42,
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
-                    shape: BoxShape.circle,
+            Container(
+              width: width,
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Color(0x14000000),
+                    blurRadius: 12,
+                    offset: Offset(0, 5),
                   ),
-                  child: logoWidget,
-                ),
+                ],
               ),
-              const SizedBox(height: 5),
-              Text(
-                settings.agencyName.toUpperCase(),
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Color(0xFF1E293B),
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                mecefResponse != null
-                    ? 'BORDEREAU NORMALISÉ'
-                    : settings.headerText,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: accent,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                ),
-              ),
-              if (settings.showEmetteur) row('Émetteur :', settings.agencyName),
-              if (settings.showContact && settings.telephone.isNotEmpty)
-                row('Tél :', settings.telephone),
-              if (settings.showContact && settings.email.isNotEmpty)
-                row('Email :', settings.email),
-              row('N° $code', date),
-              separator(),
-              row('Exp.', senderName.isEmpty ? '—' : senderName),
-              row(
-                'Dest.',
-                '$recipientLastName $recipientFirstName'.trim().isEmpty
-                    ? '—'
-                    : '$recipientLastName $recipientFirstName'.trim(),
-              ),
-              row('Trajet', '$departureCity → $destinationCity'),
-              row('Nature', nature.isEmpty ? parcelNature : nature),
-              row('Nombre', '$count colis'),
-              row('Poids', '${_formatRate(poidsTotal)} kg'),
-              if (description.trim().isNotEmpty)
-                row(
-                  'Description',
-                  description.trim().length > 30
-                      ? '${description.trim().substring(0, 30)}…'
-                      : description.trim(),
-                ),
-              separator(),
-              row('Montant HT', _formatAmount(base)),
-              row(
-                'Taxe (${_formatRate(taxeTaux)}%)',
-                _formatAmount(montantTaxe),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 7),
-                child: Row(
+              child: DefaultTextStyle(
+                style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Expanded(
-                      child: Text(
-                        'TOTAL À PAYER',
-                        style: TextStyle(
-                          color: accent,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
+                    ClipOval(
+                      child: Container(
+                        width: 42,
+                        height: 42,
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                          shape: BoxShape.circle,
                         ),
+                        child: logoWidget,
                       ),
                     ),
+                    const SizedBox(height: 5),
                     Text(
-                      deliveryFee.isEmpty
-                          ? 'À déterminer'
-                          : _formatAmount(total),
-                      style: TextStyle(
-                        color: accent,
+                      settings.agencyName.toUpperCase(),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Color(0xFF1E293B),
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      mecefResponse != null
+                          ? 'BORDEREAU NORMALISÉ'
+                          : settings.headerText,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: accent,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                    if (settings.showEmetteur)
+                      row('Émetteur :', settings.agencyName),
+                    if (settings.showContact && settings.telephone.isNotEmpty)
+                      row('Tél :', settings.telephone),
+                    if (settings.showContact && settings.email.isNotEmpty)
+                      row('Email :', settings.email),
+                    row('N° $code', date),
+                    separator(),
+                    row('Exp.', senderName.isEmpty ? '—' : senderName),
+                    if (senderPhone.isNotEmpty) row('Tél. exp.', senderPhone),
+                    row(
+                      'Dest.',
+                      '$recipientLastName $recipientFirstName'.trim().isEmpty
+                          ? '—'
+                          : '$recipientLastName $recipientFirstName'.trim(),
+                    ),
+                    if (recipientPhone.isNotEmpty)
+                      row('Tél. dest.', recipientPhone),
+                    row('Trajet', '$departureCity → $destinationCity'),
+                    row('Nature', nature.isEmpty ? parcelNature : nature),
+                    row('Nombre', '$count colis'),
+                    row(
+                      'Poids',
+                      '${_formatRate(displayedWeight > 0 ? displayedWeight : poidsTotal)} kg',
+                    ),
+                    for (var index = 0; index < items.length; index++) ...[
+                      separator(),
+                      row(
+                        'Colis ${index + 1}',
+                        items[index].nature.isEmpty
+                            ? 'Colis'
+                            : items[index].nature,
+                      ),
+                      row('Quantité', '${items[index].quantity}'),
+                      row('Poids', '${_formatRate(items[index].weight)} kg'),
+                      if (items[index].value > 0)
+                        row(
+                          'Valeur déclarée',
+                          _formatAmount(items[index].value),
+                        ),
+                      if (items[index].description.trim().isNotEmpty)
+                        row('Description', items[index].description.trim()),
+                      _buildParcelImage(items[index].attachmentPath),
+                    ],
+                    if (items.isEmpty && description.trim().isNotEmpty)
+                      row('Description', description.trim()),
+                    separator(),
+                    row('Montant HT', _formatAmount(base)),
+                    row(
+                      'Taxe (${_formatRate(taxeTaux)}%)',
+                      _formatAmount(montantTaxe),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 7),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'TOTAL À PAYER',
+                              style: TextStyle(
+                                color: accent,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            deliveryFee.isEmpty
+                                ? 'À déterminer'
+                                : _formatAmount(total),
+                            style: TextStyle(
+                              color: accent,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (settings.showEnregistrePar && issuerName.isNotEmpty)
+                      Text(
+                        'Bordereau enregistré par : $issuerName',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Color(0xFF94A3B8),
+                          fontSize: 9,
+                        ),
+                      ),
+                    if (settings.showDgi) ...[
+                      const SizedBox(height: 7),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(7),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: const Color(0xFFCBD5E1)),
+                          borderRadius: BorderRadius.circular(5),
+                          color: const Color(0xFFF8FAFC),
+                        ),
+                        child: mecefResponse == null
+                            ? const Column(
+                                children: [
+                                  Text(
+                                    'REÇU SIMPLE',
+                                    style: TextStyle(
+                                      color: Color(0xFF94A3B8),
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  Text(
+                                    '(Document non normalisé DGI)',
+                                    style: TextStyle(
+                                      color: Color(0xFF94A3B8),
+                                      fontSize: 9,
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : Column(
+                                children: [
+                                  const Text(
+                                    'ÉLÉMENTS DE SÉCURITÉ DGI',
+                                    style: TextStyle(
+                                      color: Color(0xFF64748B),
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  row(
+                                    'CODE',
+                                    mecefResponse?['code_mecef']?.toString() ??
+                                        '',
+                                  ),
+                                  row(
+                                    'NIM',
+                                    mecefResponse?['nim']?.toString() ?? '',
+                                  ),
+                                  row(
+                                    'COMPT',
+                                    mecefResponse?['counters']?.toString() ??
+                                        '',
+                                  ),
+                                  row(
+                                    'DATE',
+                                    _formatMecefDate(
+                                      mecefResponse?['date_mecef']?.toString(),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                      ),
+                    ],
+                    if (code.isNotEmpty &&
+                        (settings.showBarcode || !confirmedMecef)) ...[
+                      const SizedBox(height: 9),
+                      QrImageView(
+                        data: qrValue,
+                        version: QrVersions.auto,
+                        size: 92,
+                        padding: const EdgeInsets.all(6),
+                        backgroundColor: Colors.white,
+                      ),
+                      Text(
+                        mecefResponse != null
+                            ? 'VÉRIFIER SUR EFACTURE.IMPOTS.BJ'
+                            : code,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Color(0xFF94A3B8),
+                          fontSize: 8,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+                    Text(
+                      settings.footerText,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Color(0xFF94A3B8),
+                        fontStyle: FontStyle.italic,
                       ),
                     ),
                   ],
                 ),
               ),
-              if (settings.showEnregistrePar && issuerName.isNotEmpty)
-                Text(
-                  'Bordereau enregistré par : $issuerName',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 9),
-                ),
-              if (settings.showDgi) ...[
-                const SizedBox(height: 7),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(7),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: const Color(0xFFCBD5E1)),
-                    borderRadius: BorderRadius.circular(5),
-                    color: const Color(0xFFF8FAFC),
-                  ),
-                  child: mecefResponse == null
-                      ? const Column(
-                          children: [
-                            Text(
-                              'REÇU SIMPLE',
-                              style: TextStyle(
-                                color: Color(0xFF94A3B8),
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            Text(
-                              '(Document non normalisé DGI)',
-                              style: TextStyle(
-                                color: Color(0xFF94A3B8),
-                                fontSize: 9,
-                              ),
-                            ),
-                          ],
-                        )
-                      : Column(
-                          children: [
-                            const Text(
-                              'ÉLÉMENTS DE SÉCURITÉ DGI',
-                              style: TextStyle(
-                                color: Color(0xFF64748B),
-                                fontSize: 9,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            row(
-                              'CODE',
-                              mecefResponse?['code_mecef']?.toString() ?? '',
-                            ),
-                            row('NIM', mecefResponse?['nim']?.toString() ?? ''),
-                            row(
-                              'COMPT',
-                              mecefResponse?['counters']?.toString() ?? '',
-                            ),
-                            row(
-                              'DATE',
-                              _formatMecefDate(
-                                mecefResponse?['date_mecef']?.toString(),
-                              ),
-                            ),
-                          ],
-                        ),
-                ),
-              ],
-              if (code.isNotEmpty &&
-                  (settings.showBarcode || !confirmedMecef)) ...[
-                const SizedBox(height: 9),
-                QrImageView(
-                  data: qrValue,
-                  version: QrVersions.auto,
-                  size: 92,
-                  padding: const EdgeInsets.all(6),
-                  backgroundColor: Colors.white,
-                ),
-                Text(
-                  mecefResponse != null
-                      ? 'VÉRIFIER SUR EFACTURE.IMPOTS.BJ'
-                      : code,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Color(0xFF94A3B8),
-                    fontSize: 8,
-                    letterSpacing: 1,
-                  ),
-                ),
-              ],
-              const SizedBox(height: 8),
-              Text(
-                settings.footerText,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Color(0xFF94A3B8),
-                  fontStyle: FontStyle.italic,
-                ),
-              ),
-            ],
-          ),
+            ),
+            CustomPaint(
+              size: Size(width, 10),
+              painter: const _TicketTornEdgePainter(isTop: false),
+            ),
+          ],
         ),
       ),
     );
@@ -920,7 +1043,7 @@ class BilletPage extends StatelessWidget {
     const Color deepBlue = Color(0xFF0B4F2A);
     const Color logoRed = Color(0xFF16A34A);
     const Color pageBg = Color(0xFFEAF7EF);
-    final items = _expandedParcelItems;
+    final items = parcelItems.isEmpty ? _expandedParcelItems : parcelItems;
 
     final now = DateTime.now();
     final date =
@@ -996,29 +1119,31 @@ class BilletPage extends StatelessWidget {
                   child: const Text('Suivant'),
                 ),
               ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                height: 58,
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: logoRed,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+              if (showPrintButton) ...[
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  height: 58,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: logoRed,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      textStyle: const TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 15.5,
+                      ),
                     ),
-                    textStyle: const TextStyle(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 15.5,
-                    ),
+                    onPressed: () =>
+                        _downloadTicketPdf(context, date: date, time: time),
+                    icon: const Icon(Icons.print_rounded, size: 22),
+                    label: const Text('Imprimer le bordereau'),
                   ),
-                  onPressed: () =>
-                      _downloadTicketPdf(context, date: date, time: time),
-                  icon: const Icon(Icons.print_rounded, size: 22),
-                  label: const Text('Imprimer le bordereau'),
                 ),
-              ),
+              ],
               if (onReturnToHome != null) ...[
                 const SizedBox(height: 12),
                 SizedBox(
@@ -1048,4 +1173,63 @@ class BilletPage extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ParcelImageUnavailable extends StatelessWidget {
+  const _ParcelImageUnavailable();
+
+  @override
+  Widget build(BuildContext context) => const Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Icon(Icons.broken_image_outlined, color: Color(0xFF64748B), size: 28),
+      SizedBox(height: 4),
+      Text(
+        'Image indisponible',
+        style: TextStyle(color: Color(0xFF64748B), fontSize: 10),
+      ),
+    ],
+  );
+}
+
+class _TicketTornEdgePainter extends CustomPainter {
+  final bool isTop;
+
+  const _TicketTornEdgePainter({required this.isTop});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const teeth = 16;
+    final toothWidth = size.width / teeth;
+    final path = Path();
+
+    if (isTop) {
+      path.moveTo(0, 0);
+      for (var index = 0; index < teeth; index++) {
+        path
+          ..lineTo(index * toothWidth + toothWidth / 2, size.height)
+          ..lineTo((index + 1) * toothWidth, 0);
+      }
+      path
+        ..lineTo(size.width, size.height)
+        ..lineTo(0, size.height);
+    } else {
+      path.moveTo(0, size.height);
+      for (var index = 0; index < teeth; index++) {
+        path
+          ..lineTo(index * toothWidth + toothWidth / 2, 0)
+          ..lineTo((index + 1) * toothWidth, size.height);
+      }
+      path
+        ..lineTo(size.width, 0)
+        ..lineTo(0, 0);
+    }
+
+    path.close();
+    canvas.drawPath(path, Paint()..color = Colors.white);
+  }
+
+  @override
+  bool shouldRepaint(_TicketTornEdgePainter oldDelegate) =>
+      isTop != oldDelegate.isTop;
 }

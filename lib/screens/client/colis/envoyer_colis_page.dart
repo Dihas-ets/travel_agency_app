@@ -1100,6 +1100,7 @@ class _SendParcelPageState extends State<SendParcelPage>
         await Navigator.of(context).push(
           MaterialPageRoute(
             builder: (_) => BilletPage(
+              showPrintButton: widget.isPercepteur,
               onReturnToHome: widget.isPercepteur
                   ? () => Navigator.of(
                       context,
@@ -1340,6 +1341,7 @@ class _SendParcelPageState extends State<SendParcelPage>
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => BilletPage(
+          showPrintButton: widget.isPercepteur,
           onReturnToHome: widget.isPercepteur
               ? () => Navigator.of(
                   context,
