@@ -256,22 +256,7 @@ class WhatsAppInfoBox extends StatelessWidget {
           width: 1.3,
         ),
       ),
-      child: const Row(
-        children: [
-          Icon(Icons.info, color: Color(0xFF16A34A), size: 20),
-          SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              "De préférence votre numéro WhatsApp",
-              style: TextStyle(
-                color: Color(0xFF0B4F2A),
-                fontWeight: FontWeight.w500,
-                fontSize: 13,
-              ),
-            ),
-          ),
-        ],
-      ),
+      
     );
   }
 }

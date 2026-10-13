@@ -219,7 +219,7 @@ class _RegisterPageState extends State<RegisterPage> {
 
                       // Label section téléphone
                       const Text(
-                        "Numéro de téléphone",
+                        "Numéro Whatsapp",
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,

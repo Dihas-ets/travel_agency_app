@@ -170,7 +170,7 @@ class _LoginPageState extends State<LoginPage> {
                     children: [
                       // Libellé du champ téléphone.
                       const Text(
-                        "Numéro de téléphone",
+                        "Numéro Whatsapp",
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
