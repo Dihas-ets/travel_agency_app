@@ -246,8 +246,7 @@ class _RegisterPageState extends State<RegisterPage> {
                         label: 'Confirmer le mot de passe',
                         hint: 'Saisissez-le à nouveau',
                       ),
-                      const SizedBox(height: 18),
-                      const WhatsAppInfoBox(),
+                      
                     ],
                   ),
                 ),

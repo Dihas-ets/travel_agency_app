@@ -240,26 +240,6 @@ class _RegisterPasswordFieldState extends State<RegisterPasswordField> {
   }
 }
 
-/// Boîte d'information qui conseille d'utiliser un numéro WhatsApp.
-class WhatsAppInfoBox extends StatelessWidget {
-  const WhatsAppInfoBox({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFF4F4).withValues(alpha: 0.92),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: const Color(0xFF16A34A).withValues(alpha: 0.28),
-          width: 1.3,
-        ),
-      ),
-      
-    );
-  }
-}
 
 /// Bouton principal de création de compte.
 class SubmitButton extends StatelessWidget {
