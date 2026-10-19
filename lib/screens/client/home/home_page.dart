@@ -31,6 +31,7 @@ import 'package:fofanavoyage/services/kkiapay_service.dart';
 import 'package:fofanavoyage/models/payment_provider_model.dart';
 import 'package:fofanavoyage/models/tax_group_model.dart';
 import 'package:fofanavoyage/services/tax_service.dart';
+import 'package:fofanavoyage/config/app_config.dart';
 
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' as latlng;

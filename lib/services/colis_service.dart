@@ -166,6 +166,43 @@ class ColisService {
     }
   }
 
+  /// Annule un colis du client avant son départ physique.
+  ///
+  /// Le backend reste l’autorité finale sur l’éligibilité de l’annulation.
+  Future<Map<String, dynamic>> annulerColisClient(int id) async {
+    final token = await AuthLocalStore.getToken();
+    final response = await http
+        .put(
+          Uri.parse('$_baseUrl/auth/client/colis/$id/annuler'),
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            if (token != null) 'Authorization': '******',
+          },
+        )
+        .timeout(const Duration(seconds: 20));
+
+    Object? decoded;
+    try {
+      decoded = jsonDecode(response.body);
+    } on FormatException {
+      decoded = null;
+    }
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return decoded is Map
+          ? Map<String, dynamic>.from(decoded)
+          : <String, dynamic>{};
+    }
+
+    final message = decoded is Map ? decoded['message']?.toString() : null;
+    throw Exception(
+      message?.isNotEmpty == true
+          ? message
+          : 'Impossible d’annuler le colis (HTTP ${response.statusCode}).',
+    );
+  }
+
   /// Suivi public d'un colis par sa référence (`GET /api/colis/show/{reference}`)
   Future<ColisModel?> showColis(String reference) async {
     final token = await AuthLocalStore.getToken();

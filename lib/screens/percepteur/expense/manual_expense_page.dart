@@ -11,11 +11,15 @@ import 'package:fofanavoyage/services/tax_service.dart';
 class ManualExpensePage extends StatefulWidget {
   final String? initialMecefCode;
   final String? initialMecefNim;
+  final String? initialTicketReference;
+  final double? initialTicketAmount;
 
   const ManualExpensePage({
     super.key,
     this.initialMecefCode,
     this.initialMecefNim,
+    this.initialTicketReference,
+    this.initialTicketAmount,
   });
 
   @override
@@ -60,6 +64,14 @@ class _ManualExpensePageState extends State<ManualExpensePage> {
     _isMecefSource =
         (widget.initialMecefCode?.isNotEmpty ?? false) ||
         (widget.initialMecefNim?.isNotEmpty ?? false);
+    final ticketReference = widget.initialTicketReference?.trim();
+    if (ticketReference != null && ticketReference.isNotEmpty) {
+      _lines.first
+        ..designationController.text = 'Ticket $ticketReference'
+        ..unitPriceTtcController.text =
+            widget.initialTicketAmount?.toStringAsFixed(2) ?? '';
+      _noteController.text = 'Référence du ticket : $ticketReference';
+    }
     _loadFormData();
   }
 

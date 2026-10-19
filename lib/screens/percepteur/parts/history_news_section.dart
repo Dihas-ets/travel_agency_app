@@ -277,7 +277,7 @@ class PercepteurHistoryPageState extends State<PercepteurHistoryPage> {
     final allTickets = allTicketsByIdentity.values.toList();
     final inProgressTickets = _ticketsWithStatus(allTickets, 'en_cours');
     final pendingTickets = _ticketsWithStatus(allTickets, 'en_attente');
-    final paidTickets = _ticketsWithStatus(allTickets, 'paye');
+    final paidTickets = allTickets.where((ticket) => ticket.isPaid).toList();
     final presentTickets = _ticketsWithStatus(allTickets, 'present');
     final absentTickets = _ticketsWithStatus(allTickets, 'absent');
     final cancellationErrors = [

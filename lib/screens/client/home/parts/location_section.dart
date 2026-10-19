@@ -425,6 +425,18 @@ class _AgencyMapCardState extends State<_AgencyMapCard> {
     }
   }
 
+  Future<void> _openAgencyOnMap(Agence agence) async {
+    final uri = Uri.parse(
+      'https://www.google.com/maps/search/?api=1&query=${agence.latitude},${agence.longitude}',
+    );
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Impossible d’ouvrir Google Maps.')),
+      );
+    }
+  }
+
   // ⬇️ AJOUT : centre + zoom automatique pour voir tous les marqueurs
   void _fitBounds() {
     if (_agences.isEmpty) return;
@@ -575,7 +587,18 @@ class _AgencyMapCardState extends State<_AgencyMapCard> {
               point: latlng.LatLng(agence.latitude!, agence.longitude!),
               width: 60,
               height: 60,
-              child: const Icon(Icons.location_on_rounded, color: Color(0xFF16A34A), size: 36),
+              child: GestureDetector(
+                onTap: () => _showAgencyDetails(
+                  context,
+                  agence,
+                  (selected) => _openAgencyOnMap(selected),
+                ),
+                child: const Icon(
+                  Icons.location_on_rounded,
+                  color: Color(0xFF16A34A),
+                  size: 36,
+                ),
+              ),
             );
           }).toList(),
         ),
@@ -602,7 +625,12 @@ class _AgencyFullMapPageState extends State<_AgencyFullMapPage> {
     final uri = Uri.parse(
       'https://www.google.com/maps/search/?api=1&query=${agence.latitude},${agence.longitude}',
     );
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Impossible d’ouvrir Google Maps.')),
+      );
+    }
   }
 
   void _fitBounds() {
@@ -651,7 +679,11 @@ class _AgencyFullMapPageState extends State<_AgencyFullMapPage> {
                 width: 70,
                 height: 70,
                 child: GestureDetector(
-                  onTap: () => _openGoogleMaps(agence),
+                  onTap: () => _showAgencyDetails(
+                    context,
+                    agence,
+                    _openGoogleMaps,
+                  ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -678,4 +710,112 @@ class _AgencyFullMapPageState extends State<_AgencyFullMapPage> {
       ),
     );
   }
+}
+
+Future<void> _showAgencyDetails(
+  BuildContext context,
+  Agence agence,
+  Future<void> Function(Agence) openGoogleMaps,
+) async {
+  final imageUrl = _agencyImageUrl(agence.image);
+  await showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (sheetContext) => SafeArea(
+      child: Container(
+        margin: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(18),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (imageUrl != null)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Image.network(
+                  imageUrl,
+                  height: 170,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                ),
+              ),
+            const SizedBox(height: 14),
+            Text(
+              agence.nomAgence,
+              style: const TextStyle(
+                color: Color(0xFF0B4F2A),
+                fontSize: 20,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 10),
+            if (agence.adresse.trim().isNotEmpty)
+              _agencyDetailRow(Icons.location_on_outlined, agence.adresse),
+            if (agence.tel1?.trim().isNotEmpty == true)
+              _agencyDetailRow(Icons.phone_outlined, agence.tel1!.trim()),
+            if (agence.tel2?.trim().isNotEmpty == true)
+              _agencyDetailRow(Icons.phone_outlined, agence.tel2!.trim()),
+            if (agence.email?.trim().isNotEmpty == true)
+              _agencyDetailRow(Icons.email_outlined, agence.email!.trim()),
+            if (agence.latitude != null && agence.longitude != null)
+              _agencyDetailRow(
+                Icons.my_location_outlined,
+                '${agence.latitude}, ${agence.longitude}',
+              ),
+            const SizedBox(height: 14),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () async {
+                  Navigator.of(sheetContext).pop();
+                  await openGoogleMaps(agence);
+                },
+                icon: const Icon(Icons.directions_outlined),
+                label: const Text('Ouvrir dans Google Maps'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+Widget _agencyDetailRow(IconData icon, String value) => Padding(
+  padding: const EdgeInsets.only(top: 8),
+  child: Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Icon(icon, size: 18, color: const Color(0xFF16A34A)),
+      const SizedBox(width: 10),
+      Expanded(child: Text(value, style: const TextStyle(fontSize: 14))),
+    ],
+  ),
+);
+
+String? _agencyImageUrl(String? imagePath) {
+  final path = imagePath?.trim() ?? '';
+  if (path.isEmpty) return null;
+  final parsedImage = Uri.tryParse(path);
+  if (parsedImage != null && parsedImage.hasAuthority) return path;
+
+  final apiUri = Uri.tryParse(AppConfig.apiBaseUrl.trim());
+  if (apiUri == null || !apiUri.hasAuthority) return null;
+  final baseSegments = apiUri.pathSegments
+      .where((segment) => segment.isNotEmpty)
+      .toList();
+  if (baseSegments.isNotEmpty && baseSegments.last.toLowerCase() == 'api') {
+    baseSegments.removeLast();
+  }
+  final storageBase = apiUri.replace(pathSegments: [...baseSegments, '']);
+  final cleanPath = path
+      .replaceFirst(RegExp(r'^/+'), '')
+      .replaceFirst(RegExp(r'^storage/'), '');
+  return storageBase.resolve('storage/$cleanPath').toString();
 }

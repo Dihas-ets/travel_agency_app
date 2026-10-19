@@ -110,12 +110,17 @@ class _TicketValidationPageState extends State<TicketValidationPage> {
     });
 
     try {
-      final ticket = searchByMecef
-          ? await _ticketService.getTicketByMecef(
-              code: searchCode!,
-              nim: searchNim!,
-            )
-          : await _ticketService.getTicketByReference(reference!);
+      final StaffTicketModel? ticket;
+      if (searchByMecef) {
+        ticket = await _ticketService.getTicketByMecef(
+          code: searchCode!,
+          nim: searchNim!,
+        );
+      } else {
+        ticket =
+            await _ticketService.getTicketByReference(reference!) ??
+            await _ticketService.getTicketByMecefCode(reference);
+      }
       if (!mounted) return;
       if (ticket != null) {
         if (manualReference && ticket.isMecefCertified) {

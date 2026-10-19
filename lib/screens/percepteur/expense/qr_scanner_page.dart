@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:fofanavoyage/services/staff_ticket_service.dart';
 import 'manual_expense_page.dart';
 
 class QRScannerPage extends StatefulWidget {
@@ -20,7 +21,9 @@ class QRScannerPage extends StatefulWidget {
 class _QRScannerPageState extends State<QRScannerPage> {
   late final MobileScannerController _controller;
   bool _hasScanned = false;
+  bool _isLoadingTicket = false;
   String? _scanError;
+  final _ticketService = StaffTicketService();
 
   @override
   void initState() {
@@ -61,31 +64,64 @@ class _QRScannerPageState extends State<QRScannerPage> {
   Future<void> _processQr(String content) async {
     if (_hasScanned) return;
     final parsed = _parseMecefQr(content);
-    if (parsed == null) {
+    if (parsed != null) {
+      setState(() => _hasScanned = true);
+      await _controller.stop();
+      if (!mounted) return;
+      await Navigator.of(context).pushReplacement<void, void>(
+        MaterialPageRoute<void>(
+          builder: (context) => ManualExpensePage(
+            initialMecefCode: parsed.code,
+            initialMecefNim: parsed.nim,
+          ),
+        ),
+      );
+      return;
+    }
+
+    final reference = ticketReferenceFromQr(content);
+    if (reference == null) {
       setState(() {
         _scanError =
-            'QR non reconnu. Scannez le QR MECeF au format F;NIM;CODE;IFU;DATE.';
+            'QR non reconnu. Scannez un QR de facture MECeF ou de ticket simple.';
         _hasScanned = true;
       });
       return;
     }
 
-    setState(() => _hasScanned = true);
-    await _controller.stop();
-    if (!mounted) return;
-    await Navigator.of(context).pushReplacement<void, void>(
-      MaterialPageRoute<void>(
-        builder: (context) => ManualExpensePage(
-          initialMecefCode: parsed.code,
-          initialMecefNim: parsed.nim,
+    setState(() {
+      _hasScanned = true;
+      _isLoadingTicket = true;
+      _scanError = null;
+    });
+    try {
+      final ticket = await _ticketService.getTicketByReference(reference);
+      if (ticket == null) {
+        throw Exception('Aucun ticket ne correspond à ce QR code.');
+      }
+      await _controller.stop();
+      if (!mounted) return;
+      await Navigator.of(context).pushReplacement<void, void>(
+        MaterialPageRoute<void>(
+          builder: (context) => ManualExpensePage(
+            initialTicketReference: ticket.reference,
+            initialTicketAmount: ticket.montantTotal,
+          ),
         ),
-      ),
-    );
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _isLoadingTicket = false;
+        _scanError = error.toString().replaceFirst('Exception: ', '');
+      });
+    }
   }
 
   void _resumeScanning() {
     setState(() {
       _hasScanned = false;
+      _isLoadingTicket = false;
       _scanError = null;
     });
   }
@@ -98,7 +134,7 @@ class _QRScannerPageState extends State<QRScannerPage> {
         backgroundColor: const Color(0xFF0B4F2A),
         foregroundColor: Colors.white,
         title: const Text(
-          'Scanner une facture MECeF',
+          'Scanner une facture ou un ticket',
           style: TextStyle(fontWeight: FontWeight.w900),
         ),
       ),
@@ -148,7 +184,9 @@ class _QRScannerPageState extends State<QRScannerPage> {
                     children: [
                       Text(
                         _scanError ??
-                            'Placez le QR MECeF de la facture dans le cadre.',
+                            (_isLoadingTicket
+                                ? 'Recherche du ticket...'
+                                : 'Scannez le QR MECeF ou le QR d’un ticket.'),
                         textAlign: TextAlign.center,
                         style: const TextStyle(
                           color: Colors.white,

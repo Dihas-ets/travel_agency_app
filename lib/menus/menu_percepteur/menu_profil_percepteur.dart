@@ -147,7 +147,7 @@ class PercepteurMainMenuView extends StatelessWidget {
           Align(
             alignment: Alignment.centerLeft,
             child: Text(
-              'v1.0.2',
+              '',
               style: TextStyle(
                 color: const Color(0xFF0B4F2A).withValues(alpha: 0.9),
                 fontSize: 14,

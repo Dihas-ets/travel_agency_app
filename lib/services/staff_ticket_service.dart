@@ -50,7 +50,9 @@ String? ticketReferenceFromQr(String payload) {
     }
   }
 
-  if (!value.contains(RegExp(r'\s')) && !value.contains('://')) return value;
+  if (!value.contains(RegExp(r'[\s;]')) && !value.contains('://')) {
+    return value;
+  }
   return null;
 }
 
@@ -64,6 +66,15 @@ class MecefTicketQrData {
 String normalizeMecefCode(String value) =>
     value.replaceAll(RegExp(r'[\s-]'), '').toUpperCase();
 
+String normalizeMecefNim(String value) => value.trim().toUpperCase();
+
+String formatMecefCode(String value) {
+  final compact = normalizeMecefCode(value);
+  return RegExp(
+    r'.{1,4}',
+  ).allMatches(compact).map((match) => match.group(0)!).join('-');
+}
+
 MecefTicketQrData? mecefTicketDataFromQr(String payload) {
   final parts = payload.trim().split(';');
   if (parts.length < 3 || parts.first.trim().toUpperCase() != 'F') {
@@ -71,7 +82,7 @@ MecefTicketQrData? mecefTicketDataFromQr(String payload) {
   }
 
   final nim = parts[1].trim();
-  final code = parts[2].trim();
+  final code = formatMecefCode(parts[2].trim());
   if (nim.isEmpty || code.isEmpty) return null;
   return MecefTicketQrData(nim: nim, code: code);
 }
@@ -350,7 +361,7 @@ class StaffTicketService {
         return StaffTicketModel.fromJson(ticketJson);
       }
       if (response.statusCode == 404) {
-        throw Exception('Ticket introuvable. Vérifiez la référence.');
+        return null;
       }
       final errorBody = response.body.isEmpty
           ? <String, dynamic>{}
@@ -374,54 +385,62 @@ class StaffTicketService {
   Future<StaffTicketModel?> getTicketByMecef({
     required String code,
     required String nim,
+  }) => _getTicketByMecef(code: code, nim: nim);
+
+  Future<StaffTicketModel?> getTicketByMecefCode(String code) =>
+      _getTicketByMecef(code: code);
+
+  Future<StaffTicketModel?> _getTicketByMecef({
+    required String code,
+    String? nim,
   }) async {
     final normalizedCode = normalizeMecefCode(code);
-    final normalizedNim = nim.trim();
-    if (normalizedCode.isEmpty || normalizedNim.isEmpty) return null;
+    final normalizedNim = nim == null ? null : normalizeMecefNim(nim);
+    if (normalizedCode.isEmpty ||
+        (nim != null && (normalizedNim == null || normalizedNim.isEmpty))) {
+      return null;
+    }
 
-    var page = 1;
-    var lastPage = 1;
-    do {
-      final uri = Uri.parse(
-        '$_baseUrl/tickets',
-      ).replace(queryParameters: {'page': '$page', 'per_page': '100'});
-      final response = await http
-          .get(uri, headers: await _headers())
-          .timeout(const Duration(seconds: 20));
+    final query = <String, String>{
+      'mecef_code': normalizedCode,
+      'per_page': '100',
+      if (normalizedNim != null) 'mecef_nim': normalizedNim,
+    };
+    final uri = Uri.parse('$_baseUrl/tickets').replace(queryParameters: query);
+    final response = await http
+        .get(uri, headers: await _headers())
+        .timeout(const Duration(seconds: 20));
+    final decoded = response.body.isEmpty
+        ? <String, dynamic>{}
+        : jsonDecode(response.body);
+    if (response.statusCode != 200) {
+      final message = decoded is Map ? decoded['message']?.toString() : null;
+      throw Exception(
+        message ?? 'Erreur ${response.statusCode} lors de la recherche MECeF.',
+      );
+    }
+    if (decoded is! Map || decoded['data'] is! List) {
+      throw const FormatException(
+        'Réponse invalide lors de la recherche du ticket MECeF.',
+      );
+    }
 
-      final decoded = response.body.isEmpty
-          ? <String, dynamic>{}
-          : jsonDecode(response.body);
-      if (response.statusCode != 200) {
-        final message = decoded is Map ? decoded['message']?.toString() : null;
-        throw Exception(
-          message ??
-              'Erreur ${response.statusCode} lors de la recherche MECeF.',
-        );
+    final total = int.tryParse(decoded['total']?.toString() ?? '') ?? 0;
+    if (normalizedNim == null && total > 1) {
+      throw Exception(
+        'Plusieurs tickets correspondent à ce code MECeF. Renseignez également le NIM.',
+      );
+    }
+    for (final item in decoded['data'] as List) {
+      if (item is! Map) continue;
+      final ticket = StaffTicketModel.fromJson(Map<String, dynamic>.from(item));
+      if (ticket.isMecefCertified &&
+          normalizeMecefCode(ticket.mecefCode ?? '') == normalizedCode &&
+          (normalizedNim == null ||
+              normalizeMecefNim(ticket.mecefNim ?? '') == normalizedNim)) {
+        return ticket;
       }
-      if (decoded is! Map || decoded['data'] is! List) {
-        throw const FormatException(
-          'Réponse invalide lors de la recherche du ticket MECeF.',
-        );
-      }
-
-      final items = decoded['data'] as List;
-      for (final item in items) {
-        if (item is! Map) continue;
-        final ticketJson = Map<String, dynamic>.from(item);
-        final ticket = StaffTicketModel.fromJson(ticketJson);
-        if (ticket.isMecefCertified &&
-            normalizeMecefCode(ticket.mecefCode ?? '') == normalizedCode &&
-            (ticket.mecefNim ?? '').trim() == normalizedNim) {
-          return ticket;
-        }
-      }
-
-      page = int.tryParse(decoded['current_page']?.toString() ?? '') ?? page;
-      lastPage = int.tryParse(decoded['last_page']?.toString() ?? '') ?? page;
-      page++;
-    } while (page <= lastPage);
-
+    }
     return null;
   }
 

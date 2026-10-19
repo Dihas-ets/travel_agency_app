@@ -60,12 +60,14 @@ class _ParcelDraft {
     return nature != null &&
         nature!.trim().isNotEmpty &&
         valueController.text.trim().isNotEmpty &&
+        quantity >= 1 &&
         attachment != null;
   }
 
   bool get isCompleteForStaff {
     return nature != null &&
         nature!.trim().isNotEmpty &&
+        quantity >= 1 &&
         valueController.text.trim().isNotEmpty &&
         descriptionController.text.trim().isNotEmpty &&
         (double.tryParse(weightController.text.trim().replaceAll(',', '.')) ??

@@ -322,12 +322,14 @@ class _ReservationPageState extends State<_ReservationPage> {
   final TextEditingController _departController = TextEditingController();
   final TextEditingController _destinationController = TextEditingController();
   final TextEditingController _dateController = TextEditingController();
+  Timer? _departureTimeRefreshTimer;
   int _passengerCount = 1;
   DateTime? _travelDate;
   String _selectedTime = '6h20';
 
   List<String> _cities = _beninCities;
   final Map<String, int> _voyageByTime = {};
+  final Map<String, int> _placesByTime = {};
   List<String> _availableTimes = [];
   int? _selectedLigneId;
   int? _selectedVoyageId;
@@ -337,9 +339,28 @@ class _ReservationPageState extends State<_ReservationPage> {
   @override
   void initState() {
     super.initState();
+    _departureTimeRefreshTimer = Timer.periodic(const Duration(minutes: 1), (
+      _,
+    ) {
+      if (!mounted || _travelDate == null || _availableTimes.isEmpty) return;
+      final remainingTimes = _availableTimes
+          .where((time) => _departureIsFuture(_travelDate!, time))
+          .toList();
+      if (remainingTimes.length == _availableTimes.length &&
+          remainingTimes.contains(_selectedTime)) {
+        return;
+      }
+      setState(() {
+        _availableTimes = remainingTimes;
+        if (!remainingTimes.contains(_selectedTime)) {
+          _selectedTime = remainingTimes.isEmpty ? '' : remainingTimes.first;
+          _selectedVoyageId = _voyageByTime[_selectedTime];
+        }
+      });
+    });
     _departController.text = widget.initialDeparture ?? 'Cotonou';
     _destinationController.text = widget.initialDestination ?? 'Porto-Novo';
-    _passengerCount = widget.initialPassengerCount.clamp(1, 8).toInt();
+    _passengerCount = widget.initialPassengerCount;
 
     if (widget.voyageId != null && widget.initialTime != null) {
       _selectedTime = widget
@@ -380,6 +401,7 @@ class _ReservationPageState extends State<_ReservationPage> {
 
   @override
   void dispose() {
+    _departureTimeRefreshTimer?.cancel();
     _departController.dispose();
     _destinationController.dispose();
     _dateController.dispose();
@@ -388,11 +410,13 @@ class _ReservationPageState extends State<_ReservationPage> {
 
   void _pickDate() async {
     final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final currentDate = _travelDate ?? today;
     final date = await showDatePicker(
       context: context,
-      initialDate: _travelDate ?? now,
-      firstDate: now,
-      lastDate: now.add(const Duration(days: 120)),
+      initialDate: currentDate.isBefore(today) ? today : currentDate,
+      firstDate: today,
+      lastDate: today.add(const Duration(days: 120)),
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
           colorScheme: const ColorScheme.light(
@@ -417,6 +441,22 @@ class _ReservationPageState extends State<_ReservationPage> {
     }
   }
 
+  bool _departureIsFuture(DateTime date, String time) {
+    final match = RegExp(
+      r'^(\d{1,2})[:h](\d{2})',
+    ).firstMatch(time.trim().toLowerCase());
+    if (match == null) return false;
+
+    final departure = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      int.parse(match.group(1)!),
+      int.parse(match.group(2)!),
+    );
+    return departure.isAfter(DateTime.now());
+  }
+
   Future<void> _refreshAvailability() async {
     if (widget.ligneId != null ||
         _travelDate == null ||
@@ -430,6 +470,7 @@ class _ReservationPageState extends State<_ReservationPage> {
       _isLoadingAvailability = true;
       _availableTimes = [];
       _voyageByTime.clear();
+      _placesByTime.clear();
       _selectedLigneId = null;
       _selectedVoyageId = null;
       _dynamicPrice = 0;
@@ -449,9 +490,11 @@ class _ReservationPageState extends State<_ReservationPage> {
       final options = <String>[];
       for (final voyage in disponibilites) {
         for (final heure in voyage.heures) {
-          if (heure.placesRestantes > 0) {
+          if (heure.placesRestantes > 0 &&
+              _departureIsFuture(_travelDate!, heure.heure)) {
             options.add(heure.heure);
             _voyageByTime[heure.heure] = voyage.voyageId;
+            _placesByTime[heure.heure] = heure.placesRestantes;
           }
         }
       }
@@ -590,6 +633,29 @@ class _ReservationPageState extends State<_ReservationPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('La destination doit être différente du départ.'),
+        ),
+      );
+      return;
+    }
+
+    final placesDisponibles = _placesByTime[_selectedTime];
+    if (placesDisponibles != null && _passengerCount > placesDisponibles) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Il ne reste que $placesDisponibles place${placesDisponibles > 1 ? 's' : ''} pour ce départ.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    if (!_departureIsFuture(_travelDate!, _selectedTime)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'La date et l’heure de départ doivent être dans le futur.',
+          ),
         ),
       );
       return;
@@ -993,6 +1059,10 @@ class _ReservationPageState extends State<_ReservationPage> {
                       setState(() {
                         _selectedTime = time;
                         _selectedVoyageId = _voyageByTime[time];
+                        final places = _placesByTime[time];
+                        if (places != null && _passengerCount > places) {
+                          _passengerCount = places;
+                        }
                       });
                       Navigator.of(context).pop();
                     },
@@ -1135,7 +1205,10 @@ class _ReservationPageState extends State<_ReservationPage> {
                 icon: Icons.add,
                 onTap: () {
                   setState(() {
-                    if (_passengerCount < 8) _passengerCount += 1;
+                    final available = _placesByTime[_selectedTime];
+                    if (available == null || _passengerCount < available) {
+                      _passengerCount += 1;
+                    }
                   });
                 },
               ),
@@ -1213,6 +1286,8 @@ class _PaymentDetailsPageState extends State<_PaymentDetailsPage> {
       TextEditingController();
   final TextEditingController _beneficiaryPhoneController =
       TextEditingController();
+  String? _requesterPhoneInternational;
+  String? _beneficiaryPhoneInternational;
 
   bool _isForSomeoneElse = false;
   bool _isLoadingTaxGroups = true;
@@ -1270,10 +1345,13 @@ class _PaymentDetailsPageState extends State<_PaymentDetailsPage> {
 
   bool _isSubmitting = false;
   Future<void> _finishReservation() async {
-    final requesterPhone = _requesterPhoneController.text.trim();
+    final requesterPhone =
+        _requesterPhoneInternational ?? _requesterPhoneController.text.trim();
     final beneficiaryFirstName = _beneficiaryFirstNameController.text.trim();
     final beneficiaryLastName = _beneficiaryLastNameController.text.trim();
-    final beneficiaryPhone = _beneficiaryPhoneController.text.trim();
+    final beneficiaryPhone =
+        _beneficiaryPhoneInternational ??
+        _beneficiaryPhoneController.text.trim();
 
     if (requesterPhone.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1531,7 +1609,11 @@ class _PaymentDetailsPageState extends State<_PaymentDetailsPage> {
                     const SizedBox(height: 24),
                     _buildSectionHeader('Numéro de téléphone demandeur :'),
                     const SizedBox(height: 12),
-                    PhoneLoginField(controller: _requesterPhoneController),
+                    PhoneLoginField(
+                      controller: _requesterPhoneController,
+                      onFullNumberChanged: (phone) =>
+                          _requesterPhoneInternational = phone,
+                    ),
                     const SizedBox(height: 18),
                     _buildCheckboxCard(),
                     if (_isForSomeoneElse) ...[
@@ -1550,7 +1632,11 @@ class _PaymentDetailsPageState extends State<_PaymentDetailsPage> {
                       const SizedBox(height: 18),
                       _buildSectionHeader('N° du bénéficiaire :'),
                       const SizedBox(height: 12),
-                      PhoneLoginField(controller: _beneficiaryPhoneController),
+                      PhoneLoginField(
+                        controller: _beneficiaryPhoneController,
+                        onFullNumberChanged: (phone) =>
+                            _beneficiaryPhoneInternational = phone,
+                      ),
                     ],
                     const SizedBox(height: 30),
                     SizedBox(
@@ -2491,6 +2577,7 @@ class _EditReservationSheetState extends State<_EditReservationSheet> {
   late final TextEditingController _dateController;
   late final TextEditingController _beneficiaryController;
   late final TextEditingController _phoneController;
+  String? _phoneInternational;
   late int _passengerCount;
 
   @override
@@ -2577,7 +2664,7 @@ class _EditReservationSheetState extends State<_EditReservationSheet> {
         _destinationController.text.trim().isEmpty ||
         _dateController.text.trim().isEmpty ||
         _beneficiaryController.text.trim().isEmpty ||
-        _phoneController.text.trim().isEmpty) {
+        (_phoneInternational ?? _phoneController.text.trim()).isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Veuillez compléter les champs.')),
       );
@@ -2601,7 +2688,7 @@ class _EditReservationSheetState extends State<_EditReservationSheet> {
         date: _dateController.text.trim(),
         passengerCount: _passengerCount,
         beneficiaryName: _beneficiaryController.text.trim(),
-        beneficiaryPhone: _phoneController.text.trim(),
+        beneficiaryPhone: _phoneInternational ?? _phoneController.text.trim(),
       ),
     );
     if (mounted) Navigator.of(context).pop();
@@ -2665,10 +2752,24 @@ class _EditReservationSheetState extends State<_EditReservationSheet> {
                 label: 'Bénéficiaire',
               ),
               const SizedBox(height: 12),
-              _EditSheetField(
-                controller: _phoneController,
-                label: 'Téléphone bénéficiaire',
-                keyboardType: TextInputType.phone,
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.only(left: 4, bottom: 8),
+                    child: Text(
+                      'Téléphone bénéficiaire',
+                      style: TextStyle(
+                        color: Color(0xFF7B849B),
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  PhoneLoginField(
+                    controller: _phoneController,
+                    onFullNumberChanged: (phone) => _phoneInternational = phone,
+                  ),
+                ],
               ),
               const SizedBox(height: 14),
               Container(
@@ -2705,9 +2806,7 @@ class _EditReservationSheetState extends State<_EditReservationSheet> {
                       ),
                     ),
                     IconButton(
-                      onPressed: _passengerCount < 8
-                          ? () => setState(() => _passengerCount++)
-                          : null,
+                      onPressed: () => setState(() => _passengerCount++),
                       icon: const Icon(Icons.add_circle_outline_rounded),
                       color: _fofanaGreen,
                     ),
@@ -2746,14 +2845,12 @@ class _EditSheetField extends StatelessWidget {
   final String label;
   final bool readOnly;
   final VoidCallback? onTap;
-  final TextInputType? keyboardType;
 
   const _EditSheetField({
     required this.controller,
     required this.label,
     this.readOnly = false,
     this.onTap,
-    this.keyboardType,
   });
 
   @override
@@ -2762,7 +2859,6 @@ class _EditSheetField extends StatelessWidget {
       controller: controller,
       readOnly: readOnly,
       onTap: onTap,
-      keyboardType: keyboardType,
       decoration: InputDecoration(
         labelText: label,
         filled: true,

@@ -28,6 +28,7 @@ class _SendParcelPageState extends State<SendParcelPage>
   final TextEditingController _senderPhoneController = TextEditingController();
   final TextEditingController _secondaryPhoneController =
       TextEditingController();
+  String? _recipientPhoneInternational;
   final TextEditingController _amountController = TextEditingController(
     text: '0',
   );
@@ -53,6 +54,9 @@ class _SendParcelPageState extends State<SendParcelPage>
   ColisModel? _pendingPaymentParcel;
   Timer? _paymentPollTimer;
 
+  String get _recipientPhone =>
+      _recipientPhoneInternational ?? _phoneController.text.trim();
+
   List<Agence> _agences = [];
   List<String> _dynamicNatures = [];
   List<Map<String, dynamic>> _parcelConfigurations = [];
@@ -64,8 +68,13 @@ class _SendParcelPageState extends State<SendParcelPage>
     super.initState();
     _tabController = TabController(length: 1, vsync: this);
     final user = SessionStore.currentUser;
-    _senderNameController.text = user?.fullName ?? '';
-    _senderPhoneController.text = user?.numero ?? '';
+    final senderDefaults = ParcelSenderDefaults.fromProfile(
+      isPercepteur: widget.isPercepteur,
+      fullName: user?.fullName,
+      phone: user?.numero,
+    );
+    _senderNameController.text = senderDefaults.name;
+    _senderPhoneController.text = senderDefaults.phone;
     _prefillDraft();
     _loadAgences();
     _loadNatures();
@@ -731,10 +740,7 @@ class _SendParcelPageState extends State<SendParcelPage>
 
   void _increaseParcelQuantity(int index) {
     setState(() {
-      final parcel = _parcels[index];
-      if (parcel.quantity < 99) {
-        parcel.quantity++;
-      }
+      _parcels[index].quantity++;
     });
   }
 
@@ -744,6 +750,13 @@ class _SendParcelPageState extends State<SendParcelPage>
       if (parcel.quantity > 1) {
         parcel.quantity--;
       }
+    });
+  }
+
+  void _setParcelQuantity(int index, int quantity) {
+    if (quantity < 1) return;
+    setState(() {
+      _parcels[index].quantity = quantity;
     });
   }
 
@@ -815,7 +828,7 @@ class _SendParcelPageState extends State<SendParcelPage>
         _lastNameController.text.trim().isEmpty ||
         (widget.initialParcel == null &&
             _firstNameController.text.trim().isEmpty) ||
-        _phoneController.text.trim().isEmpty ||
+        _recipientPhone.isEmpty ||
         (!widget.isPercepteur && _departureController.text.trim().isEmpty) ||
         _parcels.any(
           (parcel) => widget.isPercepteur
@@ -945,7 +958,7 @@ class _SendParcelPageState extends State<SendParcelPage>
               '${_lastNameController.text.trim()} '
                       '${_firstNameController.text.trim()}'
                   .trim(),
-          destinataireTel: _phoneController.text.trim(),
+          destinataireTel: _recipientPhone,
           destinataireTelSecondaire: _secondaryPhoneController.text.trim(),
           modePaiement: _paymentMode,
           valeurEstime: estimatedValue,
@@ -1059,7 +1072,7 @@ class _SendParcelPageState extends State<SendParcelPage>
         destinataireNom:
             '${_lastNameController.text.trim()} ${_firstNameController.text.trim()}'
                 .trim(),
-        destinataireTel: _phoneController.text.trim(),
+        destinataireTel: _recipientPhone,
         modePaiement: widget.isPercepteur ? _paymentMode : 'ESPECES',
         useMecef: _useMecef,
         valeurEstime: totalValeur,
@@ -1114,7 +1127,7 @@ class _SendParcelPageState extends State<SendParcelPage>
                   colis.agenceRetraitNom ?? _destinationController.text.trim(),
               recipientLastName: _lastNameController.text.trim(),
               recipientFirstName: _firstNameController.text.trim(),
-              recipientPhone: _phoneController.text.trim(),
+              recipientPhone: _recipientPhone,
               parcelNature: _parcels
                   .map((parcel) => parcel.nature)
                   .whereType<String>()
@@ -1232,7 +1245,7 @@ class _SendParcelPageState extends State<SendParcelPage>
           publicKey: result['public_key']?.toString() ?? '',
           sandbox: result['environment']?.toString() != 'live',
           reference: reference,
-          phone: customer?['phone']?.toString() ?? _phoneController.text.trim(),
+          phone: customer?['phone']?.toString() ?? _recipientPhone,
           name:
               '${_lastNameController.text.trim()} '
                       '${_firstNameController.text.trim()}'
@@ -1355,7 +1368,7 @@ class _SendParcelPageState extends State<SendParcelPage>
               colis.agenceRetraitNom ?? _destinationController.text.trim(),
           recipientLastName: _lastNameController.text.trim(),
           recipientFirstName: _firstNameController.text.trim(),
-          recipientPhone: _phoneController.text.trim(),
+          recipientPhone: _recipientPhone,
           parcelNature: colis.colisDetails
               .map((detail) => detail.nature)
               .toSet()
@@ -1462,6 +1475,7 @@ class _SendParcelPageState extends State<SendParcelPage>
                     onRemoveParcel: _removeParcelInfo,
                     onIncreaseQuantity: _increaseParcelQuantity,
                     onDecreaseQuantity: _decreaseParcelQuantity,
+                    onQuantityChanged: _setParcelQuantity,
                     onPickAttachment: _pickAttachment,
                     onNext: _goToStepTwo,
                     onInitiations: () => _showInitiationsMessage(context),
@@ -1477,6 +1491,8 @@ class _SendParcelPageState extends State<SendParcelPage>
                     lastNameController: _lastNameController,
                     firstNameController: _firstNameController,
                     phoneController: _phoneController,
+                    onPhoneChanged: (phone) =>
+                        _recipientPhoneInternational = phone,
                     secondaryPhoneController: _secondaryPhoneController,
                     showStaffFields: widget.isPercepteur,
                     isSubmitting: _isSubmitting || _isPaymentProcessing,

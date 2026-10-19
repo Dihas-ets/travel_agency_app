@@ -6,6 +6,8 @@ class Agence {
   final double? latitude;
   final double? longitude;
   final String? tel1;
+  final String? tel2;
+  final String? email;
   final double? distance; // en km, renvoyé par l'endpoint /proches
 
   Agence({
@@ -16,6 +18,8 @@ class Agence {
     this.latitude,
     this.longitude,
     this.tel1,
+    this.tel2,
+    this.email,
     this.distance,
   });
 
@@ -32,6 +36,8 @@ class Agence {
           ? double.tryParse(json['longitude'].toString())
           : null,
       tel1: json['tel1']?.toString(),
+      tel2: json['tel2']?.toString(),
+      email: json['email']?.toString(),
       distance: json['distance'] != null
           ? double.tryParse(json['distance'].toString())
           : null,

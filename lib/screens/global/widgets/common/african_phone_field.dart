@@ -14,7 +14,14 @@ class AfricanCountry {
 }
 
 const List<AfricanCountry> africanCountries = [
+  AfricanCountry(name: 'Allemagne', code: '+49', flag: '🇩🇪'),
   AfricanCountry(name: 'Bénin', code: '+229', flag: '🇧🇯'),
+  AfricanCountry(name: 'Canada', code: '+1', flag: '🇨🇦'),
+  AfricanCountry(name: 'États-Unis', code: '+1', flag: '🇺🇸'),
+  AfricanCountry(name: 'France', code: '+33', flag: '🇫🇷'),
+  AfricanCountry(name: 'Royaume-Uni', code: '+44', flag: '🇬🇧'),
+  AfricanCountry(name: 'Suisse', code: '+41', flag: '🇨🇭'),
+  AfricanCountry(name: 'Belgique', code: '+32', flag: '🇧🇪'),
   AfricanCountry(name: 'Afrique du Sud', code: '+27', flag: '🇿🇦'),
   AfricanCountry(name: 'Algérie', code: '+213', flag: '🇩🇿'),
   AfricanCountry(name: 'Angola', code: '+244', flag: '🇦🇴'),
@@ -85,6 +92,7 @@ class AfricanPhoneField extends StatefulWidget {
 
 class _AfricanPhoneFieldState extends State<AfricanPhoneField> {
   AfricanCountry selectedCountry = africanCountries.first;
+  String? _internationalNumberOverride;
 
   @override
   void initState() {
@@ -97,10 +105,7 @@ class _AfricanPhoneFieldState extends State<AfricanPhoneField> {
     final controller = widget.controller;
     if (controller == null) return;
 
-    final enteredNumber = controller.text.trim().replaceAll(
-      RegExp(r'[\s()-]'),
-      '',
-    );
+    final enteredNumber = _normalizeEnteredNumber(controller.text);
     final matchingCountries =
         africanCountries
             .where((country) => enteredNumber.startsWith(country.code))
@@ -109,12 +114,16 @@ class _AfricanPhoneFieldState extends State<AfricanPhoneField> {
             (first, second) => second.code.length.compareTo(first.code.length),
           );
 
-    if (matchingCountries.isEmpty) return;
+    if (matchingCountries.isEmpty) {
+      if (enteredNumber.startsWith('+')) {
+        _internationalNumberOverride =
+            '+${enteredNumber.substring(1).replaceAll(RegExp(r'\D'), '')}';
+      }
+      return;
+    }
 
     final country = matchingCountries.first;
     final localNumber = enteredNumber.substring(country.code.length);
-    if (localNumber.isEmpty) return;
-
     selectedCountry = country;
     controller.value = TextEditingValue(
       text: localNumber,
@@ -122,10 +131,53 @@ class _AfricanPhoneFieldState extends State<AfricanPhoneField> {
     );
   }
 
+  String _normalizeEnteredNumber(String value) {
+    final normalized = value.trim().replaceAll(RegExp(r'[\s().-]'), '');
+    return normalized.startsWith('00')
+        ? '+${normalized.substring(2)}'
+        : normalized;
+  }
+
+  void _handleNumberChanged(String value) {
+    final controller = widget.controller;
+    final enteredNumber = _normalizeEnteredNumber(value);
+    final matchingCountries =
+        africanCountries
+            .where((country) => enteredNumber.startsWith(country.code))
+            .toList()
+          ..sort(
+            (first, second) => second.code.length.compareTo(first.code.length),
+          );
+
+    if (controller != null && matchingCountries.isNotEmpty) {
+      _internationalNumberOverride = null;
+      final country = matchingCountries.first;
+      final localNumber = enteredNumber.substring(country.code.length);
+      setState(() => selectedCountry = country);
+      final digits = localNumber.replaceAll(RegExp(r'\D'), '');
+      controller.value = TextEditingValue(
+        text: digits,
+        selection: TextSelection.collapsed(offset: digits.length),
+      );
+    } else if (enteredNumber.startsWith('+')) {
+      _internationalNumberOverride =
+          '+${enteredNumber.substring(1).replaceAll(RegExp(r'\D'), '')}';
+    } else {
+      _internationalNumberOverride = null;
+    }
+    _notifyParent();
+  }
+
   /// Calcule le numéro complet et prévient le widget parent.
   void _notifyParent() {
-    final localPart = widget.controller?.text.trim() ?? '';
-    // Correction du soulignement : on utilise .call()
+    if (_internationalNumberOverride != null) {
+      widget.onFullNumberChanged?.call(_internationalNumberOverride!);
+      return;
+    }
+    final localPart = (widget.controller?.text.trim() ?? '').replaceAll(
+      RegExp(r'\D'),
+      '',
+    );
     widget.onFullNumberChanged?.call('${selectedCountry.code}$localPart');
   }
 
@@ -223,9 +275,13 @@ class _AfricanPhoneFieldState extends State<AfricanPhoneField> {
     );
 
     if (country != null) {
+      final hadUnlistedInternationalNumber =
+          _internationalNumberOverride != null;
       setState(() {
         selectedCountry = country;
+        _internationalNumberOverride = null;
       });
+      if (hadUnlistedInternationalNumber) widget.controller?.clear();
       _notifyParent();
     }
   }
@@ -277,7 +333,7 @@ class _AfricanPhoneFieldState extends State<AfricanPhoneField> {
             child: TextField(
               controller: widget.controller,
               keyboardType: TextInputType.phone,
-              onChanged: (_) => _notifyParent(),
+              onChanged: _handleNumberChanged,
               decoration: const InputDecoration(
                 hintText: '',
                 border: InputBorder.none,

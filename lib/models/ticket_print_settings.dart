@@ -8,6 +8,7 @@ class TicketPrintSettings {
   final bool showBarcode;
   final String agencyName;
   final String? agencyLogo;
+  final String ifu;
   final String telephone;
   final String email;
   final bool showEmetteur;
@@ -28,6 +29,7 @@ class TicketPrintSettings {
     required this.showBarcode,
     required this.agencyName,
     required this.agencyLogo,
+    required this.ifu,
     required this.telephone,
     required this.email,
     required this.showEmetteur,
@@ -69,6 +71,7 @@ class TicketPrintSettings {
       agencyName:
           values['general.nomEntreprise']?.toString() ?? 'Fofana Voyage',
       agencyLogo: values['branding.primaryLogo']?.toString(),
+      ifu: values['mecef.ifu']?.toString() ?? '',
       telephone: _telephone(values),
       email: values['general.email']?.toString() ?? '',
       showEmetteur: booleanValue('documents.ticket.showEmetteur', true),

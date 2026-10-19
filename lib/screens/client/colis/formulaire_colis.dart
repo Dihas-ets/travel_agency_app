@@ -9,6 +9,7 @@ class _StepOneForm extends StatelessWidget {
   final ValueChanged<int> onRemoveParcel;
   final ValueChanged<int> onIncreaseQuantity;
   final ValueChanged<int> onDecreaseQuantity;
+  final void Function(int, int) onQuantityChanged;
   final ValueChanged<int> onPickAttachment;
   final VoidCallback onNext;
   final VoidCallback onInitiations;
@@ -25,6 +26,7 @@ class _StepOneForm extends StatelessWidget {
     required this.onRemoveParcel,
     required this.onIncreaseQuantity,
     required this.onDecreaseQuantity,
+    required this.onQuantityChanged,
     required this.onPickAttachment,
     required this.onNext,
     required this.onInitiations,
@@ -84,6 +86,8 @@ class _StepOneForm extends StatelessWidget {
               onRemove: () => onRemoveParcel(index),
               onIncreaseQuantity: () => onIncreaseQuantity(index),
               onDecreaseQuantity: () => onDecreaseQuantity(index),
+              onQuantityChanged: (quantity) =>
+                  onQuantityChanged(index, quantity),
             ),
           ),
           const SizedBox(height: 10),
@@ -108,6 +112,7 @@ class _StepTwoForm extends StatelessWidget {
   final TextEditingController lastNameController;
   final TextEditingController firstNameController;
   final TextEditingController phoneController;
+  final ValueChanged<String>? onPhoneChanged;
   final TextEditingController secondaryPhoneController;
   final bool showStaffFields;
   final VoidCallback onDestinationTap;
@@ -125,6 +130,7 @@ class _StepTwoForm extends StatelessWidget {
     required this.lastNameController,
     required this.firstNameController,
     required this.phoneController,
+    this.onPhoneChanged,
     required this.secondaryPhoneController,
     this.showStaffFields = false,
     required this.onDestinationTap,
@@ -194,7 +200,10 @@ class _StepTwoForm extends StatelessWidget {
               const SizedBox(height: 10),
               SizedBox(
                 height: 66,
-                child: AfricanPhoneField(controller: phoneController),
+                child: AfricanPhoneField(
+                  controller: phoneController,
+                  onFullNumberChanged: onPhoneChanged,
+                ),
               ),
               if (showStaffFields) ...[
                 const SizedBox(height: 10),
@@ -968,6 +977,7 @@ class _ParcelInfoItem extends StatelessWidget {
   final VoidCallback onRemove;
   final VoidCallback onIncreaseQuantity;
   final VoidCallback onDecreaseQuantity;
+  final ValueChanged<int> onQuantityChanged;
 
   const _ParcelInfoItem({
     required this.index,
@@ -979,6 +989,7 @@ class _ParcelInfoItem extends StatelessWidget {
     required this.onRemove,
     required this.onIncreaseQuantity,
     required this.onDecreaseQuantity,
+    required this.onQuantityChanged,
   });
 
   @override
@@ -1074,6 +1085,7 @@ class _ParcelInfoItem extends StatelessWidget {
             quantity: parcel.quantity,
             onIncrease: onIncreaseQuantity,
             onDecrease: onDecreaseQuantity,
+            onChanged: onQuantityChanged,
           ),
           const SizedBox(height: 10),
           _AttachmentField(
@@ -1111,16 +1123,47 @@ class _ParcelInfoItem extends StatelessWidget {
   }
 }
 
-class _ParcelQuantitySelector extends StatelessWidget {
+class _ParcelQuantitySelector extends StatefulWidget {
   final int quantity;
   final VoidCallback onIncrease;
   final VoidCallback onDecrease;
+  final ValueChanged<int> onChanged;
 
   const _ParcelQuantitySelector({
     required this.quantity,
     required this.onIncrease,
     required this.onDecrease,
+    required this.onChanged,
   });
+
+  @override
+  State<_ParcelQuantitySelector> createState() =>
+      _ParcelQuantitySelectorState();
+}
+
+class _ParcelQuantitySelectorState extends State<_ParcelQuantitySelector> {
+  late final TextEditingController _quantityController;
+
+  @override
+  void initState() {
+    super.initState();
+    _quantityController = TextEditingController(text: '${widget.quantity}');
+  }
+
+  @override
+  void didUpdateWidget(covariant _ParcelQuantitySelector oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.quantity != widget.quantity &&
+        _quantityController.text != '${widget.quantity}') {
+      _quantityController.text = '${widget.quantity}';
+    }
+  }
+
+  @override
+  void dispose() {
+    _quantityController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1145,36 +1188,49 @@ class _ParcelQuantitySelector extends StatelessWidget {
           ),
           _QuantityIconButton(
             icon: Icons.remove_rounded,
-            onTap: quantity > 1 ? onDecrease : null,
+            onTap: widget.quantity > 1 ? widget.onDecrease : null,
           ),
           const SizedBox(width: 8),
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 160),
-            constraints: const BoxConstraints(minWidth: 38),
-            alignment: Alignment.center,
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-            decoration: BoxDecoration(
-              color: _fofanaGreen.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 140),
-              transitionBuilder: (child, animation) {
-                return ScaleTransition(scale: animation, child: child);
-              },
-              child: Text(
-                '$quantity',
-                key: ValueKey(quantity),
-                style: const TextStyle(
-                  color: _deepBlue,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w900,
+          SizedBox(
+            width: 64,
+            child: TextField(
+              controller: _quantityController,
+              textAlign: TextAlign.center,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: InputDecoration(
+                isDense: true,
+                filled: true,
+                fillColor: _fofanaGreen.withValues(alpha: 0.12),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 6,
+                  vertical: 10,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide.none,
                 ),
               ),
+              onChanged: (value) {
+                final parsed = int.tryParse(value);
+                if (parsed != null && parsed >= 1) {
+                  widget.onChanged(parsed);
+                }
+              },
+              onEditingComplete: () {
+                final parsed = int.tryParse(_quantityController.text);
+                if (parsed == null || parsed < 1) {
+                  _quantityController.text = '${widget.quantity}';
+                }
+                FocusScope.of(context).unfocus();
+              },
             ),
           ),
           const SizedBox(width: 8),
-          _QuantityIconButton(icon: Icons.add_rounded, onTap: onIncrease),
+          _QuantityIconButton(
+            icon: Icons.add_rounded,
+            onTap: widget.onIncrease,
+          ),
         ],
       ),
     );

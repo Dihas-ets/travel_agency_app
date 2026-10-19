@@ -51,6 +51,7 @@ class ParcelMecefInfo {
 }
 
 class ParcelRecord {
+  final int? parcelId;
   final String code;
   final String departureCity;
   final String destinationCity;
@@ -81,6 +82,7 @@ class ParcelRecord {
   final ParcelMecefInfo? mecefInfo;
 
   const ParcelRecord({
+    this.parcelId,
     required this.code,
     required this.departureCity,
     required this.destinationCity,
@@ -114,18 +116,37 @@ class ParcelRecord {
   String get recipientFullName =>
       '$recipientLastName $recipientFirstName'.trim();
 
-  bool get isDraftOrPending =>
-      rawStatus == 'brouillon' ||
-      status == 'En attente' ||
-      status == 'Pré-enregistré' ||
-      paymentStatus == 'en_attente_paiement';
+  bool get isClientInitiation {
+    final currentStatus = rawStatus?.trim().toLowerCase();
+    final isDraft = currentStatus != null
+        ? currentStatus == 'brouillon'
+        : status == 'En attente' ||
+              status == 'En attente en agence' ||
+              status == 'Pré-enregistré';
+    return isDraft && !isPaid;
+  }
 
-  bool get isPaid => paymentStatus?.toLowerCase() == 'payé';
+  bool get isDraftOrPending =>
+      !isPaid &&
+      (isClientInitiation ||
+          status == 'En attente' ||
+          status == 'Pré-enregistré' ||
+          paymentStatus == 'en_attente_paiement');
+
+  bool get canClientCancel =>
+      parcelId != null && rawStatus?.trim().toLowerCase() == 'a_expedier';
+
+  bool get isPaid => const {
+    'payé',
+    'paye',
+    'paid',
+    'success',
+  }.contains(paymentStatus?.trim().toLowerCase());
 
   String get readableStatus {
     switch (rawStatus) {
       case 'brouillon':
-        return 'En attente en agence';
+        return isPaid ? 'Payé - à finaliser' : 'En attente en agence';
       case 'a_expedier':
         return 'À expédier';
       case 'en_transit':
@@ -162,6 +183,7 @@ class ParcelRecord {
     ParcelMecefInfo? mecefInfo,
   }) {
     return ParcelRecord(
+      parcelId: parcelId,
       code: code,
       departureCity: departureCity,
       destinationCity: destinationCity,

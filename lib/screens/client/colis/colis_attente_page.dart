@@ -51,7 +51,7 @@ class _ColisAttentePageState extends State<ColisAttentePage> {
 
       for (final colis in list) {
         final rec = colis.toParcelRecord();
-        if (colis.statut == 'brouillon') {
+        if (colis.isClientInitiation) {
           pendingList.add(rec);
         } else {
           registeredList.add(rec);
@@ -81,12 +81,13 @@ class _ColisAttentePageState extends State<ColisAttentePage> {
     }
   }
 
-  void _openRegisteredTicket(ParcelRecord parcel) {
-    Navigator.of(context).push(
+  Future<void> _openRegisteredTicket(ParcelRecord parcel) async {
+    await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => _RegisteredParcelDetailsPage(parcel: parcel),
       ),
     );
+    if (mounted) _fetchRemoteHistory();
   }
 
   List<ParcelRecord> _visibleParcels(
@@ -97,12 +98,9 @@ class _ColisAttentePageState extends State<ColisAttentePage> {
     // Les données du backend sont la source de vérité prioritaire
     final Map<String, ParcelRecord> map = {};
     for (final p in localParcels) {
-      final isPending = p.rawStatus != null
-          ? p.rawStatus == 'brouillon'
-          : p.status == 'En attente' ||
-                p.status == 'En attente en agence' ||
-                p.status == 'Pré-enregistré';
-      final belongsToTab = pending ? isPending : !isPending;
+      final belongsToTab = pending
+          ? p.isClientInitiation
+          : !p.isClientInitiation;
       final belongsToClient =
           !widget.filterClientParcels ||
           !SessionStore.hasClientPhone ||
@@ -609,13 +607,75 @@ class _PendingParcelDetailsPage extends StatelessWidget {
   }
 }
 
-class _RegisteredParcelDetailsPage extends StatelessWidget {
+class _RegisteredParcelDetailsPage extends StatefulWidget {
   final ParcelRecord parcel;
 
   const _RegisteredParcelDetailsPage({required this.parcel});
 
   @override
+  State<_RegisteredParcelDetailsPage> createState() =>
+      _RegisteredParcelDetailsPageState();
+}
+
+class _RegisteredParcelDetailsPageState
+    extends State<_RegisteredParcelDetailsPage> {
+  bool _isCancelling = false;
+
+  Future<void> _cancelParcel() async {
+    final parcel = widget.parcel;
+    if (!parcel.canClientCancel || _isCancelling) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Annuler ce colis ?'),
+        content: const Text(
+          'L’annulation est possible uniquement avant le départ physique '
+          'du colis.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Garder le colis'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Annuler le colis'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isCancelling = true);
+    try {
+      final response = await ColisService().annulerColisClient(
+        parcel.parcelId!,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            response['message']?.toString() ?? 'Colis annulé avec succès.',
+          ),
+        ),
+      );
+      Navigator.of(context).pop(true);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isCancelling = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final parcel = widget.parcel;
     return Scaffold(
       backgroundColor: _pageBackground,
       appBar: AppBar(
@@ -662,7 +722,7 @@ class _RegisteredParcelDetailsPage extends StatelessWidget {
                           parcelItems: parcel.parcelItems,
                           attachmentPath: parcel.attachmentPath,
                           attachmentName: parcel.attachmentName,
-                          showPrintButton: false,
+                          showPrintButton: true,
                           deliveryFee: parcel.deliveryFee ?? '',
                           showValidation: true,
                           senderName: parcel.senderName ?? '',
@@ -713,6 +773,33 @@ class _RegisteredParcelDetailsPage extends StatelessWidget {
                   ),
                 ),
               ),
+              if (parcel.canClientCancel) ...[
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: OutlinedButton.icon(
+                    onPressed: _isCancelling ? null : _cancelParcel,
+                    icon: _isCancelling
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.cancel_outlined),
+                    label: Text(
+                      _isCancelling ? 'Annulation…' : 'Annuler le colis',
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: _logoRed,
+                      side: const BorderSide(color: _logoRed),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),

@@ -120,7 +120,7 @@ class _PercepteurTicketPrintPageState extends State<PercepteurTicketPrintPage> {
     final mecefDate = widget.ticket['mecefDate']?.toString() ?? '';
     final issuerName = widget.ticket['issuerName']?.toString() ?? '';
     final cancellationNotice =
-        'Annulation possible jusqu’à ${settings.cancellationDelayDays} jour'
+        "Annulation possible jusqu'a ${settings.cancellationDelayDays} jour"
         '${settings.cancellationDelayDays > 1 ? 's' : ''} avant le départ. '
         'Au-delà, une retenue de ${settings.cancellationPenaltyPercent}% '
         'peut être appliquée sur le remboursement.';
@@ -189,7 +189,7 @@ class _PercepteurTicketPrintPageState extends State<PercepteurTicketPrintPage> {
                     mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                     children: [
                       pw.Text(
-                        'N° $_reference',
+                        'IFU ${settings.ifu}',
                         style: const pw.TextStyle(
                           color: PdfColors.grey600,
                           fontSize: 7.5,
@@ -301,7 +301,7 @@ class _PercepteurTicketPrintPageState extends State<PercepteurTicketPrintPage> {
                               ),
                           ],
                         ),
-                      )
+                      ),
                   ],
                   if (settings.showBarcode) ...[
                     pw.SizedBox(height: 6),
@@ -537,7 +537,7 @@ class _PercepteurTicketPrintPageState extends State<PercepteurTicketPrintPage> {
             fit: pw.BoxFit.scaleDown,
             alignment: pw.Alignment.centerRight,
             child: pw.Text(
-              '$departure → $destination',
+              '$departure -> $destination',
               style: pw.TextStyle(
                 fontSize: 8.25,
                 fontWeight: pw.FontWeight.bold,
@@ -861,7 +861,7 @@ class _TicketPreview extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        'N° $reference',
+                        'IFU ${settings.ifu}',
                         style: const TextStyle(
                           color: Color(0xFF94A3B8),
                           fontSize: 10,
@@ -979,7 +979,7 @@ class _TicketPreview extends StatelessWidget {
                             ),
                         ],
                       ),
-                    )
+                    ),
                 ],
                 if (settings.showBarcode) ...[
                   const SizedBox(height: 8),

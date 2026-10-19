@@ -1451,7 +1451,7 @@ Future<void> _printTicket(_ReservationItem ticket) async {
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                   children: [
                     pw.Text(
-                      'N° ${ticket.reference}',
+                      'IFU ${settings.ifu}',
                       style: const pw.TextStyle(
                         color: PdfColors.grey600,
                         fontSize: 8,
@@ -1541,7 +1541,7 @@ Future<void> _printTicket(_ReservationItem ticket) async {
                             ),
                         ],
                       ),
-                    )
+                    ),
                 ],
                 if (settings.showBarcode) ...[
                   pw.SizedBox(height: 6),
@@ -1811,6 +1811,7 @@ class _ReprogramPageState extends State<_ReprogramPage> {
 
   final TextEditingController _ticketNumberController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
+  String? _phoneInternational;
   bool _isForSomeoneElse = false;
   _TicketItem? _foundTicket;
   String? _searchMessage;
@@ -1852,7 +1853,7 @@ class _ReprogramPageState extends State<_ReprogramPage> {
 
   void _searchTicket() {
     final ticketNumber = _ticketNumberController.text.trim();
-    final phone = _phoneController.text.trim();
+    final phone = _phoneInternational ?? _phoneController.text.trim();
 
     if (ticketNumber.isEmpty) {
       setState(() {
@@ -2010,7 +2011,11 @@ class _ReprogramPageState extends State<_ReprogramPage> {
                           ),
                           if (_isForSomeoneElse) ...[
                             const SizedBox(height: 14),
-                            PhoneLoginField(controller: _phoneController),
+                            PhoneLoginField(
+                              controller: _phoneController,
+                              onFullNumberChanged: (phone) =>
+                                  _phoneInternational = phone,
+                            ),
                           ],
                           const SizedBox(height: 18),
                           SizedBox(

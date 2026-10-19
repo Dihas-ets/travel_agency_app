@@ -8,6 +8,7 @@ class ColisPrintSettings {
   final bool showBarcode;
   final String agencyName;
   final String? agencyLogo;
+  final String ifu;
   final String telephone;
   final String email;
   final bool showEmetteur;
@@ -25,6 +26,7 @@ class ColisPrintSettings {
     required this.showBarcode,
     required this.agencyName,
     required this.agencyLogo,
+    required this.ifu,
     required this.telephone,
     required this.email,
     required this.showEmetteur,
@@ -80,6 +82,11 @@ class ColisPrintSettings {
       showBarcode: booleanValue('documents.bordereau_colis.showBarcode', true),
       agencyName: stringValue('general.nomEntreprise', 'Fofana Voyage'),
       agencyLogo: values['branding.primaryLogo']?.toString(),
+      ifu: stringValue('mecef.ifu', '').isNotEmpty
+          ? stringValue('mecef.ifu', '')
+          : (stringValue('ifu', '').isNotEmpty
+              ? stringValue('ifu', '')
+              : stringValue('general.ifu', '')),
       telephone: telephone,
       email: stringValue('general.email', ''),
       showEmetteur: booleanValue(

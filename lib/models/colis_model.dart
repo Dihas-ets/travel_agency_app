@@ -80,6 +80,16 @@ class ColisModel {
   final String? destinataireTel;
   final String? destinataireTelSecondaire;
 
+  bool get isClientInitiation =>
+      statut.trim().toLowerCase() == 'brouillon' && !isPaid;
+
+  bool get isPaid => const {
+    'payé',
+    'paye',
+    'paid',
+    'success',
+  }.contains(statutPaiement.trim().toLowerCase());
+
   ColisModel({
     required this.id,
     required this.reference,
@@ -254,9 +264,7 @@ class ColisModel {
     String displayStatus;
     switch (statut) {
       case 'brouillon':
-        displayStatus = statutPaiement == 'payé'
-            ? 'Payé (Brouillon)'
-            : 'En attente';
+        displayStatus = isPaid ? 'Payé (Brouillon)' : 'En attente';
         break;
       case 'a_expedier':
         displayStatus = 'Enregistré';
@@ -275,6 +283,7 @@ class ColisModel {
     }
 
     return ParcelRecord(
+      parcelId: id,
       code: reference,
       departureCity: agenceDepotNom ?? 'Départ',
       destinationCity: agenceRetraitNom ?? 'Destination',

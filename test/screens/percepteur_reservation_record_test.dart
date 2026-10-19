@@ -43,6 +43,15 @@ void main() {
     expect(absent.status, 'Absent');
   });
 
+  test('recognizes paid tickets from the payment status', () {
+    final ticket = PercepteurReservationRecord.fromTicket({
+      'statut': 'en_cours',
+      'statut_paiement': 'payé',
+    });
+
+    expect(ticket.isPaid, isTrue);
+  });
+
   test('formats ticket departure dates and times for history display', () {
     expect(formatPercepteurTicketDate('2026-09-30'), '30 septembre 2026');
     expect(formatPercepteurTicketDate('30/09/2026'), '30 septembre 2026');

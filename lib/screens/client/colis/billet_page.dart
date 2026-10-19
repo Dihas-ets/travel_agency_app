@@ -246,13 +246,38 @@ class BilletPage extends StatelessWidget {
     final pageFormat = settings.width == '58mm'
         ? PdfPageFormat.roll57
         : PdfPageFormat.roll80;
+    final items = parcelItems.isEmpty ? _expandedParcelItems : parcelItems;
+    final detailCharactersPerLine = ((pageFormat.width - 24) * 8 / 13 / 4.8)
+        .floor();
+    final detailsHeight = items.fold<double>(0, (height, item) {
+      final descriptionLength = item.description.trim().length;
+      final natureLength = item.nature.trim().length;
+      final descriptionExtraLines =
+          descriptionLength > detailCharactersPerLine
+          ? (descriptionLength - 1) ~/ detailCharactersPerLine
+          : 0;
+      final natureExtraLines = natureLength > detailCharactersPerLine
+          ? (natureLength - 1) ~/ detailCharactersPerLine
+          : 0;
+      return height +
+          54 +
+          (descriptionExtraLines + natureExtraLines) * 9;
+    });
     final receiptPageFormat = pageFormat.copyWith(
-      height: pageFormat.height + 150,
+      height:
+          pageFormat.height +
+          150 +
+          detailsHeight +
+          (senderPhone.isNotEmpty ? 14 : 0) +
+          (recipientPhone.isNotEmpty ? 14 : 0),
     );
     final total = double.tryParse(deliveryFee.replaceAll(',', '.')) ?? 0;
     final base = montantBase > 0 ? montantBase : total - montantTaxe;
-    final nature = parcelNature.trim().isEmpty ? 'Colis' : parcelNature;
     final fullName = '$recipientLastName $recipientFirstName'.trim();
+    final mecefIfu = mecefResponse?['ifu']?.toString().trim();
+    final effectiveIfu = (mecefIfu != null && mecefIfu.isNotEmpty)
+        ? mecefIfu
+        : (settings.ifu.isNotEmpty ? settings.ifu : '');
     final dateLabel = hasMecef
         ? _formatMecefDate(mecefResponse?['date_mecef']?.toString())
         : '$date $time';
@@ -320,13 +345,11 @@ class BilletPage extends StatelessWidget {
                   pw.Row(
                     mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                     children: [
-                      pw.Expanded(
-                        child: pw.Text(
-                          'N° $code',
-                          style: const pw.TextStyle(
-                            color: PdfColors.grey600,
-                            fontSize: 8,
-                          ),
+                      pw.Text(
+                        effectiveIfu.isNotEmpty ? 'IFU $effectiveIfu' : 'IFU —',
+                        style: const pw.TextStyle(
+                          color: PdfColors.grey600,
+                          fontSize: 8,
                         ),
                       ),
                       pw.Text(
@@ -343,19 +366,30 @@ class BilletPage extends StatelessWidget {
                     ],
                   ),
                   _dashedLine(accent),
+                  if (code.isNotEmpty) _pdfRow('Réf. colis', code),
                   _pdfRow('Exp.', senderName.isEmpty ? '—' : senderName),
+                  if (senderPhone.isNotEmpty)
+                    _pdfRow('Tél. exp.', senderPhone),
                   _pdfRow('Dest.', fullName.isEmpty ? '—' : fullName),
-                  _pdfRow('Trajet', '$departureCity → $destinationCity'),
-                  _pdfRow('Nature', nature),
-                  _pdfRow('Nombre', '$parcelCount colis'),
-                  _pdfRow('Poids', '${_formatRate(poidsTotal)} kg'),
-                  if (description.trim().isNotEmpty)
+                  if (recipientPhone.isNotEmpty)
+                    _pdfRow('Tél. dest.', recipientPhone),
+                  _pdfRow('Trajet', '$departureCity -> $destinationCity'),
+                  for (var index = 0; index < items.length; index++) ...[
+                    if (index > 0) _dashedLine(accent),
                     _pdfRow(
-                      'Description',
-                      description.trim().length > 30
-                          ? '${description.trim().substring(0, 30)}…'
-                          : description.trim(),
+                      'Colis ${index + 1}',
+                      items[index].nature.trim().isEmpty
+                          ? 'Colis'
+                          : items[index].nature.trim(),
                     ),
+                    _pdfRow('Nombre', '${items[index].quantity} colis'),
+                    _pdfRow(
+                      'Poids',
+                      '${_formatRate(items[index].weight * items[index].quantity)} kg',
+                    ),
+                    if (items[index].description.trim().isNotEmpty)
+                      _pdfRow('Description', items[index].description.trim()),
+                  ],
                   _dashedLine(accent),
                   _pdfRow('Montant HT', _formatAmount(base)),
                   _pdfRow(
@@ -438,40 +472,6 @@ class BilletPage extends StatelessWidget {
                       ),
                     ),
                   ],
-                  if (settings.showDgi && !hasMecef)
-                    pw.Container(
-                      margin: const pw.EdgeInsets.only(top: 6),
-                      padding: const pw.EdgeInsets.all(6),
-                      decoration: pw.BoxDecoration(
-                        border: pw.Border.all(
-                          color: PdfColors.grey300,
-                          style: pw.BorderStyle.dashed,
-                        ),
-                      ),
-                      child: pw.Column(
-                        mainAxisSize: pw.MainAxisSize.min,
-                        children: [
-                          pw.Text(
-                            'REÇU SIMPLE',
-                            textAlign: pw.TextAlign.center,
-                            style: pw.TextStyle(
-                              color: PdfColors.grey500,
-                              fontSize: 7.5,
-                              fontWeight: pw.FontWeight.bold,
-                              fontStyle: pw.FontStyle.italic,
-                            ),
-                          ),
-                          pw.Text(
-                            '(Document non normalisé DGI)',
-                            textAlign: pw.TextAlign.center,
-                            style: const pw.TextStyle(
-                              color: PdfColors.grey500,
-                              fontSize: 5.25,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
                   if (code.isNotEmpty &&
                       (settings.showBarcode || !confirmedMecef)) ...[
                     pw.SizedBox(height: 8),
@@ -736,6 +736,10 @@ class BilletPage extends StatelessWidget {
       0,
       (sum, item) => sum + item.weight * item.quantity,
     );
+    final mecefIfu = mecefResponse?['ifu']?.toString().trim();
+    final effectiveIfu = (mecefIfu != null && mecefIfu.isNotEmpty)
+        ? mecefIfu
+        : (settings.ifu.isNotEmpty ? settings.ifu : '');
 
     Widget row(String label, String value) => Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
@@ -848,8 +852,12 @@ class BilletPage extends StatelessWidget {
                       row('Tél :', settings.telephone),
                     if (settings.showContact && settings.email.isNotEmpty)
                       row('Email :', settings.email),
-                    row('N° $code', date),
+                    row(
+                      effectiveIfu.isNotEmpty ? 'IFU $effectiveIfu' : 'IFU —',
+                      date,
+                    ),
                     separator(),
+                    if (code.isNotEmpty) row('Réf. colis', code),
                     row('Exp.', senderName.isEmpty ? '—' : senderName),
                     if (senderPhone.isNotEmpty) row('Tél. exp.', senderPhone),
                     row(
@@ -930,7 +938,7 @@ class BilletPage extends StatelessWidget {
                           fontSize: 9,
                         ),
                       ),
-                    if (settings.showDgi) ...[
+                    if (settings.showDgi && mecefResponse != null) ...[
                       const SizedBox(height: 7),
                       Container(
                         width: double.infinity,
@@ -940,57 +948,33 @@ class BilletPage extends StatelessWidget {
                           borderRadius: BorderRadius.circular(5),
                           color: const Color(0xFFF8FAFC),
                         ),
-                        child: mecefResponse == null
-                            ? const Column(
-                                children: [
-                                  Text(
-                                    'REÇU SIMPLE',
-                                    style: TextStyle(
-                                      color: Color(0xFF94A3B8),
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  Text(
-                                    '(Document non normalisé DGI)',
-                                    style: TextStyle(
-                                      color: Color(0xFF94A3B8),
-                                      fontSize: 9,
-                                    ),
-                                  ),
-                                ],
-                              )
-                            : Column(
-                                children: [
-                                  const Text(
-                                    'ÉLÉMENTS DE SÉCURITÉ DGI',
-                                    style: TextStyle(
-                                      color: Color(0xFF64748B),
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  row(
-                                    'CODE',
-                                    mecefResponse?['code_mecef']?.toString() ??
-                                        '',
-                                  ),
-                                  row(
-                                    'NIM',
-                                    mecefResponse?['nim']?.toString() ?? '',
-                                  ),
-                                  row(
-                                    'COMPT',
-                                    mecefResponse?['counters']?.toString() ??
-                                        '',
-                                  ),
-                                  row(
-                                    'DATE',
-                                    _formatMecefDate(
-                                      mecefResponse?['date_mecef']?.toString(),
-                                    ),
-                                  ),
-                                ],
+                        child: Column(
+                          children: [
+                            const Text(
+                              'ÉLÉMENTS DE SÉCURITÉ DGI',
+                              style: TextStyle(
+                                color: Color(0xFF64748B),
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
                               ),
+                            ),
+                            row(
+                              'CODE',
+                              mecefResponse?['code_mecef']?.toString() ?? '',
+                            ),
+                            row('NIM', mecefResponse?['nim']?.toString() ?? ''),
+                            row(
+                              'COMPT',
+                              mecefResponse?['counters']?.toString() ?? '',
+                            ),
+                            row(
+                              'DATE',
+                              _formatMecefDate(
+                                mecefResponse?['date_mecef']?.toString(),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                     if (code.isNotEmpty &&
