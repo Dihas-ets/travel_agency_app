@@ -19,4 +19,15 @@ void main() {
       expect(line.servesDestination('Dassa'), isFalse);
     },
   );
+
+  test('parses intermediate destinations returned as strings', () {
+    final line = Ligne.fromJson({
+      'id': 2,
+      'trajet_depart': 'Cotonou',
+      'trajet_arrivee': 'Parakou',
+      'villes_etapes': ['Bohicon', 'Dassa'],
+    });
+
+    expect(line.servesDestination('Dassa'), isTrue);
+  });
 }

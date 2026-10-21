@@ -5,7 +5,7 @@ import 'package:fofanavoyage/config/app_config.dart';
 import 'package:http/http.dart' as http;
 
 class AffectationService {
- String get _baseUrl => AppConfig.apiBaseUrl;
+  String get _baseUrl => AppConfig.apiBaseUrl;
 
   Future<Map<String, String>> _headers() async {
     final token = await AuthLocalStore.getToken();
@@ -112,6 +112,23 @@ class AffectationService {
       );
     }
     return decoded;
+  }
+
+  Future<Map<String, dynamic>> getCurrentAssignedTrip() async {
+    final session = await getMySession();
+    if (session['session_active'] != true) {
+      throw Exception('Aucune session active. Activez votre code d’accès.');
+    }
+
+    final currentTrip = session['voyage_en_cours'];
+    if (currentTrip is! Map || currentTrip['voyage'] is! Map) {
+      throw Exception(
+        session['voyage_message']?.toString() ??
+            'Aucun voyage en cours n’est lié à votre affectation.',
+      );
+    }
+
+    return Map<String, dynamic>.from(currentTrip);
   }
 
   Map<String, dynamic> _decodeMap(String body) {

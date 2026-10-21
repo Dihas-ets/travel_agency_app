@@ -43,6 +43,16 @@ class Ligne {
   }
 
   factory Ligne.fromJson(Map<String, dynamic> json) {
+    final rawStops = json['villes_etapes'] as List? ?? const [];
+    final stops = rawStops
+        .map((stop) {
+          if (stop is Map) return Map<String, dynamic>.from(stop);
+          if (stop is String) return {'nom': stop};
+          return null;
+        })
+        .whereType<Map<String, dynamic>>()
+        .toList();
+
     return Ligne(
       id: _toInt(json['id']) ?? 0,
       trajetDepart: json['trajet_depart']?.toString() ?? '',
@@ -55,10 +65,7 @@ class Ligne {
       montantVip: _toDouble(json['montant_vip']),
       dureeMoyenne: _toInt(json['duree_moyenne']) ?? 0,
       status: json['status']?.toString() ?? 'actif',
-      villesEtapes: (json['villes_etapes'] as List? ?? const [])
-          .whereType<Map>()
-          .map((etape) => Map<String, dynamic>.from(etape))
-          .toList(),
+      villesEtapes: stops,
     );
   }
 

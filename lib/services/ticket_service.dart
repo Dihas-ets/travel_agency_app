@@ -268,6 +268,13 @@ class TicketService {
     required int busId,
     required DateTime date,
     required String heure,
+    int? ligneId,
+    String? villeDepart,
+    String? villeArrivee,
+    String? villeDepartEntreDebut,
+    String? villeDepartEntreFin,
+    String? villeArriveeEntreDebut,
+    String? villeArriveeEntreFin,
   }) async {
     final dateStr =
         '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
@@ -277,6 +284,17 @@ class TicketService {
         'bus_id': busId.toString(),
         'date_voyage': dateStr,
         'heure_voyage': heure,
+        if (ligneId != null) 'ligne_id': ligneId.toString(),
+        if (villeDepart != null) 'ville_depart': villeDepart,
+        if (villeArrivee != null) 'ville_arrivee': villeArrivee,
+        if (villeDepartEntreDebut != null)
+          'ville_depart_entre_debut': villeDepartEntreDebut,
+        if (villeDepartEntreFin != null)
+          'ville_depart_entre_fin': villeDepartEntreFin,
+        if (villeArriveeEntreDebut != null)
+          'ville_arrivee_entre_debut': villeArriveeEntreDebut,
+        if (villeArriveeEntreFin != null)
+          'ville_arrivee_entre_fin': villeArriveeEntreFin,
       },
     );
     final response = await http
@@ -299,7 +317,12 @@ class TicketService {
     required int ligneId,
     required int voyageId,
     required int busId,
+    String? villeDepart,
     String? villeArrivee,
+    String? villeDepartEntreDebut,
+    String? villeDepartEntreFin,
+    String? villeArriveeEntreDebut,
+    String? villeArriveeEntreFin,
     required DateTime dateVoyage,
     required String heureVoyage,
     required bool tiers,
@@ -315,6 +338,7 @@ class TicketService {
     double? montantManuel,
     double? montantTaxe,
     double? taxeTaux,
+    bool enTrajet = false,
   }) async {
     final dateStr =
         '${dateVoyage.year.toString().padLeft(4, '0')}-${dateVoyage.month.toString().padLeft(2, '0')}-${dateVoyage.day.toString().padLeft(2, '0')}';
@@ -322,7 +346,16 @@ class TicketService {
       'ligne_id': ligneId,
       'voyage_id': voyageId,
       'bus_id': busId,
+      if (villeDepart != null) 'ville_depart': villeDepart,
       if (villeArrivee != null) 'ville_arrivee': villeArrivee,
+      if (villeDepartEntreDebut != null)
+        'ville_depart_entre_debut': villeDepartEntreDebut,
+      if (villeDepartEntreFin != null)
+        'ville_depart_entre_fin': villeDepartEntreFin,
+      if (villeArriveeEntreDebut != null)
+        'ville_arrivee_entre_debut': villeArriveeEntreDebut,
+      if (villeArriveeEntreFin != null)
+        'ville_arrivee_entre_fin': villeArriveeEntreFin,
       if (userId != null) 'user_id': userId,
       'date_voyage': dateStr,
       'heure_voyage': heureVoyage,
@@ -331,6 +364,7 @@ class TicketService {
       if (tiers) 'prenom_passager': prenomPassager,
       if (tiers) 'numero_passager': numeroPassager,
       'nbre_place': nbrePlace,
+      if (enTrajet) 'en_trajet': true,
       'mode_paiement': modePaiement,
       'use_mecef': useMecef,
       if (taxGroupId != null) 'taxe_group_id': taxGroupId,

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
+import 'package:geocoding/geocoding.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -13,6 +15,7 @@ import 'package:fofanavoyage/navigation.dart';
 import 'package:fofanavoyage/services/ligne_service.dart';
 import 'package:fofanavoyage/services/tax_service.dart';
 import 'package:fofanavoyage/services/ticket_service.dart';
+import 'package:fofanavoyage/services/affectation_service.dart';
 import 'package:fofanavoyage/services/staff_ticket_service.dart';
 import 'package:fofanavoyage/services/payment_service.dart';
 import 'package:fofanavoyage/models/payment_provider_model.dart';
@@ -27,6 +30,36 @@ import 'package:fofanavoyage/screens/percepteur/parts/percepteur_ticket_print_pa
 import 'package:fofanavoyage/screens/percepteur/parts/history_news_section.dart';
 
 // Reservation percepteur: donnees, formulaire, paiement, billet et presence.
+
+class _CityPickerSelection {
+  const _CityPickerSelection({
+    this.city,
+    this.isFreeCity = false,
+    this.isCurrentLocation = false,
+    this.segmentStart,
+    this.segmentEnd,
+    this.assignedTrip,
+  });
+
+  final String? city;
+  final bool isFreeCity;
+  final bool isCurrentLocation;
+  final String? segmentStart;
+  final String? segmentEnd;
+  final _AssignedTripDetails? assignedTrip;
+}
+
+class _AssignedTripDetails {
+  const _AssignedTripDetails({
+    required this.line,
+    required this.trip,
+    required this.departureTime,
+  });
+
+  final Ligne line;
+  final VoyageProgramme trip;
+  final String departureTime;
+}
 
 String formatPercepteurTicketDate(String value) {
   final normalized = value.trim();
@@ -157,6 +190,11 @@ class PercepteurReservationRecord {
   final double? taxRate;
   final String? taxGroupLabel;
   final String? taxGroupCode;
+  final bool enTrajet;
+  final String? villeDepartEntreDebut;
+  final String? villeDepartEntreFin;
+  final String? villeArriveeEntreDebut;
+  final String? villeArriveeEntreFin;
   final String? mecefCode;
   final String? mecefNim;
   final String? mecefCounters;
@@ -211,6 +249,11 @@ class PercepteurReservationRecord {
     this.issuerName = '',
     this.passengerFirstName = '',
     this.passengerLastName = '',
+    this.enTrajet = false,
+    this.villeDepartEntreDebut,
+    this.villeDepartEntreFin,
+    this.villeArriveeEntreDebut,
+    this.villeArriveeEntreFin,
   });
 
   PercepteurReservationRecord copyWith({
@@ -265,6 +308,11 @@ class PercepteurReservationRecord {
       issuerName: issuerName ?? this.issuerName,
       passengerFirstName: passengerFirstName,
       passengerLastName: passengerLastName,
+      enTrajet: enTrajet,
+      villeDepartEntreDebut: villeDepartEntreDebut,
+      villeDepartEntreFin: villeDepartEntreFin,
+      villeArriveeEntreDebut: villeArriveeEntreDebut,
+      villeArriveeEntreFin: villeArriveeEntreFin,
     );
   }
 
@@ -300,10 +348,12 @@ class PercepteurReservationRecord {
       ticketId: int.tryParse(json['id']?.toString() ?? ''),
       reference: json['reference']?.toString() ?? '',
       departure:
-          ligne['trajet_depart']?.toString() ??
+          json['point_depart']?.toString() ??
           json['ville_depart']?.toString() ??
+          ligne['trajet_depart']?.toString() ??
           '',
       destination:
+          json['point_arrivee']?.toString() ??
           json['ville_arrivee']?.toString() ??
           ligne['trajet_arrivee']?.toString() ??
           '',
@@ -341,6 +391,8 @@ class PercepteurReservationRecord {
       mecefDate: mecef['date_mecef']?.toString(),
       mecefQrCode: mecef['qr_code']?.toString(),
       issuerName: '${issuer['prenom'] ?? ''} ${issuer['nom'] ?? ''}'.trim(),
+      enTrajet:
+          json['en_trajet'] == true || json['en_trajet']?.toString() == '1',
     );
   }
 
@@ -410,12 +462,17 @@ class PercepteurReservationPageState extends State<PercepteurReservationPage> {
   final TextEditingController _destinationController = TextEditingController();
   final TextEditingController _dateController = TextEditingController();
   final TextEditingController _amountController = TextEditingController();
+  bool _enTrajet = false;
+  bool _loadingAssignedTrip = false;
+  int _manualFare = 0;
+  String? _villeDepartEntreDebut;
+  String? _villeDepartEntreFin;
+  String? _villeArriveeEntreDebut;
+  String? _villeArriveeEntreFin;
   int _passengerCount = 1;
   DateTime? _travelDate;
   List<Ligne> _lines = [];
-  List<String> _departures = [];
   List<String> _destinations = [];
-  bool _loadingCities = true;
   Ligne? _selectedLigne;
   List<VoyageProgramme> _programmes = [];
   VoyageProgramme? _selectedVoyage;
@@ -426,6 +483,7 @@ class PercepteurReservationPageState extends State<PercepteurReservationPage> {
   int? _placesAvailable;
   bool _checkingPlaces = false;
   String? _placesError;
+  String? _routeError;
   int _programmesRequest = 0;
   int _placesRequest = 0;
   int? _cancellingTicketId;
@@ -499,13 +557,27 @@ class PercepteurReservationPageState extends State<PercepteurReservationPage> {
   }
 
   int get _fare {
-    final trip = _selectedVoyage;
-    if (trip == null) return 0;
-    final unit = trip.busType.toLowerCase() == 'vip'
-        ? (trip.montantVip ?? trip.montant)
-        : trip.montant;
-    return (unit * _passengerCount).round();
+    if (_enTrajet) return _manualFare * _passengerCount;
+    final unit = _configuredSegmentFare;
+    return unit == null ? 0 : (unit * _passengerCount).round();
   }
+
+  double? get _configuredSegmentFare {
+    final route = _selectedLigne;
+    final departure = _departController.text.trim();
+    final destination = _destinationController.text.trim();
+    if (route == null || departure.isEmpty || destination.isEmpty) return null;
+
+    double fareFor(Ligne line) =>
+        _selectedVoyage?.busType.toLowerCase() == 'vip'
+        ? (line.montantVip ?? line.montant)
+        : line.montant;
+
+    return fareFor(route) > 0 ? fareFor(route) : null;
+  }
+
+  String _normalizeRouteCity(String city) =>
+      city.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
 
   double get _baseAmount {
     final rate = _selectedTax?.rate ?? 0;
@@ -517,6 +589,7 @@ class PercepteurReservationPageState extends State<PercepteurReservationPage> {
 
   bool get _canContinueToPassenger =>
       _selectedLigne != null &&
+      _routeError == null &&
       _travelDate != null &&
       _selectedVoyage != null &&
       _selectedHeure != null &&
@@ -528,13 +601,11 @@ class PercepteurReservationPageState extends State<PercepteurReservationPage> {
       _currentAmount() > 0;
 
   void _syncFareAmount() {
-    _amountController.text = _fare == 0 ? '' : _formatAmount(_fare);
+    final amount = _enTrajet ? _manualFare : _fare;
+    _amountController.text = amount == 0 ? '' : _formatAmount(amount);
   }
 
-  int _currentAmount() {
-    final raw = _amountController.text.replaceAll(RegExp(r'[^0-9]'), '');
-    return int.tryParse(raw) ?? 0;
-  }
+  int _currentAmount() => _fare;
 
   Future<void> _loadReservationOptions() async {
     List<Ligne> lines = [];
@@ -554,18 +625,10 @@ class PercepteurReservationPageState extends State<PercepteurReservationPage> {
     if (!mounted) return;
     setState(() {
       _lines = lines;
-      _departures =
-          lines
-              .map((line) => line.trajetDepart.trim())
-              .where((city) => city.isNotEmpty)
-              .toSet()
-              .toList()
-            ..sort();
       _taxGroups = groups;
       _selectedTax =
           groups.where((g) => g.appliesAsDefaultTo('ticket')).firstOrNull ??
           groups.firstOrNull;
-      _loadingCities = false;
     });
     final error = cityError ?? taxError;
     if (error != null) {
@@ -582,104 +645,305 @@ class PercepteurReservationPageState extends State<PercepteurReservationPage> {
   }
 
   Future<void> _refreshRouteAndTrips() async {
+    _enTrajet = false;
+    _villeDepartEntreDebut = null;
+    _villeDepartEntreFin = null;
+    _villeArriveeEntreDebut = null;
+    _villeArriveeEntreFin = null;
     final departure = _departController.text.trim();
     final destination = _destinationController.text.trim();
+    _placesRequest++;
+    if (departure.isEmpty || destination.isEmpty) {
+      setState(() {
+        _selectedLigne = null;
+        _selectedVoyage = null;
+        _selectedHeure = null;
+        _programmes = [];
+        _destinations = _destinationsFor(departure);
+        _routeError = null;
+        _placesAvailable = null;
+        _placesError = null;
+        _checkingPlaces = false;
+        _amountController.clear();
+      });
+      return;
+    }
+    final departureKey = _normalizeRouteCity(departure);
+    final destinationKey = _normalizeRouteCity(destination);
+    final candidates = _lines
+        .where((line) => _normalizeRouteCity(line.trajetDepart) == departureKey)
+        .toList();
+    final line =
+        candidates
+            .where(
+              (item) =>
+                  _normalizeRouteCity(item.trajetArrivee) == destinationKey,
+            )
+            .firstOrNull ??
+        candidates
+            .where((item) => item.servesDestination(destination))
+            .firstOrNull;
     setState(() {
-      _programmesRequest++;
-      _selectedLigne = null;
-      _programmes = [];
+      _selectedLigne = line;
       _selectedVoyage = null;
       _selectedHeure = null;
+      _programmes = [];
+      _destinations = _destinationsFor(departure);
+      _routeError = line == null
+          ? 'Aucun itinéraire configuré pour ce trajet.'
+          : null;
       _placesAvailable = null;
       _placesError = null;
       _checkingPlaces = false;
+      _amountController.clear();
       _passengerCount = 1;
-      _syncFareAmount();
     });
-    if (departure.isEmpty || destination.isEmpty || departure == destination) {
-      if (mounted) {
-        setState(() {
-          _destinations = _destinationsFor(departure);
-          _selectedLigne = null;
-          _programmes = [];
-        });
-      }
-      _syncFareAmount();
-      return;
-    }
-    try {
-      final lignesDuDepart = _lines
-          .where(
-            (line) =>
-                line.trajetDepart.trim().toLowerCase() ==
-                departure.toLowerCase(),
-          )
-          .toList();
-      final ligne =
-          lignesDuDepart.where((line) {
-            return line.trajetArrivee.trim().toLowerCase() ==
-                destination.toLowerCase();
-          }).firstOrNull ??
-          lignesDuDepart
-              .where(
-                (line) =>
-                    line.servesDestination(destination) &&
-                    line.trajetArrivee.trim().toLowerCase() !=
-                        destination.toLowerCase(),
-              )
-              .firstOrNull;
-      if (!mounted) return;
-      setState(() {
-        _selectedLigne = ligne;
-        _destinations = _destinationsFor(departure);
-      });
-      if (ligne != null && _travelDate != null) await _loadProgrammes();
-      _syncFareAmount();
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Impossible de charger cet itinéraire : $error'),
-        ),
-      );
-    }
+    if (line != null && _travelDate != null) await _loadProgrammes();
   }
 
   List<String> _destinationsFor(String departure) {
     final arrivals = <String>{};
     for (final line in _lines.where(
       (line) =>
-          line.trajetDepart.trim().toLowerCase() == departure.toLowerCase(),
+          _normalizeRouteCity(line.trajetDepart) ==
+          _normalizeRouteCity(departure),
     )) {
-      final end = line.trajetArrivee.trim();
-      if (end.isNotEmpty) arrivals.add(end);
+      if (line.trajetArrivee.trim().isNotEmpty) {
+        arrivals.add(line.trajetArrivee.trim());
+      }
       for (final stage in line.villesEtapes) {
-        final city = stage['nom']?.toString().trim() ?? '';
-        if (city.isNotEmpty) arrivals.add(city);
+        final name = (stage['nom'] ?? stage['ville'] ?? stage['name'])
+            ?.toString()
+            .trim();
+        if (name != null && name.isNotEmpty) arrivals.add(name);
       }
     }
     return arrivals.toList()..sort();
   }
 
+  List<String> _routeStops(Ligne line) {
+    final stops = <String>[line.trajetDepart.trim()];
+    for (final stage in line.villesEtapes) {
+      final name = (stage['nom'] ?? stage['ville'] ?? '').toString().trim();
+      if (name.isNotEmpty &&
+          _normalizeRouteCity(name) != _normalizeRouteCity(stops.last)) {
+        stops.add(name);
+      }
+    }
+    if (_normalizeRouteCity(line.trajetArrivee) !=
+        _normalizeRouteCity(stops.last)) {
+      stops.add(line.trajetArrivee.trim());
+    }
+    return stops.where((stop) => stop.isNotEmpty).toList();
+  }
+
+  Future<void> _setFallbackStopPosition(
+    String city, {
+    required bool departure,
+    List<String>? segment,
+  }) async {
+    final line = _selectedLigne;
+    if (line == null) throw Exception('La ligne du voyage est indisponible.');
+    final stops = _routeStops(line);
+    if (!_saveFallbackStopPosition(
+      city,
+      departure: departure,
+      stops: stops,
+      segment: segment,
+    )) {
+      throw Exception(
+        'Choisissez les étapes de l’itinéraire qui encadrent « $city ».',
+      );
+    }
+  }
+
+  bool _saveFallbackStopPosition(
+    String city, {
+    required bool departure,
+    required List<String> stops,
+    List<String>? segment,
+  }) {
+    if (stops.any(
+      (stop) => _normalizeRouteCity(stop) == _normalizeRouteCity(city),
+    )) {
+      setState(() {
+        if (departure) {
+          _villeDepartEntreDebut = null;
+          _villeDepartEntreFin = null;
+        } else {
+          _villeArriveeEntreDebut = null;
+          _villeArriveeEntreFin = null;
+        }
+      });
+      return true;
+    }
+
+    if (segment == null ||
+        segment.length != 2 ||
+        !List.generate(stops.isNotEmpty ? stops.length - 1 : 0, (index) {
+          return _normalizeRouteCity(stops[index]) ==
+                  _normalizeRouteCity(segment[0]) &&
+              _normalizeRouteCity(stops[index + 1]) ==
+                  _normalizeRouteCity(segment[1]);
+        }).contains(true)) {
+      return false;
+    }
+
+    setState(() {
+      if (departure) {
+        _villeDepartEntreDebut = segment[0];
+        _villeDepartEntreFin = segment[1];
+      } else {
+        _villeArriveeEntreDebut = segment[0];
+        _villeArriveeEntreFin = segment[1];
+      }
+    });
+    return true;
+  }
+
+  Future<_AssignedTripDetails> _loadAssignedTripDetails() async {
+    final current = await AffectationService().getCurrentAssignedTrip();
+    final rawVoyage = current['voyage'];
+    if (rawVoyage is! Map) {
+      throw Exception('Les informations du voyage affecté sont absentes.');
+    }
+    final voyageJson = Map<String, dynamic>.from(rawVoyage);
+    final rawLine = voyageJson['ligne'];
+    if (rawLine is! Map) {
+      throw Exception('La ligne de votre affectation est indisponible.');
+    }
+    final line = Ligne.fromJson(Map<String, dynamic>.from(rawLine));
+    final trip = VoyageProgramme.fromJson(voyageJson);
+    final time = current['heure_depart']?.toString();
+    if (line.id <= 0 || trip.id <= 0 || trip.busId <= 0 || time == null) {
+      throw Exception('Le voyage affecté est incomplet.');
+    }
+    return _AssignedTripDetails(line: line, trip: trip, departureTime: time);
+  }
+
+  Future<bool> _startEnRouteFallback(
+    String departure, {
+    _AssignedTripDetails? assignedTrip,
+    List<String>? departureSegment,
+  }) async {
+    var started = false;
+    setState(() {
+      _loadingAssignedTrip = true;
+      _routeError = null;
+    });
+    try {
+      final assigned = assignedTrip ?? await _loadAssignedTripDetails();
+      if (!mounted) return false;
+      final line = assigned.line;
+      final trip = assigned.trip;
+      final time = assigned.departureTime;
+
+      final today = DateUtils.dateOnly(DateTime.now());
+      setState(() {
+        _enTrajet = true;
+        _manualFare = 0;
+        _amountController.clear();
+        _selectedLigne = line;
+        _selectedVoyage = trip;
+        _programmes = [trip];
+        _selectedHeure = time;
+        _travelDate = today;
+        _dateController.text =
+            '${today.day.toString().padLeft(2, '0')} ${_monthName(today.month)} ${today.year}';
+        _departController.text = departure;
+        _destinationController.clear();
+        _destinations = _routeStops(line);
+        _routeError = null;
+        _passengerCount = 1;
+        _placesAvailable = null;
+        _placesError = null;
+      });
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted) return false;
+      await _setFallbackStopPosition(
+        departure,
+        departure: true,
+        segment: departureSegment,
+      );
+      started = true;
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _enTrajet = false;
+          _selectedLigne = null;
+          _selectedVoyage = null;
+          _selectedHeure = null;
+          _travelDate = null;
+          _routeError = error.toString().replaceFirst('Exception: ', '');
+        });
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(_routeError!)));
+      }
+    } finally {
+      if (mounted) setState(() => _loadingAssignedTrip = false);
+    }
+    return started;
+  }
+
+  Future<String> _getCurrentCity() async {
+    if (!await Geolocator.isLocationServiceEnabled()) {
+      throw Exception('Activez la localisation du téléphone puis réessayez.');
+    }
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      throw Exception(
+        'Autorisez l’accès à la position dans les réglages du téléphone.',
+      );
+    }
+    final position = await Geolocator.getCurrentPosition();
+    final placemarks = await placemarkFromCoordinates(
+      position.latitude,
+      position.longitude,
+    );
+    final place = placemarks.firstOrNull;
+    final city =
+        [
+              place?.locality,
+              place?.subAdministrativeArea,
+              place?.administrativeArea,
+            ]
+            .whereType<String>()
+            .map((name) => name.trim())
+            .firstWhere((name) => name.isNotEmpty, orElse: () => '');
+    if (city.isEmpty) {
+      throw Exception('Impossible de déterminer la ville à votre position.');
+    }
+    return city;
+  }
+
   Future<void> _loadProgrammes() async {
-    final ligne = _selectedLigne;
     final date = _travelDate;
-    if (ligne == null || date == null) return;
+    if (date == null) return;
+    final selectedLine = _selectedLigne;
+    if (selectedLine == null) return;
     setState(() {
       _loadingTrips = true;
       _programmes = [];
       _selectedVoyage = null;
+      _selectedLigne = selectedLine;
       _selectedHeure = null;
       _placesAvailable = null;
       _placesError = null;
+      _routeError = null;
       _checkingPlaces = false;
       _passengerCount = 1;
+      _amountController.clear();
       _syncFareAmount();
     });
     final request = ++_programmesRequest;
     try {
       final trips = await TicketService().getProgrammesParDate(
-        ligneId: ligne.id,
+        ligneId: selectedLine.id,
         date: date,
         villeArrivee: _destinationController.text.trim(),
       );
@@ -724,6 +988,13 @@ class PercepteurReservationPageState extends State<PercepteurReservationPage> {
         busId: trip.busId,
         date: date,
         heure: time,
+        ligneId: _selectedLigne?.id,
+        villeDepart: _enTrajet ? _departController.text.trim() : null,
+        villeArrivee: _enTrajet ? _destinationController.text.trim() : null,
+        villeDepartEntreDebut: _villeDepartEntreDebut,
+        villeDepartEntreFin: _villeDepartEntreFin,
+        villeArriveeEntreDebut: _villeArriveeEntreDebut,
+        villeArriveeEntreFin: _villeArriveeEntreFin,
       );
       if (!mounted || request != _placesRequest) return;
       if (_selectedVoyage?.id != trip.id ||
@@ -763,11 +1034,13 @@ class PercepteurReservationPageState extends State<PercepteurReservationPage> {
 
   Future<void> _pickDate() async {
     final now = DateTime.now();
+    final firstDate = DateUtils.dateOnly(now);
+    final lastDate = now.add(const Duration(days: 120));
     final date = await showDatePicker(
       context: context,
-      initialDate: _travelDate ?? now,
-      firstDate: now,
-      lastDate: now.add(const Duration(days: 120)),
+      initialDate: _travelDate ?? firstDate,
+      firstDate: firstDate,
+      lastDate: lastDate,
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
           colorScheme: const ColorScheme.light(
@@ -793,127 +1066,559 @@ class PercepteurReservationPageState extends State<PercepteurReservationPage> {
     await _loadProgrammes();
   }
 
-  void _showCityPicker({
+  void _selectVoyage(VoyageProgramme? trip) {
+    setState(() {
+      _selectedVoyage = trip;
+      _selectedHeure = null;
+      _placesAvailable = null;
+      _placesError = null;
+      _passengerCount = 1;
+      _amountController.clear();
+    });
+  }
+
+  Future<void> _showCityPicker({
     required String title,
     required TextEditingController controller,
-  }) {
-    final choices = identical(controller, _departController)
-        ? _departures
+  }) async {
+    final isDeparture = identical(controller, _departController);
+    final choices = isDeparture
+        ? _lines
+              .map((line) => line.trajetDepart.trim())
+              .where((city) => city.isNotEmpty)
+              .toSet()
+              .toList()
         : _destinations;
-    showModalBottomSheet(
+    choices.sort();
+    var freeCityName = '';
+    var enteringFreeCity = false;
+    var selectingCurrentLocation = false;
+    List<String>? selectedSegment;
+    _AssignedTripDetails? assignedTrip;
+    var loadingAssignedTrip = false;
+    String? assignedTripError;
+    String? currentLocationCity;
+    final line = _selectedLigne;
+    var routeStops = line == null ? <String>[] : _routeStops(line);
+    final selection = await showModalBottomSheet<_CityPickerSelection>(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (context) {
-        return SafeArea(
-          child: Container(
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setSheetState) => SafeArea(
+          child: ConstrainedBox(
             constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(context).size.height * 0.7,
+              maxHeight: MediaQuery.of(sheetContext).size.height * 0.8,
             ),
-            decoration: const BoxDecoration(
-              color: Color(0xFFF8FBFF),
-              borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
-            ),
-            child: Column(
-              children: [
-                const SizedBox(height: 12),
-                Container(
-                  width: 42,
-                  height: 5,
-                  decoration: BoxDecoration(
-                    color: _deepBlue.withValues(alpha: 0.14),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 12, 8),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          title,
-                          style: const TextStyle(
-                            color: _deepBlue,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w900,
+            child: Material(
+              color: const Color(0xFFF8FBFF),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(26),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 12, 8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            enteringFreeCity ? 'Ville non enregistrée' : title,
+                            style: const TextStyle(
+                              color: _deepBlue,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                            ),
                           ),
                         ),
-                      ),
-                      IconButton(
-                        onPressed: () => Navigator.pop(context),
-                        icon: const Icon(Icons.close_rounded),
-                      ),
-                    ],
+                        IconButton(
+                          onPressed: () => Navigator.pop(sheetContext),
+                          icon: const Icon(Icons.close_rounded),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                Expanded(
-                  child: choices.isEmpty
-                      ? Center(
-                          child: Text(
-                            identical(controller, _departController)
-                                ? 'Aucune ville de départ disponible.'
-                                : 'Choisissez d’abord une ville de départ.',
-                          ),
-                        )
-                      : ListView.separated(
-                          padding: const EdgeInsets.fromLTRB(16, 4, 16, 18),
-                          itemCount: choices.length,
-                          separatorBuilder: (_, __) =>
-                              const SizedBox(height: 8),
-                          itemBuilder: (context, index) {
-                            final city = choices[index];
-                            return Material(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(16),
-                              child: ListTile(
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
+                  if (enteringFreeCity)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                      child: TextField(
+                        autofocus: true,
+                        textCapitalization: TextCapitalization.words,
+                        decoration: const InputDecoration(
+                          labelText: 'Nom de la ville',
+                          border: OutlineInputBorder(),
+                        ),
+                        onChanged: (value) => setSheetState(() {
+                          freeCityName = value;
+                          selectedSegment = null;
+                        }),
+                      ),
+                    ),
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 18),
+                      children: [
+                        if (selectingCurrentLocation) ...[
+                          if (loadingAssignedTrip)
+                            const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 12),
+                              child: Center(child: CircularProgressIndicator()),
+                            ),
+                          if (assignedTripError != null)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              child: Text(assignedTripError!),
+                            ),
+                          if (currentLocationCity != null) ...[
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              child: Text(
+                                'Ville détectée : $currentLocationCity',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
                                 ),
-                                leading: const Icon(
-                                  Icons.location_on_outlined,
-                                  color: _fofanaGreen,
+                              ),
+                            ),
+                            if (!routeStops.any(
+                              (stop) =>
+                                  _normalizeRouteCity(stop) ==
+                                  _normalizeRouteCity(currentLocationCity!),
+                            )) ...[
+                              const Padding(
+                                padding: EdgeInsets.only(top: 8, bottom: 4),
+                                child: Text(
+                                  'Choisissez le tronçon correspondant à votre position :',
                                 ),
-                                title: Text(
-                                  city,
-                                  style: const TextStyle(
-                                    color: _deepBlue,
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                                ),
-                                onTap: () {
-                                  setState(() {
-                                    controller.text = city;
-                                    if (identical(
-                                      controller,
-                                      _departController,
-                                    )) {
-                                      _destinationController.clear();
-                                      _destinations = _destinationsFor(city);
-                                    }
-                                  });
-                                  Navigator.pop(context);
-                                  _refreshRouteAndTrips();
+                              ),
+                              ...List.generate(
+                                routeStops.isNotEmpty
+                                    ? routeStops.length - 1
+                                    : 0,
+                                (index) {
+                                  final pair = [
+                                    routeStops[index],
+                                    routeStops[index + 1],
+                                  ];
+                                  final isSelected =
+                                      selectedSegment != null &&
+                                      _normalizeRouteCity(
+                                            selectedSegment![0],
+                                          ) ==
+                                          _normalizeRouteCity(pair[0]) &&
+                                      _normalizeRouteCity(
+                                            selectedSegment![1],
+                                          ) ==
+                                          _normalizeRouteCity(pair[1]);
+                                  return ListTile(
+                                    selected: isSelected,
+                                    leading: Icon(
+                                      isSelected
+                                          ? Icons.radio_button_checked
+                                          : Icons.radio_button_unchecked,
+                                      color: _fofanaGreen,
+                                    ),
+                                    title: Text('${pair[0]} → ${pair[1]}'),
+                                    onTap: () => setSheetState(() {
+                                      selectedSegment = pair;
+                                    }),
+                                  );
                                 },
                               ),
-                            );
-                          },
-                        ),
-                ),
-              ],
+                            ],
+                            FilledButton(
+                              onPressed:
+                                  (assignedTrip == null &&
+                                          !_lines.any(
+                                            (line) =>
+                                                _normalizeRouteCity(
+                                                  line.trajetDepart,
+                                                ) ==
+                                                _normalizeRouteCity(
+                                                  currentLocationCity!,
+                                                ),
+                                          )) ||
+                                      (!_lines.any(
+                                            (line) =>
+                                                _normalizeRouteCity(
+                                                  line.trajetDepart,
+                                                ) ==
+                                                _normalizeRouteCity(
+                                                  currentLocationCity!,
+                                                ),
+                                          ) &&
+                                          !routeStops.any(
+                                            (stop) =>
+                                                _normalizeRouteCity(stop) ==
+                                                _normalizeRouteCity(
+                                                  currentLocationCity!,
+                                                ),
+                                          ) &&
+                                          selectedSegment == null)
+                                  ? null
+                                  : () => Navigator.pop(
+                                      sheetContext,
+                                      _CityPickerSelection(
+                                        city: currentLocationCity,
+                                        isCurrentLocation: true,
+                                        assignedTrip: assignedTrip,
+                                        segmentStart: selectedSegment?[0],
+                                        segmentEnd: selectedSegment?[1],
+                                      ),
+                                    ),
+                              child: const Text('Continuer'),
+                            ),
+                          ],
+                        ] else if (!enteringFreeCity) ...[
+                          if (isDeparture)
+                            _CityPickerAction(
+                              icon: Icons.my_location_rounded,
+                              title: 'Point actuel',
+                              subtitle:
+                                  'Utiliser la position GPS et votre affectation',
+                              onTap: () async {
+                                setSheetState(() {
+                                  selectingCurrentLocation = true;
+                                  loadingAssignedTrip = true;
+                                  assignedTripError = null;
+                                });
+                                try {
+                                  final city = await _getCurrentCity();
+                                  if (!sheetContext.mounted) return;
+                                  final isConfiguredDeparture = _lines.any(
+                                    (line) =>
+                                        _normalizeRouteCity(
+                                          line.trajetDepart,
+                                        ) ==
+                                        _normalizeRouteCity(city),
+                                  );
+                                  final loaded = isConfiguredDeparture
+                                      ? null
+                                      : await _loadAssignedTripDetails();
+                                  if (!sheetContext.mounted) return;
+                                  setSheetState(() {
+                                    currentLocationCity = city;
+                                    assignedTrip = loaded;
+                                    routeStops = loaded == null
+                                        ? <String>[]
+                                        : _routeStops(loaded.line);
+                                    loadingAssignedTrip = false;
+                                  });
+                                } catch (error) {
+                                  if (!sheetContext.mounted) return;
+                                  setSheetState(() {
+                                    loadingAssignedTrip = false;
+                                    assignedTripError = error
+                                        .toString()
+                                        .replaceFirst('Exception: ', '');
+                                  });
+                                }
+                              },
+                            )
+                          else
+                            _CityPickerAction(
+                              icon: Icons.edit_location_alt_outlined,
+                              title: 'Saisir une ville non enregistrée',
+                              subtitle: 'Pour un arrêt absent de la liste',
+                              onTap: () async {
+                                setSheetState(() {
+                                  enteringFreeCity = true;
+                                  loadingAssignedTrip = !_enTrajet;
+                                  assignedTripError = null;
+                                });
+                                if (_enTrajet) return;
+                                try {
+                                  final loaded =
+                                      await _loadAssignedTripDetails();
+                                  if (!sheetContext.mounted) return;
+                                  setSheetState(() {
+                                    assignedTrip = loaded;
+                                    routeStops = _routeStops(loaded.line);
+                                    loadingAssignedTrip = false;
+                                  });
+                                } catch (error) {
+                                  if (!sheetContext.mounted) return;
+                                  setSheetState(() {
+                                    loadingAssignedTrip = false;
+                                    assignedTripError = error
+                                        .toString()
+                                        .replaceFirst('Exception: ', '');
+                                  });
+                                }
+                              },
+                            ),
+                          if (choices.isEmpty)
+                            Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Text(
+                                isDeparture
+                                    ? 'Aucune ville de départ disponible.'
+                                    : 'Choisissez d’abord une ville de départ.',
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ...choices.map(
+                            (choice) => Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Material(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(16),
+                                child: ListTile(
+                                  leading: const Icon(
+                                    Icons.location_on_outlined,
+                                    color: _fofanaGreen,
+                                  ),
+                                  title: Text(choice),
+                                  onTap: () => Navigator.pop(
+                                    sheetContext,
+                                    _CityPickerSelection(city: choice),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ] else ...[
+                          if (loadingAssignedTrip)
+                            const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 12),
+                              child: Center(child: CircularProgressIndicator()),
+                            ),
+                          if (assignedTripError != null)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              child: Text(assignedTripError!),
+                            ),
+                          if ((_enTrajet || assignedTrip != null) &&
+                              freeCityName.trim().isNotEmpty &&
+                              !routeStops.any(
+                                (stop) =>
+                                    _normalizeRouteCity(stop) ==
+                                    _normalizeRouteCity(freeCityName),
+                              )) ...[
+                            if (routeStops.length < 2)
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 12),
+                                child: Text(
+                                  'L’itinéraire ne contient pas assez d’étapes pour encadrer cette ville.',
+                                ),
+                              )
+                            else ...[
+                              const Padding(
+                                padding: EdgeInsets.only(top: 8, bottom: 4),
+                                child: Text(
+                                  'Choisissez les deux étapes consécutives qui encadrent cette ville :',
+                                ),
+                              ),
+                              ...List.generate(routeStops.length - 1, (index) {
+                                final pair = [
+                                  routeStops[index],
+                                  routeStops[index + 1],
+                                ];
+                                final isSelected =
+                                    selectedSegment != null &&
+                                    _normalizeRouteCity(selectedSegment![0]) ==
+                                        _normalizeRouteCity(pair[0]) &&
+                                    _normalizeRouteCity(selectedSegment![1]) ==
+                                        _normalizeRouteCity(pair[1]);
+                                return ListTile(
+                                  selected: isSelected,
+                                  leading: Icon(
+                                    isSelected
+                                        ? Icons.radio_button_checked
+                                        : Icons.radio_button_unchecked,
+                                    color: _fofanaGreen,
+                                  ),
+                                  title: Text('${pair[0]} → ${pair[1]}'),
+                                  onTap: () => setSheetState(() {
+                                    selectedSegment = pair;
+                                  }),
+                                );
+                              }),
+                            ],
+                          ],
+                          const SizedBox(height: 12),
+                          FilledButton(
+                            onPressed: () {
+                              final city = freeCityName.trim();
+                              if (city.isEmpty) return;
+                              if (!_enTrajet && assignedTrip == null) return;
+                              final known = routeStops.any(
+                                (stop) =>
+                                    _normalizeRouteCity(stop) ==
+                                    _normalizeRouteCity(city),
+                              );
+                              if ((_enTrajet || assignedTrip != null) &&
+                                  !known) {
+                                if (selectedSegment == null) return;
+                                Navigator.pop(
+                                  sheetContext,
+                                  _CityPickerSelection(
+                                    city: city,
+                                    isFreeCity: true,
+                                    segmentStart: selectedSegment![0],
+                                    segmentEnd: selectedSegment![1],
+                                    assignedTrip: assignedTrip,
+                                  ),
+                                );
+                              } else {
+                                Navigator.pop(
+                                  sheetContext,
+                                  _CityPickerSelection(
+                                    city: city,
+                                    isFreeCity: true,
+                                    assignedTrip: assignedTrip,
+                                  ),
+                                );
+                              }
+                            },
+                            child: const Text('Continuer'),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-        );
-      },
+        ),
+      ),
     );
-  }
-
-  void _switchLocations() {
-    final first = _departController.text;
+    if (selection == null || !mounted) return;
+    if (selection.isCurrentLocation) {
+      final city = selection.city;
+      if (city == null || city.trim().isEmpty) return;
+      final isConfiguredDeparture = _lines.any(
+        (line) =>
+            _normalizeRouteCity(line.trajetDepart) == _normalizeRouteCity(city),
+      );
+      if (isConfiguredDeparture) {
+        setState(() {
+          _departController.text = city;
+          _destinationController.clear();
+          _destinations = _destinationsFor(city);
+        });
+        await _refreshRouteAndTrips();
+      } else {
+        final segment =
+            selection.segmentStart != null && selection.segmentEnd != null
+            ? [selection.segmentStart!, selection.segmentEnd!]
+            : null;
+        await _startEnRouteFallback(
+          city,
+          assignedTrip: selection.assignedTrip,
+          departureSegment: segment,
+        );
+      }
+      return;
+    }
+    final city = selection.city;
+    if (city == null || city.trim().isEmpty) return;
+    if (selection.isFreeCity) {
+      final alreadyEnTrajet = _enTrajet;
+      if (!alreadyEnTrajet) {
+        final isConfiguredDestination = _destinations.any(
+          (destination) =>
+              _normalizeRouteCity(destination) == _normalizeRouteCity(city),
+        );
+        if (isConfiguredDestination) {
+          setState(() => controller.text = city);
+          await _refreshRouteAndTrips();
+          return;
+        }
+        final departure = _departController.text.trim();
+        if (departure.isEmpty ||
+            !await _startEnRouteFallback(
+              departure,
+              assignedTrip: selection.assignedTrip,
+            ) ||
+            !mounted) {
+          return;
+        }
+      }
+      setState(() {
+        controller.text = city;
+        _amountController.clear();
+        _placesAvailable = null;
+        _placesError = null;
+      });
+      try {
+        if (selection.segmentStart != null && selection.segmentEnd != null) {
+          final line = _selectedLigne;
+          if (line == null ||
+              !_saveFallbackStopPosition(
+                city,
+                departure: false,
+                stops: _routeStops(line),
+                segment: [selection.segmentStart!, selection.segmentEnd!],
+              )) {
+            throw Exception(
+              'Impossible de situer cette ville sur l’itinéraire sélectionné.',
+            );
+          }
+        } else if (alreadyEnTrajet) {
+          final line = _selectedLigne;
+          if (line != null) {
+            _saveFallbackStopPosition(
+              city,
+              departure: false,
+              stops: _routeStops(line),
+            );
+          }
+        } else {
+          final segment =
+              selection.segmentStart != null && selection.segmentEnd != null
+              ? [selection.segmentStart!, selection.segmentEnd!]
+              : null;
+          await _setFallbackStopPosition(
+            city,
+            departure: false,
+            segment: segment,
+          );
+        }
+        if (_selectedVoyage != null) await _checkPlaces();
+      } catch (error) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(error.toString().replaceFirst('Exception: ', '')),
+            ),
+          );
+        }
+      }
+      return;
+    }
     setState(() {
-      _departController.text = _destinationController.text;
-      _destinationController.text = first;
+      controller.text = city;
+      if (identical(controller, _departController)) {
+        _destinationController.clear();
+        _destinations = _destinationsFor(city);
+      }
+      _amountController.clear();
     });
-    _refreshRouteAndTrips();
+    if (_enTrajet) {
+      try {
+        final line = _selectedLigne;
+        if (line != null &&
+            _saveFallbackStopPosition(
+              city,
+              departure: false,
+              stops: _routeStops(line),
+            )) {
+          await _checkPlaces();
+        }
+      } catch (error) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(error.toString().replaceFirst('Exception: ', '')),
+            ),
+          );
+        }
+      }
+    } else {
+      await _refreshRouteAndTrips();
+    }
   }
 
   Future<void> _confirmReservation() async {
@@ -992,6 +1697,11 @@ class PercepteurReservationPageState extends State<PercepteurReservationPage> {
           taxRate: _selectedTax?.rate ?? 0,
           taxGroupLabel: _selectedTax?.label,
           taxGroupCode: _selectedTax?.code,
+          enTrajet: _enTrajet,
+          villeDepartEntreDebut: _villeDepartEntreDebut,
+          villeDepartEntreFin: _villeDepartEntreFin,
+          villeArriveeEntreDebut: _villeArriveeEntreDebut,
+          villeArriveeEntreFin: _villeArriveeEntreFin,
         ),
       ),
     );
@@ -1151,305 +1861,330 @@ class PercepteurReservationPageState extends State<PercepteurReservationPage> {
             ),
           ),
           const SizedBox(height: 14),
-          Container(
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: _deepBlue.withValues(alpha: 0.07)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.06),
-                  blurRadius: 18,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: Stack(
-              children: [
-                Column(
-                  children: [
-                    PercepteurCityField(
-                      controller: _departController,
-                      label: 'De',
-                      hint: 'Ville de départ',
-                      isFirst: true,
-                      onTap: _loadingCities
-                          ? () {}
-                          : () => _showCityPicker(
-                              title: 'Choisir la ville de départ',
-                              controller: _departController,
-                            ),
-                    ),
-                    PercepteurCityField(
-                      controller: _destinationController,
-                      label: 'À',
-                      hint: 'Ville de destination',
-                      isFirst: false,
-                      onTap: () => _showCityPicker(
-                        title: 'Choisir la ville d’arrivée',
-                        controller: _destinationController,
+          ...[
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: _deepBlue.withValues(alpha: 0.07)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.06),
+                    blurRadius: 18,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Stack(
+                children: [
+                  Column(
+                    children: [
+                      PercepteurCityField(
+                        controller: _departController,
+                        label: 'De',
+                        hint: 'Ville de départ',
+                        isFirst: true,
+                        onTap: () => _showCityPicker(
+                          title: 'Choisir la ville de départ',
+                          controller: _departController,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                Positioned(
-                  right: 12,
-                  top: 0,
-                  bottom: 0,
-                  child: Center(
-                    child: GestureDetector(
-                      onTap: _switchLocations,
-                      child: Container(
-                        width: 46,
-                        height: 46,
-                        decoration: BoxDecoration(
-                          color: _deepBlue,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: _deepBlue.withValues(alpha: 0.18),
-                              blurRadius: 14,
-                              offset: const Offset(0, 8),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.swap_vert_rounded,
-                          color: Colors.white,
-                          size: 24,
-                        ),
+                      PercepteurCityField(
+                        controller: _destinationController,
+                        label: 'À',
+                        hint: 'Ville de destination',
+                        isFirst: false,
+                        onTap: _departController.text.isEmpty
+                            ? () {}
+                            : () => _showCityPicker(
+                                title: 'Choisir la ville d’arrivée',
+                                controller: _destinationController,
+                              ),
+                      ),
+                    ],
+                  ),
+                  Positioned(
+                    right: 12,
+                    top: 0,
+                    bottom: 0,
+                    child: Center(
+                      child: IconButton.filled(
+                        tooltip: 'Inverser le départ et l’arrivée',
+                        onPressed: _enTrajet
+                            ? null
+                            : () {
+                                final departure = _departController.text;
+                                final destination = _destinationController.text;
+                                setState(() {
+                                  _departController.text = destination;
+                                  _destinationController.text = departure;
+                                });
+                                _refreshRouteAndTrips();
+                              },
+                        icon: const Icon(Icons.swap_vert_rounded),
                       ),
                     ),
                   ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 18),
-          if (_departController.text.isNotEmpty &&
-              _destinationController.text.isNotEmpty &&
-              _selectedLigne == null)
-            const Padding(
-              padding: EdgeInsets.only(bottom: 12),
-              child: Text(
-                'Aucun itinéraire configuré pour ce trajet.',
-                style: TextStyle(
-                  color: Colors.red,
-                  fontWeight: FontWeight.w700,
-                ),
+                ],
               ),
             ),
-          if (_selectedLigne != null) ...[
+            if (_routeError != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: Text(
+                  _routeError!,
+                  style: const TextStyle(
+                    color: Colors.red,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            if (_loadingAssignedTrip)
+              const Padding(
+                padding: EdgeInsets.only(top: 8),
+                child: LinearProgressIndicator(),
+              ),
+            if (_enTrajet)
+              Container(
+                margin: const EdgeInsets.only(top: 10),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEAF7EE),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Text(
+                  'Voyage lié à votre affectation en cours. Ce ticket sera marqué « en trajet ».',
+                  style: TextStyle(
+                    color: Color(0xFF0B4F2A),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            if (_enTrajet) ...[
+              const SizedBox(height: 10),
+              TextField(
+                controller: _amountController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Tarif par passager (CFA)',
+                  prefixIcon: Icon(Icons.payments_outlined),
+                  border: OutlineInputBorder(),
+                ),
+                onChanged: (value) {
+                  final normalized = value.replaceAll(RegExp(r'[^0-9]'), '');
+                  setState(() => _manualFare = int.tryParse(normalized) ?? 0);
+                },
+              ),
+            ],
+            const SizedBox(height: 14),
+          ],
+          if (_selectedLigne != null)
             PercepteurSmallField(
-              label: 'Date de départ',
+              label: 'Date du voyage',
               value: _dateController.text.isEmpty
                   ? 'Sélectionner une date'
                   : _dateController.text,
               icon: Icons.calendar_month_rounded,
               onTap: _pickDate,
             ),
-            const SizedBox(height: 14),
-          ],
-          if (_selectedLigne != null) ...[
-            if (_travelDate == null)
+          if (_travelDate != null && _selectedLigne != null) ...[
+            if (!_loadingTrips && _programmes.isEmpty)
               const Padding(
                 padding: EdgeInsets.only(bottom: 12),
                 child: Text(
-                  'Choisissez la date de départ pour afficher les bus.',
-                  style: TextStyle(color: Color(0xFF5F6B86)),
+                  'Aucun voyage programmé pour cette date.',
+                  style: TextStyle(color: Colors.red),
                 ),
               ),
-            if (_travelDate != null) ...[
-              if (!_loadingTrips && _programmes.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.only(bottom: 12),
-                  child: Text(
-                    'Aucun départ disponible pour cette date.',
-                    style: TextStyle(color: Colors.red),
-                  ),
-                ),
-              DropdownButtonFormField<VoyageProgramme>(
-                initialValue: _selectedVoyage,
-                isExpanded: true,
-                decoration: const InputDecoration(
-                  labelText: 'Bus pour ce voyage',
-                  border: OutlineInputBorder(),
-                ),
-                hint: Text(_loadingTrips ? 'Chargement...' : 'Choisir un bus'),
-                items: _programmes.map((trip) {
-                  final isDirect =
-                      trip.ligneArrivee.trim().toLowerCase() ==
-                      _destinationController.text.trim().toLowerCase();
-                  final route = isDirect
-                      ? '${trip.ligneDepart} → ${trip.ligneArrivee}'
-                      : '${trip.ligneDepart} → ${trip.ligneArrivee} (passage par ${_destinationController.text.trim()})';
-                  final label =
-                      '${trip.busName.isEmpty ? 'Bus' : trip.busName}'
-                      '${trip.busMatricule.isEmpty ? '' : ' • ${trip.busMatricule}'}'
-                      '${route.trim().isEmpty ? '' : ' — $route'}';
-                  return DropdownMenuItem(
-                    value: trip,
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: Text(
-                        label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  );
-                }).toList(),
-                onChanged: (trip) {
-                  setState(() {
-                    _selectedVoyage = trip;
-                    _selectedHeure = null;
-                    _placesAvailable = null;
-                    _placesError = null;
-                    _passengerCount = 1;
-                    _syncFareAmount();
-                  });
-                  _checkPlaces();
-                },
+            DropdownButtonFormField<VoyageProgramme>(
+              initialValue: _selectedVoyage,
+              isExpanded: true,
+              decoration: const InputDecoration(
+                labelText: 'Bus / Service',
+                border: OutlineInputBorder(),
               ),
-              const SizedBox(height: 12),
-              if (_selectedVoyage != null)
-                DropdownButtonFormField<String>(
-                  initialValue: _selectedHeure,
-                  isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Heure disponible',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: _selectedVoyage!.heuresDepart
-                      .map(
-                        (time) =>
-                            DropdownMenuItem(value: time, child: Text(time)),
-                      )
-                      .toList(),
-                  onChanged: (time) {
-                    setState(() {
-                      _selectedHeure = time;
-                      _placesAvailable = null;
-                      _placesError = null;
-                    });
-                    _checkPlaces();
-                  },
-                ),
-              if (_selectedVoyage != null &&
-                  _selectedVoyage!.heuresDepart.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.only(top: 8),
-                  child: Text(
-                    'Aucune heure de départ n’est configurée pour ce bus.',
-                    style: TextStyle(
-                      color: Colors.red,
-                      fontWeight: FontWeight.w700,
+              hint: Text(_loadingTrips ? 'Chargement...' : 'Choisir un voyage'),
+              items: _programmes.map((trip) {
+                final route = '${trip.ligneDepart} → ${trip.ligneArrivee}';
+                final label =
+                    '${trip.busName.isEmpty ? 'Bus' : trip.busName}'
+                    '${trip.busMatricule.isEmpty ? '' : ' • ${trip.busMatricule}'}'
+                    '${route.trim().isEmpty ? '' : ' — $route'}';
+                return DropdownMenuItem(
+                  value: trip,
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: Text(
+                      label,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                );
+              }).toList(),
+              onChanged: _selectVoyage,
+            ),
+            if (_selectedVoyage != null && _selectedLigne != null) ...[
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
                 ),
-              if (_selectedHeure != null) ...[
-                const SizedBox(height: 12),
-                Row(
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEAF7EE),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: _ReservationChoiceInfo(
-                        label: 'Type du bus',
-                        value: _selectedVoyage!.busType.toLowerCase() == 'vip'
-                            ? 'Climatisé (VIP)'
-                            : 'Standard',
-                        icon: Icons.directions_bus_rounded,
-                      ),
+                    const Icon(
+                      Icons.alt_route_rounded,
+                      color: _fofanaGreen,
+                      size: 20,
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 8),
                     Expanded(
-                      child: _ReservationChoiceInfo(
-                        label: 'Places disponibles',
-                        value: _checkingPlaces
-                            ? 'Vérification...'
-                            : _placesAvailable == null
-                            ? 'Non vérifiées'
-                            : '$_placesAvailable / ${_selectedVoyage!.busCapacite}',
-                        icon: Icons.event_seat_rounded,
-                        isWarning:
-                            _placesError != null ||
-                            (_placesAvailable != null &&
-                                _placesAvailable! < _passengerCount),
+                      child: Text(
+                        'Itinéraire : ${_selectedLigne!.trajetDepart} → ${_selectedLigne!.trajetArrivee}',
+                        style: const TextStyle(
+                          color: _deepBlue,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                   ],
                 ),
-                if (_placesError != null) ...[
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'Vérification impossible : $_placesError',
-                          style: const TextStyle(
-                            color: Colors.red,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
+              ),
+            ],
+          ],
+          if (_selectedVoyage != null && _selectedLigne != null) ...[
+            const SizedBox(height: 14),
+            DropdownButtonFormField<String>(
+              initialValue: _selectedHeure,
+              isExpanded: true,
+              decoration: const InputDecoration(
+                labelText: 'Heure de voyage',
+                border: OutlineInputBorder(),
+              ),
+              items: _selectedVoyage!.heuresDepart
+                  .map(
+                    (time) => DropdownMenuItem(value: time, child: Text(time)),
+                  )
+                  .toList(),
+              onChanged: (time) {
+                setState(() {
+                  _selectedHeure = time;
+                  _placesAvailable = null;
+                  _placesError = null;
+                });
+                if (_routeError == null &&
+                    _departController.text.isNotEmpty &&
+                    _destinationController.text.isNotEmpty) {
+                  _checkPlaces();
+                }
+              },
+            ),
+          ],
+          if (_selectedVoyage != null && _selectedLigne == null)
+            const Text(
+              'La ligne de ce voyage n’est pas disponible dans la configuration.',
+              style: TextStyle(color: Colors.red, fontWeight: FontWeight.w700),
+            ),
+          if (_selectedHeure != null &&
+              _departController.text.isNotEmpty &&
+              _destinationController.text.isNotEmpty &&
+              _routeError == null) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _ReservationChoiceInfo(
+                    label: 'Type du bus',
+                    value: _selectedVoyage!.busType.toLowerCase() == 'vip'
+                        ? 'Climatisé (VIP)'
+                        : 'Standard',
+                    icon: Icons.directions_bus_rounded,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _ReservationChoiceInfo(
+                    label: 'Places disponibles',
+                    value: _checkingPlaces
+                        ? 'Vérification...'
+                        : _placesAvailable == null
+                        ? 'Non vérifiées'
+                        : '$_placesAvailable / ${_selectedVoyage!.busCapacite}',
+                    icon: Icons.event_seat_rounded,
+                    isWarning:
+                        _placesError != null ||
+                        (_placesAvailable != null &&
+                            _placesAvailable! < _passengerCount),
+                  ),
+                ),
+              ],
+            ),
+            if (_placesError != null) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Vérification impossible : $_placesError',
+                      style: const TextStyle(
+                        color: Colors.red,
+                        fontWeight: FontWeight.w700,
                       ),
-                      IconButton(
-                        tooltip: 'Réessayer',
-                        onPressed: _checkPlaces,
-                        icon: const Icon(Icons.refresh_rounded),
-                      ),
-                    ],
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Réessayer',
+                    onPressed: _checkPlaces,
+                    icon: const Icon(Icons.refresh_rounded),
                   ),
                 ],
-              ],
-            ],
-            if (_selectedHeure != null &&
-                _placesAvailable != null &&
-                _placesAvailable! > 0 &&
-                _taxGroups.isNotEmpty)
-              DropdownButtonFormField<TaxGroup>(
-                initialValue: _selectedTax,
-                isExpanded: true,
-                decoration: const InputDecoration(
-                  labelText: 'Taxe applicable',
-                  border: OutlineInputBorder(),
-                ),
-                items: _taxGroups
-                    .map(
-                      (group) => DropdownMenuItem(
-                        value: group,
-                        child: SizedBox(
-                          width: double.infinity,
-                          child: Text(
-                            '${group.label} (${group.rate}%)',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (group) {
-                  setState(() {
-                    _selectedTax = group;
-                    _syncFareAmount();
-                  });
-                },
               ),
+            ],
           ],
           if (_selectedHeure != null &&
               _placesAvailable != null &&
-              _placesAvailable! > 0) ...[
-            const SizedBox(height: 12),
-            PercepteurTextInput(
-              controller: _amountController,
-              label: 'Montant',
-              icon: Icons.payments_rounded,
-              keyboardType: TextInputType.number,
-              suffixText: 'CFA',
-              readOnly: true,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              _placesAvailable! > 0 &&
+              _taxGroups.isNotEmpty)
+            DropdownButtonFormField<TaxGroup>(
+              initialValue: _selectedTax,
+              isExpanded: true,
+              decoration: const InputDecoration(
+                labelText: 'Taxe applicable',
+                border: OutlineInputBorder(),
+              ),
+              items: _taxGroups
+                  .map(
+                    (group) => DropdownMenuItem(
+                      value: group,
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: Text(
+                          '${group.label} (${group.rate}%)',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (group) {
+                setState(() {
+                  _selectedTax = group;
+                  _syncFareAmount();
+                });
+              },
             ),
-            const SizedBox(height: 14),
+          if (_selectedHeure != null &&
+              _placesAvailable != null &&
+              _placesAvailable! > 0) ...[
             PercepteurPassengerCard(
               count: _passengerCount,
               onMinus: () {
@@ -1499,6 +2234,31 @@ class PercepteurReservationPageState extends State<PercepteurReservationPage> {
       ),
     );
   }
+}
+
+class _CityPickerAction extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _CityPickerAction({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) => Card(
+    color: const Color(0xFFEAF7EE),
+    child: ListTile(
+      leading: Icon(icon, color: const Color(0xFF16A34A)),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
+      subtitle: Text(subtitle),
+      onTap: onTap,
+    ),
+  );
 }
 
 class PercepteurCityField extends StatelessWidget {
@@ -1828,6 +2588,11 @@ class PercepteurPaymentDetailsPage extends StatefulWidget {
   final double taxRate;
   final String? taxGroupLabel;
   final String? taxGroupCode;
+  final bool enTrajet;
+  final String? villeDepartEntreDebut;
+  final String? villeDepartEntreFin;
+  final String? villeArriveeEntreDebut;
+  final String? villeArriveeEntreFin;
 
   const PercepteurPaymentDetailsPage({
     super.key,
@@ -1847,6 +2612,11 @@ class PercepteurPaymentDetailsPage extends StatefulWidget {
     this.taxGroupLabel,
     this.taxGroupCode,
     this.taxGroupId,
+    this.enTrajet = false,
+    this.villeDepartEntreDebut,
+    this.villeDepartEntreFin,
+    this.villeArriveeEntreDebut,
+    this.villeArriveeEntreFin,
     required this.time,
   });
 
@@ -1946,6 +2716,11 @@ class PercepteurPaymentDetailsPageState
               .split(RegExp(r'\s+'))
               .skip(1)
               .join(' '),
+      enTrajet: widget.enTrajet,
+      villeDepartEntreDebut: widget.villeDepartEntreDebut,
+      villeDepartEntreFin: widget.villeDepartEntreFin,
+      villeArriveeEntreDebut: widget.villeArriveeEntreDebut,
+      villeArriveeEntreFin: widget.villeArriveeEntreFin,
     );
   }
 
@@ -2280,7 +3055,7 @@ class PercepteurPaymentChoicePageState
         ligneId: draft.ligneId!,
         date: draft.travelDate!,
         voyageId: draft.voyageId!,
-        villeArrivee: draft.destination,
+        villeArrivee: draft.enTrajet ? null : draft.destination,
       );
       final selectedTime = draft.time.length > 5
           ? draft.time.substring(0, 5)
@@ -2301,6 +3076,13 @@ class PercepteurPaymentChoicePageState
         busId: trip.busId,
         date: draft.travelDate!,
         heure: selectedTime,
+        ligneId: draft.ligneId,
+        villeDepart: draft.enTrajet ? draft.departure : null,
+        villeArrivee: draft.enTrajet ? draft.destination : null,
+        villeDepartEntreDebut: draft.villeDepartEntreDebut,
+        villeDepartEntreFin: draft.villeDepartEntreFin,
+        villeArriveeEntreDebut: draft.villeArriveeEntreDebut,
+        villeArriveeEntreFin: draft.villeArriveeEntreFin,
       );
       if (availablePlaces < draft.passengerCount) {
         throw Exception('Le nombre de places disponibles est insuffisant.');
@@ -2309,7 +3091,6 @@ class PercepteurPaymentChoicePageState
         ligneId: draft.ligneId!,
         voyageId: trip.id,
         busId: trip.busId,
-        villeArrivee: draft.destination,
         dateVoyage: draft.travelDate!,
         heureVoyage: selectedTime,
         tiers: true,
@@ -2319,6 +3100,13 @@ class PercepteurPaymentChoicePageState
         userId: draft.userId,
         nbrePlace: draft.passengerCount,
         taxGroupId: draft.taxGroupId,
+        villeDepart: draft.enTrajet ? draft.departure : null,
+        villeArrivee: draft.enTrajet ? draft.destination : null,
+        villeDepartEntreDebut: draft.villeDepartEntreDebut,
+        villeDepartEntreFin: draft.villeDepartEntreFin,
+        villeArriveeEntreDebut: draft.villeArriveeEntreDebut,
+        villeArriveeEntreFin: draft.villeArriveeEntreFin,
+        enTrajet: draft.enTrajet,
         montantBase: draft.baseAmount,
         montantManuel: widget.priceAmount.toDouble(),
         montantTaxe: draft.taxAmount,
@@ -2941,6 +3729,7 @@ class PercepteurTextInput extends StatelessWidget {
   final String? suffixText;
   final List<TextInputFormatter>? inputFormatters;
   final bool readOnly;
+  final ValueChanged<String>? onChanged;
 
   const PercepteurTextInput({
     super.key,
@@ -2951,6 +3740,7 @@ class PercepteurTextInput extends StatelessWidget {
     this.suffixText,
     this.inputFormatters,
     this.readOnly = false,
+    this.onChanged,
   });
 
   @override
@@ -2960,6 +3750,7 @@ class PercepteurTextInput extends StatelessWidget {
       keyboardType: keyboardType,
       inputFormatters: inputFormatters,
       readOnly: readOnly,
+      onChanged: onChanged,
       style: const TextStyle(
         color: Color(0xFF0B4F2A),
         fontWeight: FontWeight.w900,
