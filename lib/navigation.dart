@@ -20,6 +20,7 @@ import 'package:fofanavoyage/pages/payment_error_page.dart';
 import 'package:fofanavoyage/auth/stockage_auth_local.dart';
 import 'package:fofanavoyage/data/local/session_store.dart';
 import 'package:fofanavoyage/services/auth_service.dart';
+import 'package:fofanavoyage/screens/percepteur/parts/percepteur_access_gate.dart';
 
 /// Centralise toutes les pages accessibles avec GetX.
 ///
@@ -47,7 +48,10 @@ class Nav {
       page: () => const ForgotPasswordPage(),
     ),
 
-    GetPage(name: Routes.CHAUFFEUR_HOME, page: () => const ChauffeurHomePage()),
+    GetPage(
+      name: Routes.CHAUFFEUR_HOME,
+      page: () => const PercepteurAccessGate(child: ChauffeurHomePage()),
+    ),
 
     GetPage(name: Routes.WELCOME, page: () => const WelcomePage()),
 
