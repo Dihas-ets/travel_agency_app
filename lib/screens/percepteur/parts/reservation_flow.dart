@@ -1516,6 +1516,24 @@ class PercepteurReservationPageState extends State<PercepteurReservationPage> {
     if (city == null || city.trim().isEmpty) return;
     if (selection.isFreeCity) {
       final alreadyEnTrajet = _enTrajet;
+      if (identical(controller, _departController) && !alreadyEnTrajet) {
+        final segment =
+            selection.segmentStart != null && selection.segmentEnd != null
+            ? [selection.segmentStart!, selection.segmentEnd!]
+            : null;
+        final started = await _startEnRouteFallback(
+          city,
+          assignedTrip: selection.assignedTrip,
+          departureSegment: segment,
+        );
+        if (!started || !mounted) return;
+        setState(() {
+          controller.text = city;
+          _destinationController.clear();
+          _destinations = _routeStops(_selectedLigne!);
+        });
+        return;
+      }
       if (!alreadyEnTrajet) {
         final isConfiguredDestination = _destinations.any(
           (destination) =>
