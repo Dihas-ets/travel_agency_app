@@ -275,6 +275,7 @@ class TicketService {
     String? villeDepartEntreFin,
     String? villeArriveeEntreDebut,
     String? villeArriveeEntreFin,
+    bool enTrajet = false,
   }) async {
     final dateStr =
         '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
@@ -295,6 +296,7 @@ class TicketService {
           'ville_arrivee_entre_debut': villeArriveeEntreDebut,
         if (villeArriveeEntreFin != null)
           'ville_arrivee_entre_fin': villeArriveeEntreFin,
+        if (enTrajet) 'en_trajet': '1',
       },
     );
     final response = await http

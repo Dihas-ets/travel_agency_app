@@ -131,6 +131,16 @@ class AffectationService {
     return Map<String, dynamic>.from(currentTrip);
   }
 
+  Future<Map<String, dynamic>?> getCurrentAssignedTripOrNull() async {
+    final session = await getMySession();
+    if (session['session_active'] != true) return null;
+
+    final currentTrip = session['voyage_en_cours'];
+    if (currentTrip is! Map || currentTrip['voyage'] is! Map) return null;
+
+    return Map<String, dynamic>.from(currentTrip);
+  }
+
   Map<String, dynamic> _decodeMap(String body) {
     if (body.trim().isEmpty) return <String, dynamic>{};
     final decoded = jsonDecode(body);
