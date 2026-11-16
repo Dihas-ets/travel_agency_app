@@ -4,9 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:fofanavoyage/screens/global/widgets/tarifs/tarifs_widgets.dart';
 
 import 'package:fofanavoyage/models/ligne_model.dart';
-import 'package:fofanavoyage/models/voyage_disponibilite_model.dart';
 import 'package:fofanavoyage/models/voyage_du_jour_model.dart';
 import 'package:fofanavoyage/services/ligne_service.dart';
+import 'package:fofanavoyage/services/ticket_service.dart';
 
 /// Page de consultation des tarifs.
 ///
@@ -249,6 +249,47 @@ class _TarifsPageState extends State<TarifsPage> {
     return ligne.montant;
   }
 
+  double _tarifPourDestination(
+    Ligne ligne,
+    String destination,
+    String busType,
+  ) {
+    final destinationKey = destination.trim().toLowerCase();
+    if (ligne.trajetArrivee.trim().toLowerCase() == destinationKey) {
+      return _tarifPourClasse(ligne, busType);
+    }
+
+    final estVip = busType.toLowerCase() == 'vip';
+    for (final etape in ligne.villesEtapes) {
+      if (etape['nom']?.toString().trim().toLowerCase() != destinationKey) {
+        continue;
+      }
+      final tarif = num.tryParse(
+        (etape[estVip ? 'tarif_vip' : 'tarif'] ??
+                    (estVip ? etape['tarif'] : null))
+                ?.toString() ??
+            '',
+      );
+      if (tarif != null && tarif > 0) return tarif.toDouble();
+    }
+    return _tarifPourClasse(ligne, busType);
+  }
+
+  bool _departureIsFuture(String time) {
+    final match = RegExp(
+      r'^(\d{1,2})[:h](\d{2})',
+    ).firstMatch(time.trim().toLowerCase());
+    if (match == null) return false;
+    final departure = DateTime(
+      _selectedDate.year,
+      _selectedDate.month,
+      _selectedDate.day,
+      int.parse(match.group(1)!),
+      int.parse(match.group(2)!),
+    );
+    return departure.isAfter(DateTime.now());
+  }
+
   /// Intervertit les valeurs des deux champs (départ ↔ destination)
   void _swapCities() {
     final temp = _departController.text;
@@ -305,7 +346,7 @@ class _TarifsPageState extends State<TarifsPage> {
     });
 
     try {
-      final ligne = await LigneService().findTarif(
+      final ligne = await LigneService().findReservationLine(
         depart: depart,
         destination: destination,
       );
@@ -315,32 +356,61 @@ class _TarifsPageState extends State<TarifsPage> {
         return;
       }
 
-      final disponibilites = await LigneService().rechercheDisponibilites(
+      final voyages = await TicketService().getProgrammesParDate(
         ligneId: ligne.id,
         date: _selectedDate,
+        villeArrivee: destination,
       );
 
       if (!mounted) return;
 
       final results = <_TarifResult>[];
-      for (final voyage in disponibilites) {
-        final tarif = _tarifPourClasse(ligne, voyage.busType);
-        for (final h in voyage.heures) {
-          results.add(
-            _TarifResult(
-              from: ligne.trajetDepart,
-              to: ligne.trajetArrivee,
-              dateDepart: _selectedDateLabel,
-              dateVoyage: _selectedDate,
-              heureDepart: h.heure,
-              placesRestantes: h.placesRestantes,
-              capacity: voyage.capacite,
-              fraisCfa: tarif.toInt(),
+      final availabilityChecks =
+          <Future<({int voyageId, int capacity, String time, int places})>>[];
+      final ticketService = TicketService();
+      for (final voyage in voyages) {
+        for (final heure in voyage.heuresDepart) {
+          if (!_departureIsFuture(heure)) continue;
+          availabilityChecks.add(() async {
+            final places = await ticketService.getPlacesDisponibles(
+              voyageId: voyage.id,
+              busId: voyage.busId,
+              date: _selectedDate,
+              heure: heure,
               ligneId: ligne.id,
-              voyageId: voyage.voyageId,
-            ),
-          );
+              villeDepart: depart,
+              villeArrivee: destination,
+            );
+            return (
+              voyageId: voyage.id,
+              capacity: voyage.busCapacite,
+              time: heure,
+              places: places,
+            );
+          }());
         }
+      }
+
+      for (final availability in await Future.wait(availabilityChecks)) {
+        if (availability.places <= 0) continue;
+        final voyage = voyages.firstWhere(
+          (item) => item.id == availability.voyageId,
+        );
+        final tarif = _tarifPourDestination(ligne, destination, voyage.busType);
+        results.add(
+          _TarifResult(
+            from: depart,
+            to: destination,
+            dateDepart: _selectedDateLabel,
+            dateVoyage: _selectedDate,
+            heureDepart: availability.time,
+            placesRestantes: availability.places,
+            capacity: availability.capacity,
+            fraisCfa: tarif.toInt(),
+            ligneId: ligne.id,
+            voyageId: availability.voyageId,
+          ),
+        );
       }
 
       results.sort((a, b) => a.heureDepart.compareTo(b.heureDepart));

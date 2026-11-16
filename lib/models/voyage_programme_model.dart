@@ -1,5 +1,6 @@
 class VoyageProgramme {
   final int id;
+  final int? ligneId;
   final int busId;
   final String busType;
   final int busCapacite;
@@ -13,6 +14,7 @@ class VoyageProgramme {
 
   VoyageProgramme({
     required this.id,
+    this.ligneId,
     required this.busId,
     required this.busType,
     required this.busCapacite,
@@ -44,6 +46,7 @@ class VoyageProgramme {
     final ligne = json['ligne'] as Map<String, dynamic>?;
     return VoyageProgramme(
       id: _toInt(json['id']),
+      ligneId: _toInt(json['ligne_id'] ?? ligne?['id']),
       busId: _toInt(bus?['id']),
       busType: bus?['type']?.toString() ?? 'standard',
       busCapacite: _toInt(bus?['capacite']),

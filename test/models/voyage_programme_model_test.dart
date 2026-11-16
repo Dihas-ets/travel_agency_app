@@ -5,6 +5,7 @@ void main() {
   test('parses the selected bus, route, departure times, and fare', () {
     final voyage = VoyageProgramme.fromJson({
       'id': 18,
+      'ligne_id': 9,
       'heures_depart': ['08:00', '13:30'],
       'bus': {
         'id': 4,
@@ -22,6 +23,7 @@ void main() {
     });
 
     expect(voyage.id, 18);
+    expect(voyage.ligneId, 9);
     expect(voyage.busId, 4);
     expect(voyage.busType, 'vip');
     expect(voyage.busCapacite, 32);

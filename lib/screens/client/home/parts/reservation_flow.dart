@@ -457,6 +457,22 @@ class _ReservationPageState extends State<_ReservationPage> {
     return departure.isAfter(DateTime.now());
   }
 
+  int _fareForDestination(
+    List<Map<String, dynamic>> villesEtapes,
+    int montantLigne,
+    String destination,
+  ) {
+    final destinationKey = destination.trim().toLowerCase();
+    for (final etape in villesEtapes) {
+      final name = etape['nom']?.toString().trim().toLowerCase();
+      if (name != destinationKey) continue;
+
+      final fare = num.tryParse(etape['tarif']?.toString() ?? '');
+      if (fare != null && fare > 0) return fare.round();
+    }
+    return montantLigne;
+  }
+
   Future<void> _refreshAvailability() async {
     if (widget.ligneId != null ||
         _travelDate == null ||
@@ -477,31 +493,53 @@ class _ReservationPageState extends State<_ReservationPage> {
     });
 
     try {
-      final ligne = await LigneService().findTarif(
+      final ligne = await LigneService().findReservationLine(
         depart: _departController.text.trim(),
         destination: _destinationController.text.trim(),
       );
       if (ligne == null) return;
 
-      final disponibilites = await LigneService().rechercheDisponibilites(
+      final destination = _destinationController.text.trim();
+      final voyages = await TicketService().getProgrammesParDate(
         ligneId: ligne.id,
         date: _travelDate!,
+        villeArrivee: destination,
       );
       final options = <String>[];
-      for (final voyage in disponibilites) {
-        for (final heure in voyage.heures) {
-          if (heure.placesRestantes > 0 &&
-              _departureIsFuture(_travelDate!, heure.heure)) {
-            options.add(heure.heure);
-            _voyageByTime[heure.heure] = voyage.voyageId;
-            _placesByTime[heure.heure] = heure.placesRestantes;
-          }
+      final availabilityChecks =
+          <Future<({String time, int voyageId, int places})>>[];
+      final ticketService = TicketService();
+      for (final voyage in voyages) {
+        for (final heure in voyage.heuresDepart) {
+          if (!_departureIsFuture(_travelDate!, heure)) continue;
+          availabilityChecks.add(() async {
+            final places = await ticketService.getPlacesDisponibles(
+              voyageId: voyage.id,
+              busId: voyage.busId,
+              date: _travelDate!,
+              heure: heure,
+              ligneId: ligne.id,
+              villeDepart: _departController.text.trim(),
+              villeArrivee: destination,
+            );
+            return (time: heure, voyageId: voyage.id, places: places);
+          }());
         }
+      }
+      for (final result in await Future.wait(availabilityChecks)) {
+        if (result.places <= 0) continue;
+        options.add(result.time);
+        _voyageByTime[result.time] = result.voyageId;
+        _placesByTime[result.time] = result.places;
       }
       if (!mounted) return;
       setState(() {
         _selectedLigneId = ligne.id;
-        _dynamicPrice = ligne.montant.toInt();
+        _dynamicPrice = _fareForDestination(
+          ligne.villesEtapes,
+          ligne.montant.toInt(),
+          destination,
+        );
         _availableTimes = options.toSet().toList()..sort();
         if (_availableTimes.isNotEmpty &&
             !_availableTimes.contains(_selectedTime)) {
@@ -1407,6 +1445,7 @@ class _PaymentDetailsPageState extends State<_PaymentDetailsPage> {
         ligneId: widget.ligneId!,
         date: widget.dateVoyage!,
         voyageId: widget.voyageId!,
+        villeArrivee: widget.destination,
       );
 
       if (programme == null) {
@@ -1427,6 +1466,7 @@ class _PaymentDetailsPageState extends State<_PaymentDetailsPage> {
         ligneId: widget.ligneId!,
         voyageId: widget.voyageId!,
         busId: programme.busId,
+        villeDepart: widget.departure,
         villeArrivee: widget.destination,
         dateVoyage: widget.dateVoyage!,
         heureVoyage: widget.time,

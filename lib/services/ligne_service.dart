@@ -73,6 +73,30 @@ class LigneService {
     return null;
   }
 
+  Future<Ligne?> findReservationLine({
+    required String depart,
+    required String destination,
+  }) async {
+    final lignes = await getLignesActives();
+    final departLower = depart.trim().toLowerCase();
+    final destinationLower = destination.trim().toLowerCase();
+
+    for (final ligne in lignes) {
+      if (ligne.trajetDepart.trim().toLowerCase() == departLower &&
+          ligne.trajetArrivee.trim().toLowerCase() == destinationLower) {
+        return ligne;
+      }
+    }
+
+    for (final ligne in lignes) {
+      if (ligne.trajetDepart.trim().toLowerCase() == departLower &&
+          ligne.servesDestination(destination)) {
+        return ligne;
+      }
+    }
+    return null;
+  }
+
   /// ⬅️ MODIF : route publique correcte
   Future<List<Ligne>> getPopulaires() async {
     final uri = Uri.parse('$_baseUrl/public/lignes/populaires');
@@ -115,8 +139,7 @@ class LigneService {
         .toList();
   }
 
-  /// Retourne la liste unique des villes desservies (départs + arrivées),
-  /// triée alphabétiquement, à partir des lignes actives en base.
+  /// Retourne les départs, arrivées et villes étapes des lignes actives.
   Future<List<String>> getVillesDisponibles() async {
     final lignes = await getLignesActives();
 
@@ -127,6 +150,10 @@ class LigneService {
       }
       if (ligne.trajetArrivee.trim().isNotEmpty) {
         villes.add(ligne.trajetArrivee.trim());
+      }
+      for (final etape in ligne.villesEtapes) {
+        final ville = etape['nom']?.toString().trim() ?? '';
+        if (ville.isNotEmpty) villes.add(ville);
       }
     }
 

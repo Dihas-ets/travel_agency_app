@@ -472,6 +472,7 @@ class PercepteurReservationPageState extends State<PercepteurReservationPage> {
   int _passengerCount = 1;
   DateTime? _travelDate;
   List<Ligne> _lines = [];
+  bool _loadingLines = true;
   List<String> _destinations = [];
   Ligne? _selectedLigne;
   List<VoyageProgramme> _programmes = [];
@@ -568,12 +569,35 @@ class PercepteurReservationPageState extends State<PercepteurReservationPage> {
     final destination = _destinationController.text.trim();
     if (route == null || departure.isEmpty || destination.isEmpty) return null;
 
+    final isVip = _selectedVoyage?.busType.toLowerCase() == 'vip';
     double fareFor(Ligne line) =>
-        _selectedVoyage?.busType.toLowerCase() == 'vip'
-        ? (line.montantVip ?? line.montant)
-        : line.montant;
+        isVip ? (line.montantVip ?? line.montant) : line.montant;
 
-    return fareFor(route) > 0 ? fareFor(route) : null;
+    if (_normalizeRouteCity(route.trajetArrivee) ==
+        _normalizeRouteCity(destination)) {
+      final fare = fareFor(route);
+      return fare > 0 ? fare : null;
+    }
+
+    final destinationKey = _normalizeRouteCity(destination);
+    for (final stage in route.villesEtapes) {
+      if (_normalizeRouteCity(
+            (stage['nom'] ?? stage['ville'] ?? stage['name']).toString(),
+          ) !=
+          destinationKey) {
+        continue;
+      }
+      final configuredFare = num.tryParse(
+        (stage[isVip ? 'tarif_vip' : 'tarif'] ??
+                    (isVip ? stage['tarif'] : null))
+                ?.toString() ??
+            '',
+      );
+      if (configuredFare != null && configuredFare > 0) {
+        return configuredFare.toDouble();
+      }
+    }
+    return null;
   }
 
   String _normalizeRouteCity(String city) =>
@@ -619,6 +643,11 @@ class PercepteurReservationPageState extends State<PercepteurReservationPage> {
     } catch (error) {
       cityError = error;
     }
+    if (!mounted) return;
+    setState(() {
+      _lines = lines;
+      _loadingLines = false;
+    });
     try {
       groups = await TaxService().getGroupsForModule('ticket');
     } catch (error) {
@@ -634,7 +663,6 @@ class PercepteurReservationPageState extends State<PercepteurReservationPage> {
     }
     if (!mounted) return;
     setState(() {
-      _lines = lines;
       _taxGroups = groups;
       _assignedTripDetails = assignedTrip;
       _checkingAssignedTrip = false;
@@ -787,9 +815,11 @@ class PercepteurReservationPageState extends State<PercepteurReservationPage> {
     );
   }
 
-  Future<_AssignedTripDetails> _loadAssignedTripDetails() async {
+  Future<_AssignedTripDetails> _loadAssignedTripDetails({
+    bool refresh = false,
+  }) async {
     final assigned = _assignedTripDetails;
-    if (assigned != null) return assigned;
+    if (!refresh && assigned != null) return assigned;
     final current = await AffectationService().getCurrentAssignedTrip();
     return _assignedTripDetailsFromSession(current);
   }
@@ -959,6 +989,10 @@ class PercepteurReservationPageState extends State<PercepteurReservationPage> {
         busId: trip.busId,
         date: date,
         heure: time,
+        ligneId: trip.ligneId,
+        villeDepart: _departController.text.trim(),
+        villeArrivee: _destinationController.text.trim(),
+        enTrajet: _enTrajet,
       );
       if (!mounted || request != _placesRequest) return;
       if (_selectedVoyage?.id != trip.id ||
@@ -1155,17 +1189,13 @@ class PercepteurReservationPageState extends State<PercepteurReservationPage> {
                             ),
                           ],
                         ] else if (!enteringFreeCity) ...[
-                          if (isDeparture && _checkingAssignedTrip)
-                            const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 12),
-                              child: Center(child: CircularProgressIndicator()),
-                            )
-                          else if (isDeparture && _assignedTripDetails != null)
+                          if (isDeparture)
                             _CityPickerAction(
                               icon: Icons.my_location_rounded,
-                              title: 'Point actuel',
-                              subtitle:
-                                  'Utiliser la position GPS et votre affectation',
+                              title: 'Ma position',
+                              subtitle: _checkingAssignedTrip
+                                  ? 'Vérification de votre affectation...'
+                                  : 'Utiliser la position GPS et votre affectation',
                               onTap: () async {
                                 setSheetState(() {
                                   selectingCurrentLocation = true;
@@ -1173,8 +1203,9 @@ class PercepteurReservationPageState extends State<PercepteurReservationPage> {
                                   assignedTripError = null;
                                 });
                                 try {
-                                  final loaded =
-                                      await _loadAssignedTripDetails();
+                                  final loaded = await _loadAssignedTripDetails(
+                                    refresh: true,
+                                  );
                                   final city = await _getCurrentCity();
                                   if (!sheetContext.mounted) return;
                                   setSheetState(() {
@@ -1193,37 +1224,57 @@ class PercepteurReservationPageState extends State<PercepteurReservationPage> {
                                 }
                               },
                             )
-                          else if (!isDeparture &&
-                              (_enTrajet || _assignedTripDetails != null))
+                          else
                             _CityPickerAction(
                               icon: Icons.edit_location_alt_outlined,
-                              title: 'Saisir une ville non enregistrée',
+                              title: 'Nouvelle ville',
                               subtitle: 'Pour un arrêt absent de la liste',
                               onTap: () async {
                                 setSheetState(() {
-                                  enteringFreeCity = true;
-                                  loadingAssignedTrip = !_enTrajet;
+                                  loadingAssignedTrip = true;
                                   assignedTripError = null;
                                 });
-                                if (_enTrajet) return;
                                 try {
-                                  final loaded =
-                                      await _loadAssignedTripDetails();
+                                  final loaded = await _loadAssignedTripDetails(
+                                    refresh: true,
+                                  );
                                   if (!sheetContext.mounted) return;
                                   setSheetState(() {
                                     assignedTrip = loaded;
                                     loadingAssignedTrip = false;
+                                    enteringFreeCity = true;
                                   });
                                 } catch (error) {
                                   if (!sheetContext.mounted) return;
                                   setSheetState(() {
                                     loadingAssignedTrip = false;
+                                    enteringFreeCity = false;
                                     assignedTripError = error
                                         .toString()
                                         .replaceFirst('Exception: ', '');
                                   });
                                 }
                               },
+                            ),
+                          if (loadingAssignedTrip)
+                            const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 12),
+                              child: Center(child: CircularProgressIndicator()),
+                            ),
+                          if (assignedTripError != null)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 8,
+                              ),
+                              child: Text(
+                                assignedTripError!,
+                                style: const TextStyle(
+                                  color: Colors.red,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
                             ),
                           if (choices.isEmpty)
                             Padding(
@@ -1649,19 +1700,23 @@ class PercepteurReservationPageState extends State<PercepteurReservationPage> {
                       PercepteurCityField(
                         controller: _departController,
                         label: 'De',
-                        hint: 'Ville de départ',
+                        hint: _loadingLines
+                            ? 'Chargement des villes...'
+                            : 'Ville de départ',
                         isFirst: true,
-                        onTap: () => _showCityPicker(
-                          title: 'Choisir la ville de départ',
-                          controller: _departController,
-                        ),
+                        onTap: _loadingLines
+                            ? null
+                            : () => _showCityPicker(
+                                title: 'Choisir la ville de départ',
+                                controller: _departController,
+                              ),
                       ),
                       PercepteurCityField(
                         controller: _destinationController,
                         label: 'À',
                         hint: 'Ville de destination',
                         isFirst: false,
-                        onTap: _departController.text.isEmpty
+                        onTap: _loadingLines || _departController.text.isEmpty
                             ? () {}
                             : () => _showCityPicker(
                                 title: 'Choisir la ville d’arrivée',
@@ -2032,7 +2087,7 @@ class PercepteurCityField extends StatelessWidget {
   final String label;
   final String hint;
   final bool isFirst;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   const PercepteurCityField({
     super.key,
@@ -2842,6 +2897,10 @@ class PercepteurPaymentChoicePageState
         busId: trip.busId,
         date: draft.travelDate!,
         heure: selectedTime,
+        ligneId: trip.ligneId,
+        villeDepart: draft.departure,
+        villeArrivee: draft.destination,
+        enTrajet: draft.enTrajet,
       );
       if (availablePlaces < draft.passengerCount) {
         throw Exception('Le nombre de places disponibles est insuffisant.');
@@ -2859,8 +2918,8 @@ class PercepteurPaymentChoicePageState
         userId: draft.userId,
         nbrePlace: draft.passengerCount,
         taxGroupId: draft.taxGroupId,
-        villeDepart: draft.enTrajet ? draft.departure : null,
-        villeArrivee: draft.enTrajet ? draft.destination : null,
+        villeDepart: draft.departure,
+        villeArrivee: draft.destination,
         villeDepartEntreDebut: draft.villeDepartEntreDebut,
         villeDepartEntreFin: draft.villeDepartEntreFin,
         villeArriveeEntreDebut: draft.villeArriveeEntreDebut,
