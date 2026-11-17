@@ -6,7 +6,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'package:fofanavoyage/navigation.dart';
 import 'package:fofanavoyage/config/couleurs/app_colors.dart';
-
+import 'package:fofanavoyage/widgets/app_update_overlay.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -36,6 +36,8 @@ class Main extends StatelessWidget {
       initialRoute: initialRoute,
       // Toutes les routes GetX disponibles dans l'application.
       getPages: Nav.routes,
+      builder: (context, child) =>
+          AppUpdateOverlay(child: child ?? const SizedBox.shrink()),
       debugShowCheckedModeBanner: false,
       // Active les textes et composants Flutter localisés en français/anglais.
       localizationsDelegates: const [

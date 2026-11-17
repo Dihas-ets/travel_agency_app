@@ -1212,12 +1212,20 @@ class _SendParcelPageState extends State<SendParcelPage>
           amount:
               num.tryParse(result['amount']?.toString() ?? '') ??
               parcel.montant,
-          token: result['token']?.toString() ?? '',
+          token:
+              result['token']?.toString() ??
+              result['public_key']?.toString() ??
+              '',
           shopId:
               result['shop_id']?.toString() ??
               result['public_key']?.toString() ??
               '',
           reference: reference,
+          environment: result['environment']?.toString() ?? 'sandbox',
+          customer: result['customer'] is Map
+              ? Map<String, dynamic>.from(result['customer'] as Map)
+              : null,
+          callbackUrl: result['callback_url']?.toString() ?? '',
           onResult: (paymentResult) async {
             if (paymentResult.isSuccess) {
               _pollParcelPayment(

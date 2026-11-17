@@ -2274,9 +2274,17 @@ class _PaymentMethodSheetState extends State<_PaymentMethodSheet> {
         await FeexPayService.openPayment(
           context: context,
           amount: num.tryParse(result['amount']?.toString() ?? '') ?? 0,
-          token: result['token']?.toString() ?? '',
+          token:
+              result['token']?.toString() ??
+              result['public_key']?.toString() ??
+              '',
           shopId: result['shop_id']?.toString() ?? '',
           reference: transactionReference,
+          environment: result['environment']?.toString() ?? 'sandbox',
+          customer: result['customer'] is Map
+              ? Map<String, dynamic>.from(result['customer'] as Map)
+              : null,
+          callbackUrl: result['callback_url']?.toString() ?? '',
           onResult: (paymentResult) async {
             if (!paymentResult.isSuccess) {
               if (mounted) {

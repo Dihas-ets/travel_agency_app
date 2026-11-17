@@ -2781,7 +2781,6 @@ class PercepteurPaymentChoicePageState
   String _mode = 'cash';
   List<PaymentProvider> _providers = [];
   PaymentProvider? _selectedProvider;
-  String? _selectedMethod;
   String? _ticketReference;
   bool _loadingProviders = true;
   bool _processing = false;
@@ -2815,7 +2814,6 @@ class PercepteurPaymentChoicePageState
       setState(() {
         _providers = available;
         _selectedProvider = available.firstOrNull;
-        _selectedMethod = _selectedProvider?.methods.keys.firstOrNull;
         _loadingProviders = false;
       });
     } catch (error) {
@@ -2835,10 +2833,9 @@ class PercepteurPaymentChoicePageState
 
   Future<void> _startMobilePayment() async {
     final provider = _selectedProvider;
-    final method = _selectedMethod;
-    if (provider == null || method == null) {
+    if (provider == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Choisissez un moyen de paiement.')),
+        const SnackBar(content: Text('Choisissez un prestataire de paiement.')),
       );
       return;
     }
@@ -2846,7 +2843,7 @@ class PercepteurPaymentChoicePageState
       await _emitTicket('MOBILEMONEY', continueToPayment: true);
       return;
     }
-    await _initiatePayment(provider, method);
+    await _initiatePayment(provider);
   }
 
   Future<void> _emitTicket(
@@ -2946,7 +2943,11 @@ class PercepteurPaymentChoicePageState
         _processing = false;
       });
       if (continueToPayment) {
-        await _initiatePayment(_selectedProvider!, _selectedMethod!);
+        final provider = _selectedProvider;
+        if (provider == null) {
+          throw Exception('Aucun prestataire de paiement sélectionné.');
+        }
+        await _initiatePayment(provider);
       } else {
         _completeReservation(
           'Confirmée - Espèces',
@@ -2991,7 +2992,7 @@ class PercepteurPaymentChoicePageState
     }
   }
 
-  Future<void> _initiatePayment(PaymentProvider provider, String method) async {
+  Future<void> _initiatePayment(PaymentProvider provider) async {
     if (_ticketReference == null || _processing) return;
     setState(() {
       _processing = true;
@@ -3001,7 +3002,7 @@ class PercepteurPaymentChoicePageState
       final result = await PaymentService().initierPaiement(
         payableRef: _ticketReference!,
         provider: provider.slug,
-        method: method,
+        method: 'all',
         payableType: 'ticket',
         clientEmail: SessionStore.currentUser?.email,
       );
@@ -3018,12 +3019,20 @@ class PercepteurPaymentChoicePageState
           amount:
               num.tryParse(result['amount']?.toString() ?? '') ??
               widget.priceAmount,
-          token: result['token']?.toString() ?? '',
+          token:
+              result['token']?.toString() ??
+              result['public_key']?.toString() ??
+              '',
           shopId:
               result['shop_id']?.toString() ??
               result['public_key']?.toString() ??
               '',
           reference: transactionReference,
+          environment: result['environment']?.toString() ?? 'sandbox',
+          customer: result['customer'] is Map
+              ? Map<String, dynamic>.from(result['customer'] as Map)
+              : null,
+          callbackUrl: result['callback_url']?.toString() ?? '',
           onResult: (paymentResult) async {
             if (paymentResult.isSuccess) {
               _pollPayment(
@@ -3354,44 +3363,14 @@ class PercepteurPaymentChoicePageState
                                 ),
                               )
                               .toList(),
-                          onChanged: (provider) => setState(() {
-                            _selectedProvider = provider;
-                            _selectedMethod =
-                                provider?.methods.keys.firstOrNull;
-                          }),
+                          onChanged: (provider) =>
+                              setState(() => _selectedProvider = provider),
                         ),
-                        const SizedBox(height: 12),
-                        if ((_selectedProvider?.methods.isNotEmpty ?? false))
-                          DropdownButtonFormField<String>(
-                            initialValue: _selectedMethod,
-                            isExpanded: true,
-                            decoration: const InputDecoration(
-                              labelText: 'Méthode de paiement',
-                              border: OutlineInputBorder(),
-                            ),
-                            items: _selectedProvider!.methods.entries
-                                .map(
-                                  (entry) => DropdownMenuItem(
-                                    value: entry.key,
-                                    child: SizedBox(
-                                      width: double.infinity,
-                                      child: Text(
-                                        entry.value,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ),
-                                )
-                                .toList(),
-                            onChanged: (method) =>
-                                setState(() => _selectedMethod = method),
-                          ),
                         const SizedBox(height: 14),
                         SizedBox(
                           height: 54,
                           child: ElevatedButton.icon(
-                            onPressed: _processing || _providers.isEmpty
+                            onPressed: _processing || _selectedProvider == null
                                 ? null
                                 : _startMobilePayment,
                             icon: _processing
