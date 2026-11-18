@@ -1101,20 +1101,6 @@ class _ReservationTicketPageState extends State<_ReservationTicketPage> {
     _reservation = widget.reservation;
   }
 
-  void _editReservation() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _EditReservationSheet(
-        reservation: _reservation,
-        onSave: (updated) async {
-          await _updateReservation(updated);
-        },
-      ),
-    );
-  }
-
   void _showPaymentSheet() {
     showModalBottomSheet(
       context: context,
@@ -1172,35 +1158,6 @@ class _ReservationTicketPageState extends State<_ReservationTicketPage> {
         ),
       ),
     );
-  }
-
-  Future<void> _updateReservation(_ReservationItem updated) async {
-    final ticketId = _reservation.ticketId;
-    final voyageId = _reservation.voyageId;
-    if (ticketId == null || voyageId == null) {
-      _showActionError('Réservation introuvable sur le serveur.');
-      return;
-    }
-
-    final dateParts = updated.date.split('/');
-    if (dateParts.length != 3) {
-      _showActionError('Format de date invalide.');
-      return;
-    }
-
-    try {
-      await TicketService().reprogrammer(
-        ticketId: ticketId,
-        nouvelleDate:
-            '${dateParts[2]}-${dateParts[1].padLeft(2, '0')}-${dateParts[0].padLeft(2, '0')}',
-        nouvelleHeure: _reservation.time,
-        nouveauVoyageId: voyageId,
-      );
-      _HistoryRepository.updateReservation(updated);
-      if (mounted) setState(() => _reservation = updated);
-    } catch (error) {
-      _showActionError(error.toString().replaceFirst('Exception: ', ''));
-    }
   }
 
   void _showActionError(String message) {
@@ -1286,7 +1243,6 @@ class _ReservationTicketPageState extends State<_ReservationTicketPage> {
                       mecefCounters: _reservation.mecefCounters,
                       primaryActionLabel: '',
                       showCancelAction: false,
-                      onEdit: _editReservation,
                     ),
                     if (!_reservation.isPaymentPending &&
                         _reservation.qrData != null) ...[
