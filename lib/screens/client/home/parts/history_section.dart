@@ -301,12 +301,9 @@ class _HistoryPageState extends State<_HistoryPage>
       if (!mounted) return;
       await _loadHistory();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            response['message']?.toString() ?? 'Ticket annulé et avoir créé.',
-          ),
-        ),
+      await _showCancelResultDialog(
+        context,
+        response['message']?.toString() ?? 'Votre ticket est annulé.',
       );
     } catch (error) {
       if (!mounted) return;
@@ -1765,96 +1762,357 @@ class _ReprogramPageState extends State<_ReprogramPage> {
   static const Color _deepBlue = Color(0xFF0B4F2A);
   static const Color _fofanaGreen = Color(0xFF16A34A);
 
-  final TextEditingController _ticketNumberController = TextEditingController();
-  final TextEditingController _phoneController = TextEditingController();
-  String? _phoneInternational;
-  bool _isForSomeoneElse = false;
-  _TicketItem? _foundTicket;
-  String? _searchMessage;
+  List<Map<String, dynamic>> _tickets = [];
+  Map<String, dynamic>? _selectedTicket;
+  DateTime? _selectedDate;
+  List<VoyageProgramme> _programmes = [];
+  VoyageProgramme? _selectedProgramme;
+  String? _selectedTime;
+  String? _changeType;
+  bool _isLoading = true;
+  bool _isSaving = false;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTickets();
+  }
 
   @override
   void dispose() {
-    _ticketNumberController.dispose();
-    _phoneController.dispose();
     super.dispose();
   }
 
-  String _normalize(String value) =>
-      value.replaceAll(RegExp(r'[^0-9A-Za-z]'), '').toUpperCase();
-
-  String _digitsOnly(String value) => value.replaceAll(RegExp(r'[^0-9]'), '');
-
-  _TicketItem? _findTicket(String rawNumber) {
-    final query = _normalize(rawNumber);
-    final queryDigits = _digitsOnly(rawNumber);
-    if (query.isEmpty) return null;
-
-    for (final ticket in _HistoryRepository.tickets) {
-      final ticketNumber = '${ticket.reference}${ticket.ticketIndex}';
-      final candidates = <String>[
-        ticket.code,
-        '${ticket.code}${ticket.ticketIndex}',
-        ticket.reference,
-        ticketNumber,
-      ];
-
-      final hasMatch = candidates.any((candidate) {
-        return _normalize(candidate) == query ||
-            (queryDigits.isNotEmpty && _digitsOnly(candidate) == queryDigits);
-      });
-      if (hasMatch) return ticket;
-    }
-    return null;
+  DateTime? _parseDate(dynamic value) {
+    final raw = value?.toString() ?? '';
+    final match = RegExp(r'^(\d{4})-(\d{2})-(\d{2})').firstMatch(raw);
+    if (match == null) return null;
+    return DateTime(
+      int.parse(match.group(1)!),
+      int.parse(match.group(2)!),
+      int.parse(match.group(3)!),
+    );
   }
 
-  void _searchTicket() {
-    final ticketNumber = _ticketNumberController.text.trim();
-    final phone = _phoneInternational ?? _phoneController.text.trim();
+  String _displayDate(dynamic value) {
+    final date = _parseDate(value);
+    return date == null ? '—' : _printDate(date);
+  }
 
-    if (ticketNumber.isEmpty) {
-      setState(() {
-        _foundTicket = null;
-        _searchMessage = 'Veuillez saisir le numéro du billet.';
-      });
-      return;
+  String _displayTime(dynamic value) {
+    final match = RegExp(
+      r'(\d{1,2})[:h](\d{2})',
+    ).firstMatch(value?.toString() ?? '');
+    if (match == null) return value?.toString() ?? '—';
+    return '${match.group(1)!.padLeft(2, '0')}:${match.group(2)}';
+  }
+
+  String _apiTime(String value) => _displayTime(value);
+
+  List<String> _futureTimes(VoyageProgramme programme) {
+    final date = _selectedDate;
+    if (date == null ||
+        date.year != DateTime.now().year ||
+        date.month != DateTime.now().month ||
+        date.day != DateTime.now().day) {
+      return programme.heuresDepart;
     }
 
-    if (_isForSomeoneElse && phone.isEmpty) {
-      setState(() {
-        _foundTicket = null;
-        _searchMessage = 'Veuillez saisir le numéro de téléphone.';
-      });
-      return;
+    return programme.heuresDepart.where((time) {
+      final normalized = _apiTime(time);
+      final match = RegExp(r'^(\d{2}):(\d{2})$').firstMatch(normalized);
+      if (match == null) return false;
+      final departure = DateTime(
+        date.year,
+        date.month,
+        date.day,
+        int.parse(match.group(1)!),
+        int.parse(match.group(2)!),
+      );
+      return departure.isAfter(DateTime.now());
+    }).toList();
+  }
+
+  bool _isEligible(Map<String, dynamic> ticket) {
+    final status = ticket['statut']?.toString().trim().toLowerCase();
+    final payment = ticket['statut_paiement']?.toString().trim().toLowerCase();
+    final date = _parseDate(ticket['date_voyage']);
+    if (status != 'en_cours' ||
+        !{'payé', 'paye', 'paid', 'success', 'successful'}.contains(payment) ||
+        date == null) {
+      return false;
     }
 
-    final ticket = _findTicket(ticketNumber);
+    final time = ticket['heure_voyage']?.toString() ?? '23:59';
+    final timeMatch = RegExp(r'(\d{1,2}):(\d{2})').firstMatch(time);
+    final departure = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      int.tryParse(timeMatch?.group(1) ?? '23') ?? 23,
+      int.tryParse(timeMatch?.group(2) ?? '59') ?? 59,
+    );
+    return departure.isAfter(DateTime.now());
+  }
+
+  Future<void> _loadTickets() async {
     setState(() {
-      _foundTicket = ticket;
-      _searchMessage = ticket == null ? 'Aucun billet trouvé.' : null;
+      _isLoading = true;
+      _errorMessage = null;
+    });
+    try {
+      final tickets = await TicketService().getHistoriqueClientComplet();
+      if (!mounted) return;
+      setState(() {
+        _tickets = tickets.where(_isEligible).toList();
+        _isLoading = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = error.toString().replaceFirst('Exception: ', '');
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _pickNewDate() async {
+    final now = DateTime.now();
+    final date = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate != null && _selectedDate!.isAfter(now)
+          ? _selectedDate!
+          : now.add(const Duration(days: 1)),
+      firstDate: DateTime(now.year, now.month, now.day),
+      lastDate: now.add(const Duration(days: 120)),
+    );
+    if (date == null || _selectedTicket == null) return;
+    final line = _selectedTicket!['ligne'];
+    final lineId = int.tryParse(_selectedTicket!['ligne_id']?.toString() ?? '');
+    if (lineId == null) {
+      setState(() => _errorMessage = 'Le trajet du billet est introuvable.');
+      return;
+    }
+
+    setState(() {
+      _selectedDate = date;
+      _programmes = [];
+      _selectedProgramme = null;
+      _selectedTime = null;
+      _isSaving = true;
+      _errorMessage = null;
+    });
+    try {
+      final programmes = await TicketService().getProgrammesParDate(
+        ligneId: lineId,
+        date: date,
+        villeArrivee:
+            _selectedTicket!['point_arrivee']?.toString() ??
+            (line is Map ? line['trajet_arrivee']?.toString() : null),
+      );
+      if (!mounted) return;
+      setState(() {
+        _programmes = programmes
+            .where((programme) => _futureTimes(programme).isNotEmpty)
+            .toList();
+        _isSaving = false;
+        if (_programmes.isEmpty) {
+          _errorMessage = 'Aucun départ disponible à cette date.';
+        }
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _isSaving = false;
+        _errorMessage = error.toString().replaceFirst('Exception: ', '');
+      });
+    }
+  }
+
+  void _selectProgramme(VoyageProgramme? programme) {
+    setState(() {
+      _selectedProgramme = programme;
+      final futureTimes = programme == null
+          ? <String>[]
+          : _futureTimes(programme);
+      _selectedTime = futureTimes.isNotEmpty ? futureTimes.first : null;
     });
   }
 
-  void _editFoundTicket() {
-    final ticket = _foundTicket;
-    if (ticket == null) return;
+  Future<void> _confirmDateChange() async {
+    final ticket = _selectedTicket;
+    final programme = _selectedProgramme;
+    final date = _selectedDate;
+    final time = _selectedTime;
+    final ticketId = int.tryParse(ticket?['id']?.toString() ?? '');
+    final lineId = int.tryParse(ticket?['ligne_id']?.toString() ?? '');
+    if (ticket == null ||
+        programme == null ||
+        date == null ||
+        time == null ||
+        ticketId == null ||
+        lineId == null) {
+      setState(
+        () => _errorMessage = 'Choisissez une date, un départ et une heure.',
+      );
+      return;
+    }
 
-    final reservation = _HistoryRepository.reservations.firstWhere(
-      (item) => item.reference == ticket.reference,
-    );
-    showModalBottomSheet(
+    setState(() {
+      _isSaving = true;
+      _errorMessage = null;
+    });
+    try {
+      final seats = await TicketService().getPlacesDisponibles(
+        voyageId: programme.id,
+        busId: programme.busId,
+        date: date,
+        heure: _apiTime(time),
+        ligneId: lineId,
+        villeDepart:
+            ticket['point_depart']?.toString() ??
+            (ticket['ligne'] is Map
+                ? ticket['ligne']['trajet_depart']?.toString()
+                : null),
+        villeArrivee:
+            ticket['point_arrivee']?.toString() ??
+            (ticket['ligne'] is Map
+                ? ticket['ligne']['trajet_arrivee']?.toString()
+                : null),
+      );
+      final passengers =
+          int.tryParse(ticket['nbre_place']?.toString() ?? '') ?? 1;
+      if (seats < passengers) {
+        throw Exception('Il ne reste pas assez de places pour ce départ.');
+      }
+
+      await TicketService().reprogrammer(
+        ticketId: ticketId,
+        nouvelleDate:
+            '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}',
+        nouvelleHeure: _apiTime(time),
+        nouveauVoyageId: programme.id,
+      );
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Voyage reprogrammé'),
+          content: const Text(
+            'Votre nouveau départ est confirmé. Le tarif déjà payé est conservé.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Compris'),
+            ),
+          ],
+        ),
+      );
+      if (mounted) Navigator.of(context).pop();
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _isSaving = false;
+        _errorMessage = error.toString().replaceFirst('Exception: ', '');
+      });
+    }
+  }
+
+  Future<void> _changeDestination() async {
+    final ticket = _selectedTicket;
+    if (ticket == null) return;
+    final departure =
+        ticket['point_depart']?.toString() ??
+        (ticket['ligne'] is Map
+            ? ticket['ligne']['trajet_depart']?.toString()
+            : '');
+    final confirmed = await showDialog<bool>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _EditReservationSheet(
-        reservation: reservation,
-        onSave: (updated) async {
-          _HistoryRepository.updateReservation(updated);
-          setState(() {
-            _foundTicket = _findTicket(_ticketNumberController.text.trim());
-          });
-        },
+      builder: (context) => AlertDialog(
+        title: const Text('Changer la destination ?'),
+        content: Text(
+          'Le billet actuel sera annulé. Si un montant vous est dû, vous devrez le récupérer à l’agence de départ : $departure. Vous pourrez ensuite réserver un nouveau voyage, selon les disponibilités.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Retour'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Annuler et choisir un voyage'),
+          ),
+        ],
       ),
     );
+    if (confirmed != true) {
+      if (mounted) setState(() => _changeType = null);
+      return;
+    }
+    final ticketId = int.tryParse(ticket['id']?.toString() ?? '');
+    if (ticketId == null) {
+      setState(() => _errorMessage = 'Le billet sélectionné est introuvable.');
+      return;
+    }
+
+    setState(() {
+      _isSaving = true;
+      _errorMessage = null;
+    });
+    try {
+      final response = await TicketService().annulerClient(ticketId);
+      if (!mounted) return;
+      final message =
+          response['message']?.toString() ??
+          'Votre billet est annulé. Présentez-vous à l’agence de départ pour récupérer le montant remboursable.';
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Ancien voyage annulé'),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Continuer'),
+            ),
+          ],
+        ),
+      );
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => TarifsPage(
+            initialDepart: departure,
+            onCreateReservation: (context, selection) {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => _ReservationPage(
+                    initialDeparture: selection.departure,
+                    initialDestination: selection.destination,
+                    initialDateLabel: selection.date,
+                    initialTime: selection.time,
+                    initialPassengerCount: selection.passengerCount,
+                    initialPriceAmount: selection.priceAmount,
+                    ligneId: selection.ligneId,
+                    voyageId: selection.voyageId,
+                    dateVoyage: selection.dateVoyage,
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _isSaving = false;
+        _changeType = null;
+        _errorMessage = error.toString().replaceFirst('Exception: ', '');
+      });
+    }
   }
 
   @override
@@ -1899,132 +2157,203 @@ class _ReprogramPageState extends State<_ReprogramPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(18),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(
-                          color: _deepBlue.withValues(alpha: 0.08),
+                    if (_isLoading)
+                      const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(24),
+                          child: CircularProgressIndicator(),
                         ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.05),
-                            blurRadius: 18,
-                            offset: const Offset(0, 8),
-                          ),
-                        ],
+                      )
+                    else if (_errorMessage != null && _tickets.isEmpty)
+                      _ReprogramInfoCard(
+                        message: _errorMessage!,
+                        icon: Icons.error_outline_rounded,
+                        color: Colors.red,
+                      )
+                    else if (_tickets.isEmpty)
+                      const _ReprogramInfoCard(
+                        message:
+                            'Aucun voyage payé et à venir ne peut être reprogrammé.',
+                        icon: Icons.confirmation_number_outlined,
+                        color: _deepBlue,
+                      )
+                    else ...[
+                      DropdownButtonFormField<int>(
+                        initialValue: int.tryParse(
+                          _selectedTicket?['id']?.toString() ?? '',
+                        ),
+                        decoration: const InputDecoration(
+                          labelText: 'Choisir le voyage à reprogrammer',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: _tickets.map((ticket) {
+                          final id = int.tryParse(ticket['id'].toString());
+                          final line = ticket['ligne'] is Map
+                              ? ticket['ligne'] as Map
+                              : const {};
+                          final departure =
+                              ticket['point_depart']?.toString() ??
+                              line['trajet_depart']?.toString() ??
+                              '';
+                          final destination =
+                              ticket['point_arrivee']?.toString() ??
+                              line['trajet_arrivee']?.toString() ??
+                              '';
+                          return DropdownMenuItem<int>(
+                            value: id,
+                            child: Text(
+                              '${ticket['reference']} · $departure → $destination · ${_displayDate(ticket['date_voyage'])}',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (id) {
+                          setState(() {
+                            _selectedTicket = _tickets.firstWhere(
+                              (ticket) =>
+                                  ticket['id'].toString() == id.toString(),
+                            );
+                            _changeType = null;
+                            _selectedDate = null;
+                            _programmes = [];
+                            _selectedProgramme = null;
+                            _selectedTime = null;
+                            _errorMessage = null;
+                          });
+                        },
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          _ReprogramTextField(
-                            controller: _ticketNumberController,
-                            label: 'Numéro du billet',
-                            hint: 'Ex: 17600000000001',
-                            icon: Icons.confirmation_number_rounded,
+                      if (_selectedTicket != null) ...[
+                        const SizedBox(height: 16),
+                        _ReprogramInfoCard(
+                          message:
+                              '${_selectedTicket!['point_depart'] ?? (_selectedTicket!['ligne'] is Map ? _selectedTicket!['ligne']['trajet_depart'] : '')} → ${_selectedTicket!['point_arrivee'] ?? (_selectedTicket!['ligne'] is Map ? _selectedTicket!['ligne']['trajet_arrivee'] : '')}\n${_displayDate(_selectedTicket!['date_voyage'])} à ${_displayTime(_selectedTicket!['heure_voyage'])} · ${_selectedTicket!['tarif_total'] ?? 0} FCFA',
+                          icon: Icons.directions_bus_rounded,
+                          color: _deepBlue,
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Que souhaitez-vous modifier ?',
+                          style: TextStyle(
+                            color: _deepBlue,
+                            fontWeight: FontWeight.w900,
                           ),
-                          const SizedBox(height: 14),
-                          InkWell(
-                            onTap: () => setState(
-                              () => _isForSomeoneElse = !_isForSomeoneElse,
+                        ),
+                        const SizedBox(height: 8),
+                        SegmentedButton<String>(
+                          segments: const [
+                            ButtonSegment(
+                              value: 'date',
+                              label: Text('Date / heure'),
+                              icon: Icon(Icons.schedule_rounded),
                             ),
-                            borderRadius: BorderRadius.circular(18),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 12,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF8FBFF),
-                                borderRadius: BorderRadius.circular(18),
-                                border: Border.all(
-                                  color: _deepBlue.withValues(alpha: 0.10),
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Checkbox(
-                                    value: _isForSomeoneElse,
-                                    activeColor: _fofanaGreen,
-                                    onChanged: (value) => setState(
-                                      () => _isForSomeoneElse = value ?? false,
-                                    ),
-                                  ),
-                                  const Expanded(
-                                    child: Text(
-                                      'Reprogrammer pour quelqu’un',
-                                      style: TextStyle(
-                                        color: _deepBlue,
-                                        fontSize: 14.5,
-                                        fontWeight: FontWeight.w900,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          if (_isForSomeoneElse) ...[
-                            const SizedBox(height: 14),
-                            PhoneLoginField(
-                              controller: _phoneController,
-                              onFullNumberChanged: (phone) =>
-                                  _phoneInternational = phone,
+                            ButtonSegment(
+                              value: 'destination',
+                              label: Text('Destination'),
+                              icon: Icon(Icons.place_outlined),
                             ),
                           ],
-                          const SizedBox(height: 18),
-                          SizedBox(
-                            height: 54,
-                            child: ElevatedButton(
-                              onPressed: _searchTicket,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: _fofanaGreen,
-                                foregroundColor: Colors.white,
-                                elevation: 0,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                              ),
-                              child: const Text(
-                                'Rechercher',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
+                          selected: _changeType == null
+                              ? <String>{}
+                              : <String>{_changeType!},
+                          onSelectionChanged: (selection) async {
+                            if (selection.isEmpty) return;
+                            setState(() {
+                              _changeType = selection.first;
+                              _errorMessage = null;
+                            });
+                            if (_changeType == 'destination') {
+                              await _changeDestination();
+                            }
+                          },
+                        ),
+                        if (_changeType == 'date') ...[
+                          const SizedBox(height: 16),
+                          OutlinedButton.icon(
+                            onPressed: _isSaving ? null : _pickNewDate,
+                            icon: const Icon(Icons.calendar_month_rounded),
+                            label: Text(
+                              _selectedDate == null
+                                  ? 'Choisir la nouvelle date'
+                                  : 'Date : ${_printDate(_selectedDate!)}',
                             ),
                           ),
+                          if (_isSaving)
+                            const Padding(
+                              padding: EdgeInsets.all(16),
+                              child: Center(child: CircularProgressIndicator()),
+                            ),
+                          if (_programmes.isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            DropdownButtonFormField<VoyageProgramme>(
+                              initialValue: _selectedProgramme,
+                              decoration: const InputDecoration(
+                                labelText: 'Départ / bus',
+                                border: OutlineInputBorder(),
+                              ),
+                              items: _programmes.map((programme) {
+                                return DropdownMenuItem(
+                                  value: programme,
+                                  child: Text(
+                                    '${programme.heuresDepart.join(', ')} · ${programme.busMatricule.isEmpty ? programme.busName : programme.busMatricule}',
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                );
+                              }).toList(),
+                              onChanged: _selectProgramme,
+                            ),
+                            if (_selectedProgramme != null) ...[
+                              const SizedBox(height: 12),
+                              DropdownButtonFormField<String>(
+                                initialValue: _selectedTime,
+                                decoration: const InputDecoration(
+                                  labelText: 'Heure de départ',
+                                  border: OutlineInputBorder(),
+                                ),
+                                items: _futureTimes(_selectedProgramme!)
+                                    .map(
+                                      (time) => DropdownMenuItem(
+                                        value: time,
+                                        child: Text(_displayTime(time)),
+                                      ),
+                                    )
+                                    .toList(),
+                                onChanged: (time) =>
+                                    setState(() => _selectedTime = time),
+                              ),
+                            ],
+                            const SizedBox(height: 16),
+                            SizedBox(
+                              height: 52,
+                              child: ElevatedButton(
+                                onPressed: _isSaving
+                                    ? null
+                                    : _confirmDateChange,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: _fofanaGreen,
+                                  foregroundColor: Colors.white,
+                                ),
+                                child: _isSaving
+                                    ? const CircularProgressIndicator(
+                                        color: Colors.white,
+                                      )
+                                    : const Text(
+                                        'Confirmer la reprogrammation',
+                                      ),
+                              ),
+                            ),
+                          ],
                         ],
-                      ),
-                    ),
-                    if (_searchMessage != null) ...[
-                      const SizedBox(height: 16),
-                      Text(
-                        _searchMessage!,
-                        style: const TextStyle(
-                          color: _fofanaGreen,
-                          fontWeight: FontWeight.w800,
+                      ],
+                      if (_errorMessage != null) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          _errorMessage!,
+                          style: const TextStyle(
+                            color: Colors.red,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
-                      ),
-                    ],
-                    if (_foundTicket != null) ...[
-                      const SizedBox(height: 18),
-                      _TicketVisual(
-                        departure: _foundTicket!.departure,
-                        destination: _foundTicket!.destination,
-                        date: _foundTicket!.date,
-                        time: _foundTicket!.time,
-                        passengerCount: _foundTicket!.passengerCount,
-                        ticketIndex: _foundTicket!.ticketIndex,
-                        beneficiaryName: _foundTicket!.passenger,
-                        total: _foundTicket!.price,
-                        reference: _foundTicket!.reference,
-                        primaryActionLabel: '',
-                        onEdit: _editFoundTicket,
-                        showCancelAction: false,
-                        editActionLabel: 'Modifier',
-                      ),
+                      ],
                     ],
                   ],
                 ),
@@ -2037,45 +2366,41 @@ class _ReprogramPageState extends State<_ReprogramPage> {
   }
 }
 
-class _ReprogramTextField extends StatelessWidget {
-  final TextEditingController controller;
-  final String label;
-  final String hint;
+class _ReprogramInfoCard extends StatelessWidget {
+  final String message;
   final IconData icon;
+  final Color color;
 
-  const _ReprogramTextField({
-    required this.controller,
-    required this.label,
-    required this.hint,
+  const _ReprogramInfoCard({
+    required this.message,
     required this.icon,
+    required this.color,
   });
 
   @override
   Widget build(BuildContext context) {
-    const deepBlue = Color(0xFF0B4F2A);
-
-    return TextField(
-      controller: controller,
-      keyboardType: TextInputType.text,
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: hint,
-        prefixIcon: Icon(icon, color: deepBlue),
-        filled: true,
-        fillColor: const Color(0xFFF8FBFF),
-        labelStyle: const TextStyle(
-          color: deepBlue,
-          fontWeight: FontWeight.w800,
-        ),
-        hintStyle: const TextStyle(color: Color(0xFF9AA3B8)),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(18),
-          borderSide: BorderSide(color: deepBlue.withValues(alpha: 0.10)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(18),
-          borderSide: const BorderSide(color: Color(0xFF16A34A), width: 1.5),
-        ),
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.12)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(
+                color: color,
+                fontWeight: FontWeight.w700,
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -2106,7 +2431,6 @@ class _TicketVisual extends StatelessWidget {
   final VoidCallback? onCancel;
   final bool showCancelAction;
   final bool isCancelling;
-  final String? editActionLabel;
 
   const _TicketVisual({
     required this.departure,
@@ -2133,7 +2457,6 @@ class _TicketVisual extends StatelessWidget {
     this.onCancel,
     this.showCancelAction = true,
     this.isCancelling = false,
-    this.editActionLabel,
   });
 
   @override
@@ -2422,7 +2745,7 @@ class _TicketVisual extends StatelessWidget {
                 onPressed: onEdit,
                 icon: const Icon(Icons.edit_rounded, size: 21),
                 label: Text(
-                  editActionLabel ?? 'Modifier',
+                  'Modifier',
                   style: const TextStyle(
                     fontSize: 15.5,
                     fontWeight: FontWeight.w900,

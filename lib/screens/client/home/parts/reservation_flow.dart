@@ -1959,15 +1959,12 @@ class _GeneratedTicketPageState extends State<_GeneratedTicketPage> {
 
     _HistoryRepository.removeReservation(_reservation.reference);
     if (!mounted) return;
-    final messenger = ScaffoldMessenger.of(context);
-    Navigator.of(context).pop();
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text(
-          response['message']?.toString() ?? 'Ticket annulé et avoir créé.',
-        ),
-      ),
+    await _showCancelResultDialog(
+      context,
+      response['message']?.toString() ?? 'Votre ticket est annulé.',
     );
+    if (!mounted) return;
+    Navigator.of(context).pop();
   }
 
   @override
@@ -2961,8 +2958,8 @@ Future<bool?> _showCancelReservationDialog(
         style: TextStyle(color: Color(0xFF0B4F2A), fontWeight: FontWeight.w900),
       ),
       content: Text(
-        'Voulez-vous annuler le ticket $reference ? Un avoir sera créé. '
-        'Le remboursement éventuel dépendra du mode de paiement et du traitement en caisse.',
+        'Voulez-vous annuler le ticket $reference ? '
+        'Si un montant vous est dû après application de la pénalité, vous devrez le récupérer à l’agence de départ indiquée sur votre réservation.',
         textAlign: TextAlign.center,
         style: TextStyle(color: Color(0xFF5F6B86), fontWeight: FontWeight.w700),
       ),
@@ -2990,6 +2987,51 @@ Future<bool?> _showCancelReservationDialog(
           ),
           child: const Text(
             'Oui',
+            style: TextStyle(fontWeight: FontWeight.w900),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+Future<void> _showCancelResultDialog(BuildContext context, String message) {
+  return showDialog<void>(
+    context: context,
+    builder: (context) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      icon: const Icon(
+        Icons.check_circle_rounded,
+        color: Color(0xFF16A34A),
+        size: 44,
+      ),
+      title: const Text(
+        'Annulation confirmée',
+        textAlign: TextAlign.center,
+        style: TextStyle(color: Color(0xFF0B4F2A), fontWeight: FontWeight.w900),
+      ),
+      content: Text(
+        message,
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          color: Color(0xFF5F6B86),
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+      actionsAlignment: MainAxisAlignment.center,
+      actions: [
+        ElevatedButton(
+          onPressed: () => Navigator.of(context).pop(),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF16A34A),
+            foregroundColor: Colors.white,
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+          ),
+          child: const Text(
+            'Compris',
             style: TextStyle(fontWeight: FontWeight.w900),
           ),
         ),

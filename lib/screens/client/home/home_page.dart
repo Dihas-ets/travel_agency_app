@@ -18,6 +18,7 @@ import 'package:fofanavoyage/services/account_deletion_service.dart';
 import 'package:fofanavoyage/services/colis_service.dart';
 import 'package:fofanavoyage/auth/stockage_auth_local.dart';
 import 'package:fofanavoyage/models/user_model.dart';
+import 'package:fofanavoyage/models/voyage_programme_model.dart';
 import 'package:fofanavoyage/services/ticket_print_settings_service.dart';
 import 'package:fofanavoyage/screens/client/colis/pages_colis.dart';
 import 'package:fofanavoyage/models/store/colis_store.dart';

@@ -51,6 +51,42 @@ class TicketService {
         .toList();
   }
 
+  Future<List<Map<String, dynamic>>> getHistoriqueClientComplet() async {
+    final headers = await _headers();
+    final tickets = <Map<String, dynamic>>[];
+    var page = 1;
+    var lastPage = 1;
+
+    do {
+      final uri = Uri.parse(
+        '$_baseUrl/auth/client/tickets/historique',
+      ).replace(queryParameters: {'page': page.toString()});
+      final response = await http
+          .get(uri, headers: headers)
+          .timeout(const Duration(seconds: 10));
+      if (response.statusCode != 200) {
+        throw Exception('Impossible de charger vos réservations.');
+      }
+
+      final decoded = jsonDecode(response.body);
+      final rows = decoded is Map ? decoded['data'] : decoded;
+      if (rows is! List) {
+        throw const FormatException(
+          'Réponse invalide lors du chargement de vos réservations.',
+        );
+      }
+      tickets.addAll(
+        rows.whereType<Map>().map((item) => Map<String, dynamic>.from(item)),
+      );
+      if (decoded is Map) {
+        lastPage = int.tryParse(decoded['last_page']?.toString() ?? '') ?? page;
+      }
+      page++;
+    } while (page <= lastPage);
+
+    return tickets;
+  }
+
   /// Searches passenger accounts through the same endpoint as the web dashboard.
   Future<List<Map<String, dynamic>>> searchClients(String query) async {
     final value = query.trim();
@@ -158,7 +194,7 @@ class TicketService {
   Future<Map<String, dynamic>> annulerClient(int ticketId) async {
     final response = await http
         .put(
-          Uri.parse('$_baseUrl/tickets/$ticketId/annuler'),
+          Uri.parse('$_baseUrl/auth/client/tickets/$ticketId/annuler'),
           headers: await _headers(),
         )
         .timeout(const Duration(seconds: 10));
