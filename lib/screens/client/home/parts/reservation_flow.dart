@@ -2306,6 +2306,46 @@ class _PaymentMethodSheetState extends State<_PaymentMethodSheet> {
         return;
       }
 
+      if (result['provider'] == 'fedapay') {
+        if (!mounted) return;
+        final customer = result['customer'] is Map
+            ? Map<String, dynamic>.from(result['customer'] as Map)
+            : null;
+        await FedaPayService.openPayment(
+          context: context,
+          amount: num.tryParse(result['amount']?.toString() ?? '') ?? 0,
+          transactionId: result['transaction_id']?.toString() ?? '',
+          token: result['token']?.toString() ?? '',
+          publicKey: result['public_key']?.toString() ?? '',
+          environment: result['environment']?.toString() ?? 'sandbox',
+          description:
+              result['description']?.toString() ??
+              'Paiement $transactionReference',
+          customer: customer,
+          onResult: (paymentResult) async {
+            if (!paymentResult.isSuccess) {
+              if (mounted) {
+                setState(() => _isProcessing = false);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      paymentResult.message ??
+                          'Paiement non confirmé. Vérifiez le statut dans vos réservations.',
+                    ),
+                  ),
+                );
+              }
+              return;
+            }
+            _pollPaymentStatus(
+              transactionReference,
+              externalId: paymentResult.reference,
+            );
+          },
+        );
+        return;
+      }
+
       if (result['provider'] == 'kkiapay') {
         if (!mounted) return;
         final customer = result['customer'] as Map<String, dynamic>?;

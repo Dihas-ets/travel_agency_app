@@ -31,7 +31,7 @@ class LigneService {
   Future<List<Ligne>> getLignesPourReservation() async {
     final uri = Uri.parse(
       '$_baseUrl/public/lignes',
-    ).replace(queryParameters: {'all': '1'});
+    ).replace(queryParameters: {'status': 'actif', 'all': '1'});
     final response = await http
         .get(uri, headers: {'Accept': 'application/json'})
         .timeout(const Duration(seconds: 8));

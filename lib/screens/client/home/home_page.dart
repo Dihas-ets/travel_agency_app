@@ -28,6 +28,7 @@ import 'package:fofanavoyage/auth/widgets/connexion_widgets.dart';
 import 'package:fofanavoyage/screens/global/widgets/tarifs/tarifs_widgets.dart';
 import 'package:fofanavoyage/services/payment_service.dart';
 import 'package:fofanavoyage/services/feexpay_service.dart';
+import 'package:fofanavoyage/services/fedapay_service.dart';
 import 'package:fofanavoyage/services/kkiapay_service.dart';
 import 'package:fofanavoyage/models/payment_provider_model.dart';
 import 'package:fofanavoyage/models/tax_group_model.dart';

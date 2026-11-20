@@ -299,6 +299,37 @@ class TicketService {
         .toList();
   }
 
+  Future<List<VoyageProgramme>> getReprogrammationProgrammes({
+    required int ticketId,
+    required DateTime date,
+  }) async {
+    final dateStr =
+        '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+    final uri = Uri.parse(
+      '$_baseUrl/auth/client/tickets/$ticketId/programmation-reprogrammation',
+    ).replace(queryParameters: {'date': dateStr});
+    final response = await http
+        .get(uri, headers: await _headers())
+        .timeout(const Duration(seconds: 8));
+    if (response.statusCode != 200) {
+      throw Exception(
+        _errorMessage(
+          response,
+          'Erreur lors du chargement des départs pour ce trajet.',
+        ),
+      );
+    }
+
+    final decoded = jsonDecode(response.body);
+    final rows = decoded is List ? decoded : const [];
+    return rows
+        .whereType<Map>()
+        .map(
+          (item) => VoyageProgramme.fromJson(Map<String, dynamic>.from(item)),
+        )
+        .toList();
+  }
+
   Future<int> getPlacesDisponibles({
     required int voyageId,
     required int busId,

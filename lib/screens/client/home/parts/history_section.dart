@@ -1888,10 +1888,9 @@ class _ReprogramPageState extends State<_ReprogramPage> {
       lastDate: now.add(const Duration(days: 120)),
     );
     if (date == null || _selectedTicket == null) return;
-    final line = _selectedTicket!['ligne'];
-    final lineId = int.tryParse(_selectedTicket!['ligne_id']?.toString() ?? '');
-    if (lineId == null) {
-      setState(() => _errorMessage = 'Le trajet du billet est introuvable.');
+    final ticketId = int.tryParse(_selectedTicket!['id']?.toString() ?? '');
+    if (ticketId == null) {
+      setState(() => _errorMessage = 'Le billet sélectionné est introuvable.');
       return;
     }
 
@@ -1904,21 +1903,23 @@ class _ReprogramPageState extends State<_ReprogramPage> {
       _errorMessage = null;
     });
     try {
-      final programmes = await TicketService().getProgrammesParDate(
-        ligneId: lineId,
+      final programmes = await TicketService().getReprogrammationProgrammes(
+        ticketId: ticketId,
         date: date,
-        villeArrivee:
-            _selectedTicket!['point_arrivee']?.toString() ??
-            (line is Map ? line['trajet_arrivee']?.toString() : null),
       );
       if (!mounted) return;
+      final futureProgrammes = programmes
+          .where((programme) => _futureTimes(programme).isNotEmpty)
+          .toList();
       setState(() {
-        _programmes = programmes
-            .where((programme) => _futureTimes(programme).isNotEmpty)
-            .toList();
+        _programmes = futureProgrammes;
         _isSaving = false;
-        if (_programmes.isEmpty) {
-          _errorMessage = 'Aucun départ disponible à cette date.';
+        if (programmes.isEmpty) {
+          _errorMessage =
+              'Aucun voyage n’est programmé pour votre trajet à cette date. Veuillez choisir une autre date.';
+        } else if (_programmes.isEmpty) {
+          _errorMessage =
+              'Aucun départ futur n’est disponible pour votre trajet à cette date. Veuillez choisir une autre date.';
         }
       });
     } catch (error) {
@@ -2179,6 +2180,7 @@ class _ReprogramPageState extends State<_ReprogramPage> {
                       )
                     else ...[
                       DropdownButtonFormField<int>(
+                        isExpanded: true,
                         initialValue: int.tryParse(
                           _selectedTicket?['id']?.toString() ?? '',
                         ),
@@ -2186,24 +2188,28 @@ class _ReprogramPageState extends State<_ReprogramPage> {
                           labelText: 'Choisir le voyage à reprogrammer',
                           border: OutlineInputBorder(),
                         ),
+                        selectedItemBuilder: (context) =>
+                            _tickets.map((ticket) {
+                              return SizedBox(
+                                width: MediaQuery.sizeOf(context).width - 120,
+                                child: Text(
+                                  ticket['reference']?.toString() ?? '',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              );
+                            }).toList(),
                         items: _tickets.map((ticket) {
                           final id = int.tryParse(ticket['id'].toString());
-                          final line = ticket['ligne'] is Map
-                              ? ticket['ligne'] as Map
-                              : const {};
-                          final departure =
-                              ticket['point_depart']?.toString() ??
-                              line['trajet_depart']?.toString() ??
-                              '';
-                          final destination =
-                              ticket['point_arrivee']?.toString() ??
-                              line['trajet_arrivee']?.toString() ??
-                              '';
                           return DropdownMenuItem<int>(
                             value: id,
-                            child: Text(
-                              '${ticket['reference']} · $departure → $destination · ${_displayDate(ticket['date_voyage'])}',
-                              overflow: TextOverflow.ellipsis,
+                            child: SizedBox(
+                              width: MediaQuery.sizeOf(context).width - 120,
+                              child: Text(
+                                '${ticket['reference']} · ${_displayDate(ticket['date_voyage'])}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                           );
                         }).toList(),
@@ -2252,6 +2258,7 @@ class _ReprogramPageState extends State<_ReprogramPage> {
                               icon: Icon(Icons.place_outlined),
                             ),
                           ],
+                          emptySelectionAllowed: true,
                           selected: _changeType == null
                               ? <String>{}
                               : <String>{_changeType!},
